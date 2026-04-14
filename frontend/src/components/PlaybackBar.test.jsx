@@ -296,22 +296,9 @@ describe('PlaybackBar', () => {
     expect(screen.queryByRole('status')).not.toBeInTheDocument()
   })
 
-  // --- Device name ---
+  // --- Device indicator ---
 
-  it('shows device name when a device is active', () => {
-    render(
-      <PlaybackBar
-        state={PLAYING_STATE}
-        onPlay={vi.fn()}
-        onPause={vi.fn()}
-        paneOpen={false}
-        onTogglePane={vi.fn()}
-      />
-    )
-    expect(screen.getByText(/▸ My Mac/)).toBeInTheDocument()
-  })
-
-  it('does not show device name when device is null', () => {
+  it('does not show device indicator when device is null', () => {
     render(
       <PlaybackBar
         state={IDLE_STATE}
@@ -321,20 +308,23 @@ describe('PlaybackBar', () => {
         onTogglePane={vi.fn()}
       />
     )
-    expect(screen.queryByText(/▸/)).not.toBeInTheDocument()
+    expect(screen.queryByTestId('device-indicator')).not.toBeInTheDocument()
   })
 
-  it('does not show device name when nothing is playing and device is null', () => {
+  // --- Now-playing card overflow containment ---
+
+  it('playback bar has overflow hidden to prevent now-playing card from overflowing', () => {
     render(
       <PlaybackBar
-        state={{ is_playing: false, track: null, device: null }}
+        state={PLAYING_STATE}
         onPlay={vi.fn()}
         onPause={vi.fn()}
         paneOpen={false}
         onTogglePane={vi.fn()}
       />
     )
-    expect(screen.queryByText(/▸/)).not.toBeInTheDocument()
+    const bar = screen.getByRole('region', { name: /playback bar/i })
+    expect(bar.className).toContain('overflow-hidden')
   })
 
   // --- Three-zone layout ---
@@ -382,7 +372,7 @@ describe('PlaybackBar', () => {
     expect(screen.getByTestId('playback-right')).toBeInTheDocument()
   })
 
-  it('device name appears in the right zone, not in the left zone', () => {
+  it('device indicator appears in the right zone', () => {
     render(
       <PlaybackBar
         state={PLAYING_STATE}
@@ -390,12 +380,72 @@ describe('PlaybackBar', () => {
         onPause={vi.fn()}
         paneOpen={false}
         onTogglePane={vi.fn()}
+        onFetchDevices={vi.fn().mockResolvedValue([])}
+        onDeviceSelected={vi.fn()}
       />
     )
-    const leftZone = screen.getByTestId('playback-left')
     const rightZone = screen.getByTestId('playback-right')
-    expect(leftZone).not.toHaveTextContent('My Mac')
-    expect(rightZone).toHaveTextContent('My Mac')
+    expect(rightZone.querySelector('[data-testid="device-indicator"]')).toBeTruthy()
+  })
+
+  // --- Connect a device state ---
+
+  it('shows "Connect a device" when no track, no device, and not playing', () => {
+    render(
+      <PlaybackBar
+        state={IDLE_STATE}
+        onPlay={vi.fn()}
+        onPause={vi.fn()}
+        paneOpen={false}
+        onTogglePane={vi.fn()}
+        onOpenDevicePicker={vi.fn()}
+      />
+    )
+    expect(screen.getByText(/connect a device/i)).toBeInTheDocument()
+  })
+
+  it('calls onOpenDevicePicker when "Connect a device" text is clicked', async () => {
+    const onOpenDevicePicker = vi.fn()
+    render(
+      <PlaybackBar
+        state={IDLE_STATE}
+        onPlay={vi.fn()}
+        onPause={vi.fn()}
+        paneOpen={false}
+        onTogglePane={vi.fn()}
+        onOpenDevicePicker={onOpenDevicePicker}
+      />
+    )
+    await userEvent.click(screen.getByText(/connect a device/i))
+    expect(onOpenDevicePicker).toHaveBeenCalledTimes(1)
+  })
+
+  it('does not show "Connect a device" when track is present', () => {
+    render(
+      <PlaybackBar
+        state={PLAYING_STATE}
+        onPlay={vi.fn()}
+        onPause={vi.fn()}
+        paneOpen={false}
+        onTogglePane={vi.fn()}
+        onOpenDevicePicker={vi.fn()}
+      />
+    )
+    expect(screen.queryByText(/connect a device/i)).not.toBeInTheDocument()
+  })
+
+  it('does not show "Nothing playing" when onOpenDevicePicker is provided and state is idle', () => {
+    render(
+      <PlaybackBar
+        state={IDLE_STATE}
+        onPlay={vi.fn()}
+        onPause={vi.fn()}
+        paneOpen={false}
+        onTogglePane={vi.fn()}
+        onOpenDevicePicker={vi.fn()}
+      />
+    )
+    expect(screen.queryByText(/nothing playing/i)).not.toBeInTheDocument()
   })
 
   // --- Previous / Next buttons ---
@@ -584,6 +634,112 @@ describe('PlaybackBar', () => {
     expect(onPlay).not.toHaveBeenCalled()
   })
 
+  // --- Progress bar ---
+
+  it('renders a progress bar with current and total time when track has progress_ms and duration_ms', () => {
+    render(
+      <PlaybackBar
+        state={PLAYING_STATE}
+        onPlay={vi.fn()}
+        onPause={vi.fn()}
+        paneOpen={false}
+        onTogglePane={vi.fn()}
+      />
+    )
+    const center = screen.getByTestId('playback-center')
+    // Should show formatted times: 0:45 and 4:00
+    expect(center).toHaveTextContent('0:45')
+    expect(center).toHaveTextContent('4:00')
+  })
+
+  it('renders a progress slider element', () => {
+    render(
+      <PlaybackBar
+        state={PLAYING_STATE}
+        onPlay={vi.fn()}
+        onPause={vi.fn()}
+        paneOpen={false}
+        onTogglePane={vi.fn()}
+      />
+    )
+    expect(screen.getByRole('slider', { name: /track progress/i })).toBeInTheDocument()
+  })
+
+  it('calls onSeek when the progress bar is clicked', () => {
+    const onSeek = vi.fn()
+    render(
+      <PlaybackBar
+        state={PLAYING_STATE}
+        onPlay={vi.fn()}
+        onPause={vi.fn()}
+        paneOpen={false}
+        onTogglePane={vi.fn()}
+        onSeek={onSeek}
+      />
+    )
+    const slider = screen.getByRole('slider', { name: /track progress/i })
+    // Simulate a pointerDown at midpoint of a 200px-wide bar
+    Object.defineProperty(slider, 'getBoundingClientRect', {
+      value: () => ({ left: 100, width: 200, top: 0, bottom: 10, right: 300 }),
+    })
+    fireEvent.pointerDown(slider, { clientX: 200, pointerId: 1 })
+    // 200 - 100 = 100 out of 200 = 50% of 240000ms = 120000
+    expect(onSeek).toHaveBeenCalledTimes(1)
+    expect(onSeek).toHaveBeenCalledWith(120000)
+  })
+
+  it('does not render progress bar when no track is playing', () => {
+    render(
+      <PlaybackBar
+        state={IDLE_STATE}
+        onPlay={vi.fn()}
+        onPause={vi.fn()}
+        paneOpen={false}
+        onTogglePane={vi.fn()}
+      />
+    )
+    expect(screen.queryByRole('slider', { name: /track progress/i })).not.toBeInTheDocument()
+  })
+
+  // --- SVG icons ---
+
+  it('transport buttons use SVG icons, not Unicode emoji', () => {
+    render(
+      <PlaybackBar
+        state={PLAYING_STATE}
+        onPlay={vi.fn()}
+        onPause={vi.fn()}
+        onPrevious={vi.fn()}
+        onNext={vi.fn()}
+        paneOpen={false}
+        onTogglePane={vi.fn()}
+      />
+    )
+    const prevBtn = screen.getByRole('button', { name: /previous/i })
+    const nextBtn = screen.getByRole('button', { name: /next/i })
+    const pauseBtn = screen.getByRole('button', { name: /pause/i })
+    // Each button should contain an SVG element
+    expect(prevBtn.querySelector('svg')).toBeTruthy()
+    expect(nextBtn.querySelector('svg')).toBeTruthy()
+    expect(pauseBtn.querySelector('svg')).toBeTruthy()
+  })
+
+  // --- Circular play/pause button ---
+
+  it('play/pause button is circular (border-radius 50%)', () => {
+    render(
+      <PlaybackBar
+        state={PLAYING_STATE}
+        onPlay={vi.fn()}
+        onPause={vi.fn()}
+        paneOpen={false}
+        onTogglePane={vi.fn()}
+      />
+    )
+    const btn = screen.getByRole('button', { name: /pause/i })
+    expect(btn.className).toContain('rounded-full')
+  })
+
   // --- Volume slider ---
 
   it('renders a volume slider in the right zone', () => {
@@ -642,144 +798,105 @@ describe('PlaybackBar', () => {
   })
 })
 
-// --- Device picker ---
+// --- Speaker icon + DevicePicker ---
 
-const DEVICE_LIST = [
-  { id: 'mac-id', name: 'My Mac', type: 'Computer', is_active: true },
-  { id: 'iphone-id', name: "Alex's iPhone", type: 'Smartphone', is_active: false },
-]
-
-const defaultProps = {
-  onPlay: vi.fn(),
-  onPause: vi.fn(),
-  onPrevious: vi.fn(),
-  onNext: vi.fn(),
-  paneOpen: false,
-  onTogglePane: vi.fn(),
-}
-
-describe('device picker', () => {
-  it('renders device name as a button when onFetchDevices is provided', () => {
+describe('device indicator', () => {
+  it('renders speaker icon when device is present', () => {
     render(
       <PlaybackBar
-        {...defaultProps}
         state={PLAYING_STATE}
-        onFetchDevices={vi.fn()}
-        onTransferPlayback={vi.fn()}
+        onPlay={vi.fn()}
+        onPause={vi.fn()}
+        paneOpen={false}
+        onTogglePane={vi.fn()}
+        onFetchDevices={vi.fn().mockResolvedValue([])}
+        onDeviceSelected={vi.fn()}
       />
     )
-    expect(screen.getByRole('button', { name: /my mac/i })).toBeInTheDocument()
+    expect(screen.getByTestId('device-indicator')).toBeInTheDocument()
   })
 
-  it('opens device list popover on click and shows devices', async () => {
-    const user = userEvent.setup()
-    const onFetchDevices = vi.fn().mockResolvedValue(DEVICE_LIST)
+  it('speaker icon is green when device type is not Computer', () => {
+    const remoteState = {
+      ...PLAYING_STATE,
+      device: { name: "Alex's iPhone", type: 'Smartphone' },
+    }
     render(
       <PlaybackBar
-        {...defaultProps}
-        state={PLAYING_STATE}
-        onFetchDevices={onFetchDevices}
-        onTransferPlayback={vi.fn()}
+        state={remoteState}
+        onPlay={vi.fn()}
+        onPause={vi.fn()}
+        paneOpen={false}
+        onTogglePane={vi.fn()}
+        onFetchDevices={vi.fn().mockResolvedValue([])}
+        onDeviceSelected={vi.fn()}
       />
     )
-
-    await user.click(screen.getByRole('button', { name: /my mac/i }))
-
-    expect(await screen.findByText("Alex's iPhone")).toBeInTheDocument()
+    const indicator = screen.getByTestId('device-indicator')
+    expect(indicator).toHaveStyle({ color: 'var(--accent)' })
   })
 
-  it('shows checkmark next to active device', async () => {
-    const user = userEvent.setup()
-    const onFetchDevices = vi.fn().mockResolvedValue(DEVICE_LIST)
+  it('speaker icon is dim when device type is Computer', () => {
     render(
       <PlaybackBar
-        {...defaultProps}
         state={PLAYING_STATE}
-        onFetchDevices={onFetchDevices}
-        onTransferPlayback={vi.fn()}
+        onPlay={vi.fn()}
+        onPause={vi.fn()}
+        paneOpen={false}
+        onTogglePane={vi.fn()}
+        onFetchDevices={vi.fn().mockResolvedValue([])}
+        onDeviceSelected={vi.fn()}
       />
     )
-
-    await user.click(screen.getByRole('button', { name: /my mac/i }))
-    await screen.findByText("Alex's iPhone")
-
-    const rows = screen.getAllByTestId('device-row')
-    const activeRow = rows.find(r => r.textContent.includes('My Mac'))
-    expect(activeRow).toHaveTextContent('✓')
+    const indicator = screen.getByTestId('device-indicator')
+    expect(indicator).toHaveStyle({ color: 'var(--text-dim)' })
   })
 
-  it('calls onTransferPlayback with device id when clicking inactive device', async () => {
+  it('opens DevicePicker on speaker icon click', async () => {
     const user = userEvent.setup()
-    const onFetchDevices = vi.fn().mockResolvedValue(DEVICE_LIST)
-    const onTransferPlayback = vi.fn().mockResolvedValue(undefined)
+    const onFetchDevices = vi.fn().mockResolvedValue([
+      { id: 'mac-id', name: 'My Mac', type: 'Computer', is_active: true },
+    ])
     render(
       <PlaybackBar
-        {...defaultProps}
         state={PLAYING_STATE}
+        onPlay={vi.fn()}
+        onPause={vi.fn()}
+        paneOpen={false}
+        onTogglePane={vi.fn()}
         onFetchDevices={onFetchDevices}
-        onTransferPlayback={onTransferPlayback}
+        onDeviceSelected={vi.fn()}
       />
     )
-
-    await user.click(screen.getByRole('button', { name: /my mac/i }))
-    await screen.findByText("Alex's iPhone")
-    await user.click(screen.getByText("Alex's iPhone"))
-
-    expect(onTransferPlayback).toHaveBeenCalledWith('iphone-id')
+    await user.click(screen.getByTestId('device-indicator'))
+    expect(await screen.findByText('Connect to a device')).toBeInTheDocument()
   })
 
-  it('closes popover after transferring to a device', async () => {
-    const user = userEvent.setup()
-    const onFetchDevices = vi.fn().mockResolvedValue(DEVICE_LIST)
-    const onTransferPlayback = vi.fn().mockResolvedValue(undefined)
+  it('shows device indicator when onFetchDevices provided but device is null', () => {
     render(
       <PlaybackBar
-        {...defaultProps}
-        state={PLAYING_STATE}
-        onFetchDevices={onFetchDevices}
-        onTransferPlayback={onTransferPlayback}
+        state={IDLE_STATE}
+        onPlay={vi.fn()}
+        onPause={vi.fn()}
+        paneOpen={false}
+        onTogglePane={vi.fn()}
+        onFetchDevices={vi.fn().mockResolvedValue([])}
+        onDeviceSelected={vi.fn()}
       />
     )
-
-    await user.click(screen.getByRole('button', { name: /my mac/i }))
-    await screen.findByText("Alex's iPhone")
-    await user.click(screen.getByText("Alex's iPhone"))
-
-    expect(screen.queryByText("Alex's iPhone")).not.toBeInTheDocument()
+    expect(screen.getByTestId('device-indicator')).toBeInTheDocument()
   })
 
-  it('shows "No other devices found" when device list is empty', async () => {
-    const user = userEvent.setup()
-    const onFetchDevices = vi.fn().mockResolvedValue([])
+  it('does not render speaker icon when no device', () => {
     render(
       <PlaybackBar
-        {...defaultProps}
-        state={PLAYING_STATE}
-        onFetchDevices={onFetchDevices}
-        onTransferPlayback={vi.fn()}
+        state={IDLE_STATE}
+        onPlay={vi.fn()}
+        onPause={vi.fn()}
+        paneOpen={false}
+        onTogglePane={vi.fn()}
       />
     )
-
-    await user.click(screen.getByRole('button', { name: /my mac/i }))
-    expect(await screen.findByText('No other devices found')).toBeInTheDocument()
-  })
-
-  it('closes popover when Escape is pressed', async () => {
-    const user = userEvent.setup()
-    const onFetchDevices = vi.fn().mockResolvedValue(DEVICE_LIST)
-    render(
-      <PlaybackBar
-        {...defaultProps}
-        state={PLAYING_STATE}
-        onFetchDevices={onFetchDevices}
-        onTransferPlayback={vi.fn()}
-      />
-    )
-
-    await user.click(screen.getByRole('button', { name: /my mac/i }))
-    await screen.findByText("Alex's iPhone")
-
-    await user.keyboard('{Escape}')
-    expect(screen.queryByText("Alex's iPhone")).not.toBeInTheDocument()
+    expect(screen.queryByTestId('device-indicator')).not.toBeInTheDocument()
   })
 })

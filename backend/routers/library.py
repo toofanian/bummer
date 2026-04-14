@@ -4,50 +4,47 @@ import spotipy
 from fastapi import APIRouter, BackgroundTasks, Depends
 from supabase import Client
 
-from db import get_db
-from spotify_client import get_spotify
+from auth_middleware import get_authed_db, get_current_user
+from spotify_client import get_user_spotify
+from spotify_helpers import fetch_all_albums
 
 router = APIRouter(prefix="/library", tags=["library"])
 
 CACHE_TTL_SECONDS = 3600  # 1 hour
 
-_cache = {"albums": None, "total": None, "fetched_at": None}
+_caches: dict[
+    str, dict
+] = {}  # user_id -> {"albums": ..., "total": ..., "fetched_at": ...}
 
 
-def _is_cache_fresh():
-    return (
-        _cache["fetched_at"] is not None
-        and (time.time() - _cache["fetched_at"]) < CACHE_TTL_SECONDS
-    )
+def _is_cache_fresh(user_id: str) -> bool:
+    entry = _caches.get(user_id)
+    return entry is not None and (time.time() - entry["fetched_at"]) < CACHE_TTL_SECONDS
 
 
-def clear_cache():
-    _cache["albums"] = None
-    _cache["total"] = None
-    _cache["fetched_at"] = None
+def clear_cache(user_id: str | None = None):
+    if user_id is None:
+        _caches.clear()
+    else:
+        _caches.pop(user_id, None)
 
 
-SUPABASE_CACHE_KEY = "albums"
-
-
-def _get_supabase_cache(db: Client):
+def _get_supabase_cache(db: Client, user_id: str = None):
     """Return the cached library_cache row from Supabase, or None if absent."""
-    result = (
-        db.table("library_cache")
-        .select("*")
-        .eq("id", SUPABASE_CACHE_KEY)
-        .execute()
-    )
+    cache_key = user_id or "albums"
+    result = db.table("library_cache").select("*").eq("id", cache_key).execute()
     if result.data:
         return result.data[0]
     return None
 
 
-def _save_supabase_cache(db: Client, albums: list, total: int):
+def _save_supabase_cache(db: Client, albums: list, total: int, user_id: str = None):
     """Upsert the album list into Supabase library_cache."""
+    cache_key = user_id or "albums"
     db.table("library_cache").upsert(
         {
-            "id": SUPABASE_CACHE_KEY,
+            "id": cache_key,
+            "user_id": user_id,
             "albums": albums,
             "total": total,
             "synced_at": "now()",
@@ -70,69 +67,57 @@ def _normalize_album(item: dict) -> dict:
     }
 
 
-def _fetch_all_albums(sp: spotipy.Spotify):
-    all_items = []
-    total = None
-    offset = 0
-    limit = 50
-
-    while total is None or offset < total:
-        result = sp.current_user_saved_albums(limit=limit, offset=offset)
-        total = result["total"]
-        all_items.extend(result["items"])
-        offset += len(result["items"])
-        if not result["next"]:
-            break
-
-    return all_items, total
-
-
-def _background_spotify_sync(sp: spotipy.Spotify, db: Client):
+def _background_spotify_sync(sp: spotipy.Spotify, db: Client, user_id: str):
     """Re-sync from Spotify and update both in-memory and Supabase cache."""
-    all_items, total = _fetch_all_albums(sp)
+    all_items, total = fetch_all_albums(sp)
     albums = [_normalize_album(item) for item in all_items]
-    _cache["albums"] = albums
-    _cache["total"] = total
-    _cache["fetched_at"] = time.time()
-    _save_supabase_cache(db, albums, total)
+    _caches[user_id] = {"albums": albums, "total": total, "fetched_at": time.time()}
+    _save_supabase_cache(db, albums, total, user_id)
 
 
 @router.get("/albums")
 def get_albums(
     background_tasks: BackgroundTasks,
-    sp: spotipy.Spotify = Depends(get_spotify),
-    db: Client = Depends(get_db),
+    sp: spotipy.Spotify = Depends(get_user_spotify),
+    db: Client = Depends(get_authed_db),
+    user: dict = Depends(get_current_user),
 ):
+    user_id = user["user_id"]
+
     # Tier 1: in-memory cache
-    if _is_cache_fresh():
-        return {"albums": _cache["albums"], "total": _cache["total"], "syncing": False}
+    if _is_cache_fresh(user_id):
+        entry = _caches[user_id]
+        return {"albums": entry["albums"], "total": entry["total"], "syncing": False}
 
     # Tier 2: Supabase cache
-    supabase_row = _get_supabase_cache(db)
+    supabase_row = _get_supabase_cache(db, user_id=user_id)
     if supabase_row:
-        _cache["albums"] = supabase_row["albums"]
-        _cache["total"] = supabase_row["total"]
-        _cache["fetched_at"] = time.time()
-        background_tasks.add_task(_background_spotify_sync, sp, db)
-        return {"albums": _cache["albums"], "total": _cache["total"], "syncing": True}
+        _caches[user_id] = {
+            "albums": supabase_row["albums"],
+            "total": supabase_row["total"],
+            "fetched_at": time.time(),
+        }
+        entry = _caches[user_id]
+        background_tasks.add_task(_background_spotify_sync, sp, db, user_id)
+        return {"albums": entry["albums"], "total": entry["total"], "syncing": True}
 
     # Tier 3: cold start — fetch from Spotify
-    all_items, total = _fetch_all_albums(sp)
+    all_items, total = fetch_all_albums(sp)
     albums = [_normalize_album(item) for item in all_items]
-    _cache["albums"] = albums
-    _cache["total"] = total
-    _cache["fetched_at"] = time.time()
-    _save_supabase_cache(db, albums, total)
+    _caches[user_id] = {"albums": albums, "total": total, "fetched_at": time.time()}
+    _save_supabase_cache(db, albums, total, user_id)
     return {"albums": albums, "total": total, "syncing": False}
 
 
 @router.post("/albums/invalidate-cache")
 def invalidate_cache(
-    sp: spotipy.Spotify = Depends(get_spotify),
-    db: Client = Depends(get_db),
+    sp: spotipy.Spotify = Depends(get_user_spotify),
+    db: Client = Depends(get_authed_db),
+    user: dict = Depends(get_current_user),
 ):
-    clear_cache()
-    db.table("library_cache").delete().eq("id", SUPABASE_CACHE_KEY).execute()
+    user_id = user["user_id"]
+    clear_cache(user_id)
+    db.table("library_cache").delete().eq("id", user_id).execute()
     return {"cache": "cleared"}
 
 
@@ -144,7 +129,7 @@ def _format_duration(ms: int) -> str:
 
 
 @router.get("/albums/{spotify_id}/tracks")
-def get_album_tracks(spotify_id: str, sp: spotipy.Spotify = Depends(get_spotify)):
+def get_album_tracks(spotify_id: str, sp: spotipy.Spotify = Depends(get_user_spotify)):
     all_tracks = []
     result = sp.album_tracks(spotify_id, limit=50)
     while True:
@@ -164,3 +149,14 @@ def get_album_tracks(spotify_id: str, sp: spotipy.Spotify = Depends(get_spotify)
             for t in all_tracks
         ]
     }
+
+
+def get_album_cache(db: Client = None, user_id: str | None = None):
+    """Return cached album list, falling back to Supabase if in-memory cache is cold."""
+    if user_id and user_id in _caches and _caches[user_id]["albums"] is not None:
+        return _caches[user_id]["albums"]
+    if db is not None:
+        row = _get_supabase_cache(db, user_id=user_id)
+        if row:
+            return row["albums"]
+    return []

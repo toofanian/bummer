@@ -1,220 +1,67 @@
-import { useState, useRef, useCallback, useEffect } from 'react'
-import { useIsMobile } from '../hooks/useIsMobile'
+import { useState, useRef, useEffect, useCallback } from 'react'
+import DevicePicker, { SpeakerIndicatorIcon } from './DevicePicker'
+import { PlayIcon, PauseIcon, PreviousIcon, NextIcon, VolumeIcon } from './icons'
+import { formatTime, useDebouncedCallback } from '../utils/playback'
 
-const styles = {
-  bar: {
-    position: 'fixed',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    minHeight: '64px',
-    background: 'var(--surface)',
-    borderTop: '1px solid var(--border)',
-    display: 'grid',
-    gridTemplateColumns: '1fr auto 1fr',
-    alignItems: 'center',
-    paddingTop: '0',
-    paddingRight: '16px',
-    paddingLeft: '16px',
-    paddingBottom: 'env(safe-area-inset-bottom, 0px)',
-    zIndex: 200,
-    gap: '8px',
-  },
-  // --- Left zone ---
-  leftZone: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '10px',
-    minWidth: 0,
-    overflow: 'hidden',
-  },
-  artPlaceholder: {
-    width: '40px',
-    height: '40px',
-    background: 'var(--surface-2)',
-    borderRadius: '4px',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    flexShrink: 0,
-    color: 'var(--text-dim)',
-    fontSize: '18px',
-  },
-  trackInfo: {
-    display: 'flex',
-    flexDirection: 'column',
-    minWidth: 0,
-    overflow: 'hidden',
-  },
-  trackName: {
-    fontSize: '13px',
-    fontWeight: 600,
-    color: 'var(--text)',
-    whiteSpace: 'nowrap',
-    overflow: 'hidden',
-    textOverflow: 'ellipsis',
-  },
-  artistName: {
-    fontSize: '12px',
-    color: 'var(--text-dim)',
-    whiteSpace: 'nowrap',
-    overflow: 'hidden',
-    textOverflow: 'ellipsis',
-  },
-  nothingPlaying: {
-    fontSize: '13px',
-    color: 'var(--text-dim)',
-    fontStyle: 'italic',
-  },
-  // --- Center zone ---
-  centerZone: {
-    display: 'flex',
-    flexDirection: 'column',
-    alignItems: 'center',
-    gap: '4px',
-    flexShrink: 0,
-  },
-  controls: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '4px',
-  },
-  iconBtn: {
-    background: 'none',
-    border: 'none',
-    color: 'var(--text-dim)',
-    cursor: 'pointer',
-    padding: '4px 6px',
-    borderRadius: '4px',
-    fontSize: '13px',
-    lineHeight: 1,
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    transition: 'color 0.15s, background 0.15s',
-  },
-  // Prominent play/pause: pill / rounded rectangle
-  playPauseBtn: {
-    background: 'var(--text)',
-    border: 'none',
-    color: 'var(--bg)',
-    cursor: 'pointer',
-    height: '20px',
-    padding: '0 12px',
-    borderRadius: '10px',
-    fontSize: '18px',
-    lineHeight: 1,
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    transition: 'transform 0.1s, background 0.15s',
-    flexShrink: 0,
-  },
-  messageText: {
-    fontSize: '11px',
-    whiteSpace: 'nowrap',
-    overflow: 'hidden',
-    textOverflow: 'ellipsis',
-    maxWidth: '420px',
-  },
-  messageCode: {
-    fontWeight: 700,
-    marginRight: '5px',
-    letterSpacing: '0.04em',
-  },
-  // --- Right zone ---
-  rightZone: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '8px',
-    justifyContent: 'flex-end',
-    minWidth: 0,
-  },
-  deviceName: {
-    fontSize: '13px',
-    color: 'var(--text-dim)',
-    opacity: 0.7,
-    whiteSpace: 'nowrap',
-    overflow: 'hidden',
-    textOverflow: 'ellipsis',
-    maxWidth: '200px',
-  },
-  devicePickerBtn: {
-    background: 'none',
-    border: 'none',
-    color: 'var(--text-dim)',
-    opacity: 0.7,
-    cursor: 'pointer',
-    fontSize: '13px',
-    padding: '2px 4px',
-    borderRadius: '4px',
-    whiteSpace: 'nowrap',
-    overflow: 'hidden',
-    textOverflow: 'ellipsis',
-    maxWidth: '200px',
-    lineHeight: 1,
-  },
-  devicePopover: {
-    position: 'absolute',
-    bottom: 'calc(100% + 8px)',
-    right: 0,
-    background: 'var(--surface)',
-    border: '1px solid var(--border)',
-    borderRadius: '8px',
-    padding: '4px 0',
-    minWidth: '200px',
-    boxShadow: '0 4px 16px rgba(0,0,0,0.3)',
-    zIndex: 300,
-  },
-  deviceRow: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '8px',
-    padding: '8px 12px',
-    cursor: 'pointer',
-    fontSize: '13px',
-    color: 'var(--text)',
-    userSelect: 'none',
-  },
-  deviceRowActive: {
-    color: 'var(--text-dim)',
-    cursor: 'default',
-  },
-  devicePopoverMessage: {
-    padding: '8px 12px',
-    fontSize: '13px',
-    color: 'var(--text-dim)',
-    fontStyle: 'italic',
-  },
-  toggleBtn: {
-    background: 'none',
-    border: 'none',
-    color: 'var(--text-dim)',
-    cursor: 'pointer',
-    padding: '8px 14px',
-    borderRadius: '4px',
-    fontSize: '22px',
-    lineHeight: 1,
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    transition: 'color 0.15s, background 0.15s',
-  },
-  iconBtnActive: {
-    color: 'var(--text)',
-    background: 'var(--surface-2)',
-  },
-}
-
-function useDebouncedCallback(fn, delay) {
-  const timer = useRef(null)
-  return useCallback((...args) => {
-    clearTimeout(timer.current)
-    timer.current = setTimeout(() => fn(...args), delay)
-  }, [fn, delay])
+function QueueIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
+      <line x1="3" y1="5" x2="15" y2="5" />
+      <line x1="3" y1="9" x2="15" y2="9" />
+      <line x1="3" y1="13" x2="11" y2="13" />
+    </svg>
+  )
 }
 
 const THUMB = 12
+
+function ProgressBar({ progressMs, durationMs, onSeek }) {
+  const barRef = useRef(null)
+  const pct = durationMs > 0 ? Math.min(1, (progressMs || 0) / durationMs) : 0
+
+  const getPositionFromPointer = useCallback((e) => {
+    const rect = barRef.current.getBoundingClientRect()
+    const ratio = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width))
+    return Math.round(ratio * durationMs)
+  }, [durationMs])
+
+  function handlePointerDown(e) {
+    if (!onSeek || !durationMs) return
+    e.preventDefault()
+    barRef.current.setPointerCapture?.(e.pointerId)
+    onSeek(getPositionFromPointer(e))
+  }
+
+  function handlePointerMove(e) {
+    if (!onSeek || !barRef.current.hasPointerCapture?.(e.pointerId)) return
+    onSeek(getPositionFromPointer(e))
+  }
+
+  return (
+    <div className="flex items-center gap-1.5 w-full max-w-[600px]">
+      <span className="text-xs text-text-dim min-w-8 tabular-nums text-right">{formatTime(progressMs)}</span>
+      <div
+        ref={barRef}
+        role="slider"
+        aria-label="Track progress"
+        aria-valuemin={0}
+        aria-valuemax={durationMs || 0}
+        aria-valuenow={progressMs || 0}
+        tabIndex={0}
+        onPointerDown={handlePointerDown}
+        onPointerMove={handlePointerMove}
+        className="flex-1 h-1.5 rounded-sm relative overflow-hidden"
+        style={{ cursor: onSeek ? 'pointer' : 'default', background: 'rgba(255,255,255,0.2)' }}
+      >
+        <div
+          className="absolute left-0 top-0 bottom-0 rounded-sm transition-[width] duration-300 ease-linear"
+          style={{ background: 'rgba(255,255,255,0.85)', width: `${pct * 100}%` }}
+        />
+      </div>
+      <span className="text-xs text-text-dim min-w-8 tabular-nums">{formatTime(durationMs)}</span>
+    </div>
+  )
+}
 
 function VolumeSlider({ value, onChange }) {
   const containerRef = useRef(null)
@@ -245,21 +92,25 @@ function VolumeSlider({ value, onChange }) {
 
   const pct = value / 100
   return (
-    <div
-      ref={containerRef}
-      role="slider"
-      aria-label="Volume"
-      aria-valuemin={0}
-      aria-valuemax={100}
-      aria-valuenow={value}
-      tabIndex={0}
-      onPointerDown={handlePointerDown}
-      onPointerMove={handlePointerMove}
-      onKeyDown={handleKeyDown}
-      style={{ position: 'relative', width: '100px', height: `${THUMB}px`, cursor: 'pointer', display: 'flex', alignItems: 'center', flexShrink: 0 }}
-    >
-      <div style={{ position: 'absolute', left: 0, right: 0, height: '3px', background: 'var(--surface-2)', borderRadius: '2px' }} />
-      <div style={{ position: 'absolute', left: `calc(${pct} * (100% - ${THUMB}px))`, width: `${THUMB}px`, height: `${THUMB}px`, borderRadius: '50%', background: 'var(--text)' }} />
+    <div className="flex items-center gap-1.5">
+      <VolumeIcon />
+      <div
+        ref={containerRef}
+        role="slider"
+        aria-label="Volume"
+        aria-valuemin={0}
+        aria-valuemax={100}
+        aria-valuenow={value}
+        tabIndex={0}
+        onPointerDown={handlePointerDown}
+        onPointerMove={handlePointerMove}
+        onKeyDown={handleKeyDown}
+        style={{ position: 'relative', width: '100px', height: `${THUMB}px`, cursor: 'pointer', display: 'flex', alignItems: 'center', flexShrink: 0 }}
+      >
+        <div style={{ position: 'absolute', left: 0, right: 0, height: '4px', background: 'rgba(255,255,255,0.2)', borderRadius: '2px' }} />
+        <div style={{ position: 'absolute', left: 0, width: `calc(${pct} * 100%)`, height: '4px', background: 'rgba(255,255,255,0.85)', borderRadius: '2px' }} />
+        <div style={{ position: 'absolute', left: `calc(${pct} * (100% - ${THUMB}px))`, width: `${THUMB}px`, height: `${THUMB}px`, borderRadius: '50%', background: '#ffffff' }} />
+      </div>
     </div>
   )
 }
@@ -280,6 +131,9 @@ function VolumeSlider({ value, onChange }) {
  *   message             — { code: string, text: string } | null
  *   nowPlayingSpotifyId — string | null
  *   onFocusAlbum        — (spotifyId: string) => void
+ *   onFetchDevices      — () => Promise<Device[]>
+ *   onDeviceSelected    — (deviceId: string) => void
+ *   onOpenDevicePicker  — () => void   called when "Connect a device" is clicked
  */
 export default function PlaybackBar({
   state,
@@ -288,6 +142,7 @@ export default function PlaybackBar({
   onPrevious,
   onNext,
   onSetVolume,
+  onSeek,
   paneOpen,
   onTogglePane,
   albumImageUrl,
@@ -295,28 +150,18 @@ export default function PlaybackBar({
   nowPlayingSpotifyId,
   onFocusAlbum,
   onFetchDevices,
-  onTransferPlayback,
+  onDeviceSelected,
+  onOpenDevicePicker,
 }) {
   const { is_playing, track, device } = state
   const [volume, setVolume] = useState(50)
-  const isMobile = useIsMobile()
-  const [devicesOpen, setDevicesOpen] = useState(false)
-  const [devices, setDevices] = useState([])
-  const [devicesLoading, setDevicesLoading] = useState(false)
-  const devicePickerRef = useRef(null)
+  const [pickerOpen, setPickerOpen] = useState(false)
+  const [deviceBtnRect, setDeviceBtnRect] = useState(null)
+  const deviceBtnRef = useRef(null)
 
   const artistLine = track ? track.artists.join(', ') : null
 
-  const toggleBtnStyle = {
-    ...styles.toggleBtn,
-    ...(paneOpen ? styles.iconBtnActive : {}),
-  }
-
   const isError = message?.code && message.code !== 'INFO'
-  const messageTextStyle = {
-    ...styles.messageText,
-    color: isError ? 'rgba(255,100,100,0.85)' : 'var(--text-dim)',
-  }
 
   const debouncedSetVolume = useDebouncedCallback(
     (v) => { if (onSetVolume) onSetVolume(v) },
@@ -339,48 +184,16 @@ export default function PlaybackBar({
     return () => document.removeEventListener('keydown', handleKeyDown)
   }, [is_playing, onPause, onPlay])
 
-  useEffect(() => {
-    if (!devicesOpen) return
-    function handleKeyDown(e) {
-      if (e.key === 'Escape') setDevicesOpen(false)
-    }
-    function handleMouseDown(e) {
-      if (devicePickerRef.current && !devicePickerRef.current.contains(e.target)) {
-        setDevicesOpen(false)
-      }
-    }
-    document.addEventListener('keydown', handleKeyDown)
-    document.addEventListener('mousedown', handleMouseDown)
-    return () => {
-      document.removeEventListener('keydown', handleKeyDown)
-      document.removeEventListener('mousedown', handleMouseDown)
-    }
-  }, [devicesOpen])
-
-  async function handleOpenDevicePicker() {
-    setDevicesOpen(true)
-    setDevicesLoading(true)
-    setDevices([])
-    const list = await onFetchDevices()
-    setDevices(list)
-    setDevicesLoading(false)
-  }
-
-  async function handleTransfer(deviceId) {
-    setDevicesOpen(false)
-    await onTransferPlayback(deviceId)
-  }
-
   return (
     <div
       role="region"
       aria-label="Playback bar"
-      style={styles.bar}
+      className="fixed bottom-0 left-0 right-0 min-h-16 bg-surface border-t border-border grid grid-cols-[1fr_auto_1fr] items-center px-4 pb-[env(safe-area-inset-bottom,0px)] z-[200] gap-2 overflow-hidden"
     >
       {/* LEFT ZONE: album art + track info */}
-      <div data-testid="playback-left" style={styles.leftZone}>
+      <div data-testid="playback-left" className="flex items-center gap-2.5 min-w-0 overflow-hidden">
         <div
-          className={`now-playing-card${track && nowPlayingSpotifyId ? '' : ' now-playing-card--inactive'}`}
+          className={`flex items-center gap-2.5 min-w-0 border border-border rounded-lg p-1.5 transition-colors duration-150 ${track && nowPlayingSpotifyId ? 'cursor-pointer hover:bg-hover' : ''}`}
           onClick={track && nowPlayingSpotifyId ? () => onFocusAlbum(nowPlayingSpotifyId) : undefined}
           role={track && nowPlayingSpotifyId ? 'button' : undefined}
           aria-label={track && nowPlayingSpotifyId ? 'Go to now playing album' : undefined}
@@ -391,127 +204,129 @@ export default function PlaybackBar({
             <img
               src={albumImageUrl}
               alt="Album art"
-              style={{ ...styles.artPlaceholder, objectFit: 'cover' }}
+              className="w-10 h-10 bg-surface-2 rounded flex items-center justify-center flex-shrink-0 text-text-dim text-lg object-cover"
             />
           ) : (
-            <div role="img" aria-label="Album art" style={styles.artPlaceholder}>♪</div>
+            <div role="img" aria-label="Album art" className="w-10 h-10 bg-surface-2 rounded flex items-center justify-center flex-shrink-0 text-text-dim text-lg">♪</div>
           )}
 
-          <div style={styles.trackInfo}>
+          <div className="flex flex-col min-w-0 overflow-hidden">
             {track ? (
               <>
-                <span style={styles.trackName}>{track.name}</span>
-                <span style={styles.artistName}>{artistLine}</span>
+                <span className="text-sm font-semibold text-text truncate">{track.name}</span>
+                <span className="text-xs text-text-dim truncate">{artistLine}</span>
               </>
+            ) : (!device && !is_playing && onOpenDevicePicker) ? (
+              <button
+                className="bg-transparent border-none cursor-pointer p-0 text-left"
+                onClick={onOpenDevicePicker}
+              >
+                <span className="text-sm text-text-dim italic">Connect a device</span>
+              </button>
             ) : (
-              <span style={styles.nothingPlaying}>Nothing playing</span>
+              <span className="text-sm text-text-dim italic">Nothing playing</span>
             )}
           </div>
         </div>
       </div>
 
-      {/* CENTER ZONE: previous / play-pause / next + message */}
-      <div data-testid="playback-center" style={styles.centerZone}>
-        <div style={styles.controls}>
+      {/* CENTER ZONE: transport controls + progress bar */}
+      <div data-testid="playback-center" className="flex flex-col items-center gap-0.5 flex-shrink-0 md:min-w-[500px]">
+        <div className="flex items-center gap-2">
           <button
             aria-label="Previous track"
-            style={styles.iconBtn}
+            className="bg-transparent border-none text-text-dim cursor-pointer p-1.5 rounded-full text-sm leading-none flex items-center justify-center transition-colors duration-150"
             onClick={onPrevious}
           >
-            ⏮
+            <PreviousIcon />
           </button>
 
           {is_playing ? (
             <button
               aria-label="Pause"
               data-prominent="true"
-              style={styles.playPauseBtn}
+              className="bg-text border-none text-bg cursor-pointer w-8 h-8 p-0 rounded-full text-base leading-none flex items-center justify-center transition-[transform,background] duration-150 flex-shrink-0"
               onClick={onPause}
             >
-              ⏸
+              <PauseIcon />
             </button>
           ) : (
             <button
               aria-label="Play"
               data-prominent="true"
-              style={styles.playPauseBtn}
+              className="bg-text border-none text-bg cursor-pointer w-8 h-8 p-0 rounded-full text-base leading-none flex items-center justify-center transition-[transform,background] duration-150 flex-shrink-0"
               onClick={onPlay}
             >
-              ▶
+              <PlayIcon />
             </button>
           )}
 
           <button
             aria-label="Next track"
-            style={styles.iconBtn}
+            className="bg-transparent border-none text-text-dim cursor-pointer p-1.5 rounded-full text-sm leading-none flex items-center justify-center transition-colors duration-150"
             onClick={onNext}
           >
-            ⏭
+            <NextIcon />
           </button>
         </div>
 
+        {track && track.duration_ms != null && (
+          <ProgressBar progressMs={track.progress_ms} durationMs={track.duration_ms} onSeek={onSeek} />
+        )}
+
         {message && (
-          <span role="status" style={messageTextStyle}>{message.text}</span>
+          <span
+            role="status"
+            className="text-xs truncate max-w-[420px]"
+            style={{ color: isError ? 'rgba(255,100,100,0.85)' : 'var(--text-dim)' }}
+          >{message.text}</span>
         )}
       </div>
 
       {/* RIGHT ZONE: volume + device name + pane toggle */}
-      <div data-testid="playback-right" style={styles.rightZone}>
-        {!isMobile && onSetVolume != null && (
+      <div data-testid="playback-right" className="flex items-center gap-2 justify-end min-w-0">
+        {onSetVolume != null && (
           <VolumeSlider
             value={volume}
             onChange={(v) => { setVolume(v); debouncedSetVolume(v) }}
           />
         )}
 
-        {!isMobile && (device && onFetchDevices ? (
-          <div ref={devicePickerRef} style={{ position: 'relative' }}>
+        {onFetchDevices && (
+          <>
             <button
-              aria-label={device.name}
-              style={styles.devicePickerBtn}
-              onClick={handleOpenDevicePicker}
+              ref={deviceBtnRef}
+              data-testid="device-indicator"
+              aria-label="Select playback device"
+              className="bg-transparent border-none cursor-pointer p-1 rounded flex items-center justify-center"
+              style={{ color: device?.type && device.type !== 'Computer' ? 'var(--accent)' : 'var(--text-dim)' }}
+              onClick={() => {
+                if (!pickerOpen && deviceBtnRef.current) {
+                  setDeviceBtnRect(deviceBtnRef.current.getBoundingClientRect())
+                }
+                setPickerOpen(o => !o)
+              }}
             >
-              ▸ {device.name} ▾
+              <SpeakerIndicatorIcon />
             </button>
-            {devicesOpen && (
-              <div style={styles.devicePopover} role="listbox" aria-label="Select device">
-                {devicesLoading ? (
-                  <div style={styles.devicePopoverMessage}>...</div>
-                ) : devices.length === 0 ? (
-                  <div style={styles.devicePopoverMessage}>No other devices found</div>
-                ) : (
-                  devices.map(d => (
-                    <div
-                      key={d.id}
-                      data-testid="device-row"
-                      role="option"
-                      aria-selected={d.is_active}
-                      style={{
-                        ...styles.deviceRow,
-                        ...(d.is_active ? styles.deviceRowActive : {}),
-                      }}
-                      onClick={d.is_active ? undefined : () => handleTransfer(d.id)}
-                    >
-                      <span style={{ width: '14px', flexShrink: 0 }}>{d.is_active ? '✓' : ''}</span>
-                      <span data-testid="device-option">{d.name}</span>
-                      <span style={{ fontSize: '11px', color: 'var(--text-dim)', marginLeft: 'auto' }}>{d.type}</span>
-                    </div>
-                  ))
-                )}
-              </div>
+            {pickerOpen && (
+              <DevicePicker
+                onClose={() => setPickerOpen(false)}
+                onFetchDevices={onFetchDevices}
+                onDeviceSelected={onDeviceSelected}
+                triggerRect={deviceBtnRect}
+              />
             )}
-          </div>
-        ) : device ? (
-          <span style={styles.deviceName}>▸ {device.name}</span>
-        ) : null)}
+          </>
+        )}
 
         <button
           aria-label="Now playing"
           aria-pressed={paneOpen}
-          style={toggleBtnStyle}
+          className={`bg-transparent border-none text-text-dim cursor-pointer p-1.5 rounded text-[22px] leading-none flex items-center justify-center transition-colors duration-150${paneOpen ? ' text-text bg-surface-2' : ''}`}
           onClick={onTogglePane}
         >
-          ≡
+          <QueueIcon />
         </button>
       </div>
     </div>

@@ -3,7 +3,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import Response
 from pydantic import BaseModel, Field
 
-from spotify_client import get_spotify
+from spotify_client import get_user_spotify
 
 router = APIRouter(prefix="/playback", tags=["playback"])
 
@@ -15,6 +15,10 @@ class PlayRequest(BaseModel):
 
 class VolumeRequest(BaseModel):
     volume_percent: int = Field(..., ge=0, le=100)
+
+
+class SeekRequest(BaseModel):
+    position_ms: int = Field(..., ge=0)
 
 
 class TransferRequest(BaseModel):
@@ -30,7 +34,7 @@ def _is_restricted_device(exc: spotipy.exceptions.SpotifyException) -> bool:
 
 
 @router.get("/state")
-def get_playback_state(sp: spotipy.Spotify = Depends(get_spotify)):
+def get_playback_state(sp: spotipy.Spotify = Depends(get_user_spotify)):
     state = sp.current_playback()
 
     if not state or not state.get("item"):
@@ -44,6 +48,7 @@ def get_playback_state(sp: spotipy.Spotify = Depends(get_spotify)):
         "track": {
             "name": item["name"],
             "album": item["album"]["name"],
+            "album_spotify_id": item["album"].get("id"),
             "artists": [a["name"] for a in item.get("artists", [])],
             "progress_ms": state.get("progress_ms"),
             "duration_ms": item.get("duration_ms"),
@@ -53,7 +58,7 @@ def get_playback_state(sp: spotipy.Spotify = Depends(get_spotify)):
 
 
 @router.put("/pause")
-def pause_playback(sp: spotipy.Spotify = Depends(get_spotify)):
+def pause_playback(sp: spotipy.Spotify = Depends(get_user_spotify)):
     try:
         sp.pause_playback()
     except spotipy.exceptions.SpotifyException as e:
@@ -65,7 +70,7 @@ def pause_playback(sp: spotipy.Spotify = Depends(get_spotify)):
 
 
 @router.put("/play")
-def play_playback(body: PlayRequest, sp: spotipy.Spotify = Depends(get_spotify)):
+def play_playback(body: PlayRequest, sp: spotipy.Spotify = Depends(get_user_spotify)):
     def _start():
         if body.track_uri:
             sp.start_playback(uris=[body.track_uri])
@@ -77,25 +82,14 @@ def play_playback(body: PlayRequest, sp: spotipy.Spotify = Depends(get_spotify))
     except spotipy.exceptions.SpotifyException as e:
         if _is_restricted_device(e):
             raise HTTPException(status_code=409, detail="restricted_device")
-        if not _is_no_active_device(e):
-            raise
-        # Auto-recover: find an available device and transfer playback to it
-        result = sp.devices()
-        devices = result.get("devices", [])
-        if not devices:
+        if _is_no_active_device(e):
             raise HTTPException(status_code=409, detail="no_device")
-        sp.transfer_playback(devices[0]["id"], force_play=False)
-        try:
-            _start()
-        except spotipy.exceptions.SpotifyException as e2:
-            if _is_restricted_device(e2):
-                raise HTTPException(status_code=409, detail="restricted_device")
-            raise
+        raise
     return Response(status_code=204)
 
 
 @router.post("/previous")
-def previous_track(sp: spotipy.Spotify = Depends(get_spotify)):
+def previous_track(sp: spotipy.Spotify = Depends(get_user_spotify)):
     try:
         sp.previous_track()
     except spotipy.exceptions.SpotifyException as e:
@@ -106,7 +100,7 @@ def previous_track(sp: spotipy.Spotify = Depends(get_spotify)):
 
 
 @router.post("/next")
-def next_track(sp: spotipy.Spotify = Depends(get_spotify)):
+def next_track(sp: spotipy.Spotify = Depends(get_user_spotify)):
     try:
         sp.next_track()
     except spotipy.exceptions.SpotifyException as e:
@@ -117,7 +111,7 @@ def next_track(sp: spotipy.Spotify = Depends(get_spotify)):
 
 
 @router.put("/volume")
-def set_volume(body: VolumeRequest, sp: spotipy.Spotify = Depends(get_spotify)):
+def set_volume(body: VolumeRequest, sp: spotipy.Spotify = Depends(get_user_spotify)):
     try:
         sp.volume(body.volume_percent)
     except spotipy.exceptions.SpotifyException as e:
@@ -128,7 +122,7 @@ def set_volume(body: VolumeRequest, sp: spotipy.Spotify = Depends(get_spotify)):
 
 
 @router.get("/devices")
-def get_devices(sp: spotipy.Spotify = Depends(get_spotify)):
+def get_devices(sp: spotipy.Spotify = Depends(get_user_spotify)):
     result = sp.devices()
     devices = result.get("devices", [])
     return [
@@ -142,9 +136,58 @@ def get_devices(sp: spotipy.Spotify = Depends(get_spotify)):
     ]
 
 
+@router.put("/seek")
+def seek_playback(body: SeekRequest, sp: spotipy.Spotify = Depends(get_user_spotify)):
+    try:
+        sp.seek_track(body.position_ms)
+    except spotipy.exceptions.SpotifyException as e:
+        if _is_no_active_device(e):
+            return Response(status_code=204)
+        if _is_restricted_device(e):
+            raise HTTPException(status_code=409, detail="restricted_device")
+        raise
+    return Response(status_code=204)
+
+
+@router.get("/queue")
+def get_queue(sp: spotipy.Spotify = Depends(get_user_spotify)):
+    try:
+        data = sp.queue()
+    except spotipy.exceptions.SpotifyException as e:
+        if _is_no_active_device(e):
+            return {"currently_playing": None, "queue": []}
+        raise
+
+    if not data:
+        return {"currently_playing": None, "queue": []}
+
+    cp = data.get("currently_playing")
+    currently_playing = None
+    if cp:
+        currently_playing = {
+            "name": cp["name"],
+            "artists": [a["name"] for a in cp.get("artists", [])],
+            "album": cp["album"]["name"],
+        }
+
+    raw_queue = data.get("queue", [])[:20]
+    queue = [
+        {
+            "name": item["name"],
+            "artists": [a["name"] for a in item.get("artists", [])],
+            "album": item["album"]["name"],
+            "duration_ms": item.get("duration_ms"),
+            "uri": item.get("uri"),
+        }
+        for item in raw_queue
+    ]
+
+    return {"currently_playing": currently_playing, "queue": queue}
+
+
 @router.put("/transfer")
 def transfer_playback(
-    body: TransferRequest, sp: spotipy.Spotify = Depends(get_spotify)
+    body: TransferRequest, sp: spotipy.Spotify = Depends(get_user_spotify)
 ):
     sp.transfer_playback(body.device_id, force_play=True)
     return Response(status_code=204)

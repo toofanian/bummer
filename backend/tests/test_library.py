@@ -4,11 +4,14 @@ from fastapi import HTTPException
 from fastapi.testclient import TestClient
 
 import routers.library as library_module
+from auth_middleware import get_authed_db, get_current_user
 from main import app
-from spotify_client import get_spotify
-from db import get_db
+from spotify_client import get_user_spotify
 
 client = TestClient(app)
+
+FAKE_USER_ID = "test-user-id-123"
+FAKE_USER = {"user_id": FAKE_USER_ID, "token": "fake-token"}
 
 # A minimal Spotify saved-album payload (mirrors the real API shape)
 SAVED_ALBUM = {
@@ -39,7 +42,7 @@ def make_spotify_mock(pages):
 
 
 def override_spotify(sp):
-    app.dependency_overrides[get_spotify] = lambda: sp
+    app.dependency_overrides[get_user_spotify] = lambda: sp
 
 
 def clear_overrides():
@@ -50,8 +53,17 @@ def clear_overrides():
 def mock_db_with_cache(albums_data, total):
     """Return a mock Supabase client that has a warm library_cache row."""
     db = MagicMock()
-    db.table.return_value.select.return_value.eq.return_value.execute.return_value = MagicMock(
-        data=[{"id": "albums", "albums": albums_data, "total": total, "synced_at": "2026-01-01T00:00:00Z"}]
+    db.table.return_value.select.return_value.eq.return_value.execute.return_value = (
+        MagicMock(
+            data=[
+                {
+                    "id": "albums",
+                    "albums": albums_data,
+                    "total": total,
+                    "synced_at": "2026-01-01T00:00:00Z",
+                }
+            ]
+        )
     )
     db.table.return_value.upsert.return_value.execute.return_value = MagicMock(data=[])
     return db
@@ -60,15 +72,16 @@ def mock_db_with_cache(albums_data, total):
 def mock_db_empty():
     """Return a mock Supabase client with no library_cache row (cold Supabase)."""
     db = MagicMock()
-    db.table.return_value.select.return_value.eq.return_value.execute.return_value = MagicMock(
-        data=[]
+    db.table.return_value.select.return_value.eq.return_value.execute.return_value = (
+        MagicMock(data=[])
     )
     db.table.return_value.upsert.return_value.execute.return_value = MagicMock(data=[])
     return db
 
 
 def override_db(db):
-    app.dependency_overrides[get_db] = lambda: db
+    app.dependency_overrides[get_authed_db] = lambda: db
+    app.dependency_overrides[get_current_user] = lambda: FAKE_USER
 
 
 # --- tests ---
@@ -177,7 +190,7 @@ def test_get_albums_returns_401_when_not_authenticated():
     def raise_401():
         raise HTTPException(status_code=401, detail="Not authenticated with Spotify")
 
-    app.dependency_overrides[get_spotify] = raise_401
+    app.dependency_overrides[get_user_spotify] = raise_401
 
     response = client.get("/library/albums")
 
@@ -218,7 +231,7 @@ def test_get_albums_refetches_after_cache_expires():
     client.get("/library/albums")
 
     # Expire the cache manually
-    library_module._cache["fetched_at"] = (
+    library_module._caches[FAKE_USER_ID]["fetched_at"] = (
         time.time() - library_module.CACHE_TTL_SECONDS - 1
     )
 
@@ -279,9 +292,11 @@ def test_cache_can_be_invalidated_explicitly():
 
 
 def test_invalidate_cache_returns_401_when_not_authenticated():
-    app.dependency_overrides[get_spotify] = lambda: (_ for _ in ()).throw(
-        HTTPException(status_code=401, detail="Not authenticated")
-    )
+    def raise_401():
+        raise HTTPException(status_code=401, detail="Not authenticated")
+
+    app.dependency_overrides[get_user_spotify] = raise_401
+    app.dependency_overrides[get_current_user] = raise_401
 
     response = client.post("/library/albums/invalidate-cache")
 
@@ -292,6 +307,7 @@ def test_invalidate_cache_returns_401_when_not_authenticated():
 
 def test_get_supabase_cache_returns_row_when_present():
     from routers.library import _get_supabase_cache
+
     db = mock_db_with_cache([{"spotify_id": "abc"}], 1)
     result = _get_supabase_cache(db)
     assert result is not None
@@ -301,6 +317,7 @@ def test_get_supabase_cache_returns_row_when_present():
 
 def test_get_supabase_cache_returns_none_when_absent():
     from routers.library import _get_supabase_cache
+
     db = mock_db_empty()
     result = _get_supabase_cache(db)
     assert result is None
@@ -308,20 +325,32 @@ def test_get_supabase_cache_returns_none_when_absent():
 
 def test_save_supabase_cache_calls_upsert():
     from routers.library import _save_supabase_cache
+
     db = mock_db_empty()
     albums = [{"spotify_id": "abc", "name": "Test"}]
-    _save_supabase_cache(db, albums, 1)
+    _save_supabase_cache(db, albums, 1, FAKE_USER_ID)
     db.table.assert_called_with("library_cache")
     db.table.return_value.upsert.assert_called_once()
     call_args = db.table.return_value.upsert.call_args[0][0]
-    assert call_args["id"] == "albums"
+    assert call_args["id"] == FAKE_USER_ID
     assert call_args["albums"] == albums
     assert call_args["total"] == 1
+    assert call_args["user_id"] == FAKE_USER_ID
 
 
 def test_get_albums_returns_supabase_cache_when_in_memory_cold():
     """When in-memory is cold but Supabase has data, return it immediately."""
-    cached_albums = [{"spotify_id": "abc123", "name": "Cached Album", "artists": ["Artist"], "release_date": "2020", "total_tracks": 10, "image_url": None, "added_at": "2021-01-01T00:00:00Z"}]
+    cached_albums = [
+        {
+            "spotify_id": "abc123",
+            "name": "Cached Album",
+            "artists": ["Artist"],
+            "release_date": "2020",
+            "total_tracks": 10,
+            "image_url": None,
+            "added_at": "2021-01-01T00:00:00Z",
+        }
+    ]
     db = mock_db_with_cache(cached_albums, 1)
     override_db(db)
     # Background task will call Spotify, so configure a valid mock response
@@ -381,7 +410,7 @@ def test_get_albums_returns_syncing_false_when_in_memory_fresh():
     sp = make_spotify_mock([{"items": [SAVED_ALBUM], "total": 1, "next": None}])
     override_spotify(sp)
 
-    client.get("/library/albums")   # warms in-memory
+    client.get("/library/albums")  # warms in-memory
     db.reset_mock()
 
     response = client.get("/library/albums")  # should hit in-memory only

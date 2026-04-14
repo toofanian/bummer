@@ -225,7 +225,7 @@ describe('AlbumTable', () => {
     expect(screen.queryByRole('button', { name: /play track/i })).not.toBeInTheDocument()
   })
 
-  // --- Play button column removed; double-click to play ---
+  // --- Play button column removed; single-click to play ---
 
   it('does not render a play button column in the album rows', () => {
     render(<AlbumTable albums={ALBUMS} onPlay={() => {}} />)
@@ -235,7 +235,7 @@ describe('AlbumTable', () => {
     expect(screen.queryByRole('button', { name: /^pause$/i })).not.toBeInTheDocument()
   })
 
-  it('double-clicking an album row calls onPlay with that album spotify_id', async () => {
+  it('clicking an album row calls onPlay with that album spotify_id', async () => {
     const onPlay = vi.fn().mockResolvedValue(null)
     render(<AlbumTable albums={ALBUMS} onPlay={onPlay} onFetchTracks={() => {}} />)
 
@@ -245,25 +245,15 @@ describe('AlbumTable', () => {
     expect(onPlay).toHaveBeenCalledWith('id1')
   })
 
-  it('double-clicking an album row does not call onPlay when onPlay is not provided', async () => {
+  it('clicking an album row does not call onPlay when onPlay is not provided', async () => {
     render(<AlbumTable albums={ALBUMS} onFetchTracks={() => {}} />)
     const rows = screen.getAllByRole('row').slice(1)
     // Should not throw; onPlay is undefined
-    await userEvent.dblClick(rows[0])
+    await userEvent.click(rows[0])
     // No assertion needed — just verify no crash
   })
 
-  it('single click on album row does not trigger onPlay', async () => {
-    const onPlay = vi.fn().mockResolvedValue(null)
-    render(<AlbumTable albums={ALBUMS} onPlay={onPlay} onFetchTracks={() => {}} />)
-
-    const rows = screen.getAllByRole('row').slice(1)
-    await userEvent.click(rows[0])
-
-    expect(onPlay).not.toHaveBeenCalled()
-  })
-
-  it('double-clicking a track row calls onPlayTrack with track URI', async () => {
+  it('clicking a track row calls onPlayTrack with track URI', async () => {
     const tracks = [
       { track_number: 1, name: 'No Ordinary Love', duration: '4:25', spotify_id: 'tid1' },
     ]
@@ -275,7 +265,7 @@ describe('AlbumTable', () => {
     await screen.findByText('No Ordinary Love')
 
     const trackRow = screen.getAllByRole('row').find(r => r.classList.contains('track-row'))
-    await userEvent.dblClick(trackRow)
+    await userEvent.click(trackRow)
 
     expect(onPlayTrack).toHaveBeenCalledWith('spotify:track:tid1')
   })
@@ -526,6 +516,49 @@ describe('AlbumTable', () => {
   // reset mobile mock to desktop after each test in this describe block
   afterEach(() => useIsMobile.mockReturnValue(false))
 
+  // --- Playing album row equalizer indicator ---
+
+  it('shows equalizer indicator replacing album art when album is playing (desktop)', () => {
+    render(<AlbumTable albums={ALBUMS} onPlay={() => {}} playingId="id1" />)
+    const rows = screen.getAllByRole('row').slice(1)
+    // Playing row should have an equalizer indicator
+    expect(rows[0].querySelector('.now-playing-indicator')).not.toBeNull()
+    expect(rows[0].querySelector('.now-playing-indicator .eq-bar')).not.toBeNull()
+    // Non-playing row should still show album art image
+    expect(rows[1].querySelector('.now-playing-indicator')).toBeNull()
+    expect(rows[1].querySelector('img')).not.toBeNull()
+  })
+
+  it('playing album row hides album art image and shows equalizer instead', () => {
+    render(<AlbumTable albums={ALBUMS} onPlay={() => {}} playingId="id1" />)
+    const rows = screen.getAllByRole('row').slice(1)
+    // The playing row should NOT have an img in the art column
+    // Find the td that would have the image (second td)
+    const artCell = rows[0].querySelectorAll('td')[1]
+    expect(artCell.querySelector('img')).toBeNull()
+    expect(artCell.querySelector('.now-playing-indicator')).not.toBeNull()
+  })
+
+  // --- Expand icon uses chevron characters, not › ---
+
+  it('expand button uses ▸ character instead of ›', () => {
+    render(<AlbumTable albums={ALBUMS} onFetchTracks={() => {}} />)
+    const btn = screen.getAllByRole('button', { name: /expand/i })[0]
+    const chevron = btn.querySelector('.expand-chevron')
+    expect(chevron.textContent).toBe('▸')
+    expect(chevron.textContent).not.toBe('›')
+  })
+
+  // --- Focus highlight is visible (not just outline:none) ---
+
+  it('album-row class is present for CSS focus styling with visible indicator', () => {
+    render(<AlbumTable albums={ALBUMS} onFetchTracks={() => {}} onPlay={() => {}} />)
+    const row = screen.getAllByRole('row')[1]
+    expect(row).toHaveClass('album-row')
+    // Verify the row has tabIndex for keyboard focusability
+    expect(row).toHaveAttribute('tabindex', '0')
+  })
+
   it('now-playing indicator on an active track row contains .eq-bar elements and not a music note emoji', async () => {
     const tracks = [
       { track_number: 1, name: 'No Ordinary Love', duration: '4:25', spotify_id: 'tid1', artists: ['Sade'] },
@@ -574,7 +607,7 @@ describe('AlbumTable mobile card list', () => {
     expect(screen.getByText('The Strokes')).toBeInTheDocument()
   })
 
-  it('single tap on a card calls onPlay with the album spotify_id', () => {
+  it('tapping a card calls onPlay with the album spotify_id', () => {
     const onPlay = vi.fn()
     render(<AlbumTable albums={ALBUMS} loading={false} onPlay={onPlay} />)
     const card = document.querySelector('[data-testid="album-card-id1"]')
@@ -618,5 +651,282 @@ describe('AlbumTable mobile card list', () => {
     render(<AlbumTable albums={ALBUMS} loading={false} playingId="id1" />)
     const card = document.querySelector('[data-testid="album-card-id1"]')
     expect(card).toHaveClass('now-playing')
+  })
+
+  it('renders CollectionsBubble for each card when collections prop is provided', () => {
+    const onToggle = vi.fn()
+    render(
+      <AlbumTable
+        albums={ALBUMS}
+        loading={false}
+        collections={COLLECTIONS}
+        albumCollectionMap={{}}
+        onToggleCollection={onToggle}
+      />
+    )
+    // CollectionsBubble renders a button with the collection count or a "+" indicator
+    const bubbles = screen.getAllByRole('button', { name: /collection/i })
+    expect(bubbles).toHaveLength(ALBUMS.length)
+  })
+
+  it('shows equalizer overlay on album art when playing on mobile', () => {
+    render(<AlbumTable albums={ALBUMS} loading={false} playingId="id1" />)
+    const card = document.querySelector('[data-testid="album-card-id1"]')
+    expect(card.querySelector('.now-playing-indicator')).not.toBeNull()
+    expect(card.querySelector('.now-playing-indicator .eq-bar')).not.toBeNull()
+  })
+
+  it('does not show equalizer on non-playing mobile cards', () => {
+    render(<AlbumTable albums={ALBUMS} loading={false} playingId="id1" />)
+    const card = document.querySelector('[data-testid="album-card-id2"]')
+    expect(card.querySelector('.now-playing-indicator')).toBeNull()
+  })
+
+  it('mobile expand button uses ▸ character instead of ›', () => {
+    render(<AlbumTable albums={ALBUMS} loading={false} onFetchTracks={() => {}} />)
+    const btn = screen.getAllByRole('button', { name: /expand/i })[0]
+    const chevron = btn.querySelector('.expand-chevron')
+    expect(chevron.textContent).toBe('▸')
+  })
+
+  it('does not show the year on mobile cards', () => {
+    render(<AlbumTable albums={ALBUMS} loading={false} />)
+    expect(document.querySelector('.album-card-year')).not.toBeInTheDocument()
+  })
+})
+
+describe('AlbumTable reorderable drag handles (desktop)', () => {
+  afterEach(() => useIsMobile.mockReturnValue(false))
+
+  it('does not render drag handles when reorderable is false (default)', () => {
+    render(<AlbumTable albums={ALBUMS} />)
+    expect(screen.queryByLabelText('Drag to reorder')).not.toBeInTheDocument()
+  })
+
+  it('renders a drag handle on each row when reorderable is true', () => {
+    render(<AlbumTable albums={ALBUMS} reorderable onReorder={() => {}} />)
+    const handles = screen.getAllByLabelText('Drag to reorder')
+    expect(handles).toHaveLength(ALBUMS.length)
+  })
+
+  it('drag handle displays the braille character ⠿', () => {
+    render(<AlbumTable albums={ALBUMS} reorderable onReorder={() => {}} />)
+    const handle = screen.getAllByLabelText('Drag to reorder')[0]
+    expect(handle.textContent).toContain('⠿')
+  })
+
+  it('skips sorting when reorderable is true (preserves array order)', () => {
+    // ALBUMS[0] = Love Deluxe (added 2021), ALBUMS[1] = Room On Fire (added 2020)
+    // Default sort is added_at desc, which would put Love Deluxe first.
+    // But with different sort, order would change. Let's verify array order is preserved
+    // by checking albums appear in the same order as the array regardless of sort.
+    const albumsReversed = [ALBUMS[1], ALBUMS[0]]
+    render(<AlbumTable albums={albumsReversed} reorderable onReorder={() => {}} />)
+    const rows = screen.getAllByRole('row').slice(1) // skip header
+    expect(rows[0]).toHaveTextContent('Room On Fire')
+    expect(rows[1]).toHaveTextContent('Love Deluxe')
+  })
+
+  it('does not render sort arrows in column headers when reorderable is true', () => {
+    render(<AlbumTable albums={ALBUMS} reorderable onReorder={() => {}} />)
+    const headers = screen.getAllByRole('columnheader')
+    headers.forEach(h => {
+      expect(h.textContent).not.toMatch(/[↑↓]/)
+    })
+  })
+})
+
+describe('AlbumTable reorderable drag handles (mobile)', () => {
+  beforeEach(() => useIsMobile.mockReturnValue(true))
+  afterEach(() => useIsMobile.mockReturnValue(false))
+
+  it('does not render drag handles on mobile when reorderable is false', () => {
+    render(<AlbumTable albums={ALBUMS} loading={false} />)
+    expect(screen.queryByLabelText('Drag to reorder')).not.toBeInTheDocument()
+  })
+
+  it('renders a drag handle on each card when reorderable is true', () => {
+    render(<AlbumTable albums={ALBUMS} loading={false} reorderable onReorder={() => {}} />)
+    const handles = screen.getAllByLabelText('Drag to reorder')
+    expect(handles).toHaveLength(ALBUMS.length)
+  })
+})
+
+describe('AlbumTable selection overlay (desktop)', () => {
+  afterEach(() => useIsMobile.mockReturnValue(false))
+
+  it('calls onToggleSelect when album art is clicked in selectable mode', async () => {
+    const onToggleSelect = vi.fn()
+    render(
+      <AlbumTable
+        albums={ALBUMS}
+        selectable
+        selectedIds={new Set()}
+        onToggleSelect={onToggleSelect}
+      />
+    )
+    // The art cell is the 2nd td (index 1) in each album row (after expand column)
+    const rows = screen.getAllByRole('row').slice(1)
+    const artCell = rows[0].querySelectorAll('td')[1]
+    await userEvent.click(artCell)
+    expect(onToggleSelect).toHaveBeenCalledWith('id1')
+  })
+
+  it('shows checkmark overlay on selected albums', () => {
+    render(
+      <AlbumTable
+        albums={ALBUMS}
+        selectable
+        selectedIds={new Set(['id1'])}
+        onToggleSelect={() => {}}
+      />
+    )
+    expect(screen.getByTestId('select-check-id1')).toBeInTheDocument()
+  })
+
+  it('does not show checkmark on unselected albums', () => {
+    render(
+      <AlbumTable
+        albums={ALBUMS}
+        selectable
+        selectedIds={new Set(['id1'])}
+        onToggleSelect={() => {}}
+      />
+    )
+    expect(screen.queryByTestId('select-check-id2')).not.toBeInTheDocument()
+  })
+
+  it('no selection behavior when selectable is false', async () => {
+    const onToggleSelect = vi.fn()
+    render(
+      <AlbumTable
+        albums={ALBUMS}
+        selectable={false}
+        selectedIds={new Set(['id1'])}
+        onToggleSelect={onToggleSelect}
+      />
+    )
+    // No checkmark should appear
+    expect(screen.queryByTestId('select-check-id1')).not.toBeInTheDocument()
+    // Clicking art cell should not call onToggleSelect
+    const rows = screen.getAllByRole('row').slice(1)
+    const artCell = rows[0].querySelectorAll('td')[1]
+    await userEvent.click(artCell)
+    expect(onToggleSelect).not.toHaveBeenCalled()
+  })
+})
+
+describe('AlbumTable selection overlay (mobile)', () => {
+  beforeEach(() => useIsMobile.mockReturnValue(true))
+  afterEach(() => useIsMobile.mockReturnValue(false))
+
+  it('calls onToggleSelect when album art is clicked in selectable mode', () => {
+    const onToggleSelect = vi.fn()
+    render(
+      <AlbumTable
+        albums={ALBUMS}
+        selectable
+        selectedIds={new Set()}
+        onToggleSelect={onToggleSelect}
+      />
+    )
+    const card = document.querySelector('[data-testid="album-card-id1"]')
+    // The art wrapper is the div with the img
+    const artWrapper = card.querySelector('img').parentElement
+    fireEvent.click(artWrapper)
+    expect(onToggleSelect).toHaveBeenCalledWith('id1')
+  })
+
+  it('shows checkmark overlay on selected albums', () => {
+    render(
+      <AlbumTable
+        albums={ALBUMS}
+        selectable
+        selectedIds={new Set(['id1'])}
+        onToggleSelect={() => {}}
+      />
+    )
+    expect(screen.getByTestId('select-check-id1')).toBeInTheDocument()
+  })
+
+  it('does not show checkmark on unselected albums', () => {
+    render(
+      <AlbumTable
+        albums={ALBUMS}
+        selectable
+        selectedIds={new Set(['id1'])}
+        onToggleSelect={() => {}}
+      />
+    )
+    expect(screen.queryByTestId('select-check-id2')).not.toBeInTheDocument()
+  })
+
+  it('no selection behavior when selectable is false on mobile', () => {
+    const onToggleSelect = vi.fn()
+    render(
+      <AlbumTable
+        albums={ALBUMS}
+        selectable={false}
+        selectedIds={new Set(['id1'])}
+        onToggleSelect={onToggleSelect}
+      />
+    )
+    expect(screen.queryByTestId('select-check-id1')).not.toBeInTheDocument()
+  })
+})
+
+describe('Equalizer animation GPU compositing', () => {
+  let css
+
+  beforeAll(async () => {
+    const fs = await import('fs')
+    const path = await import('path')
+    css = fs.readFileSync(
+      path.resolve(__dirname, '../tailwind.css'),
+      'utf-8',
+    )
+  })
+
+  it('eq-bar rule uses static transforms instead of animation', () => {
+    const eqBarBlock = css.match(/\.eq-bar\s*\{[^}]+\}/)?.[0]
+    expect(eqBarBlock).toBeDefined()
+    // Should NOT have infinite animation or will-change (causes scroll jank)
+    expect(eqBarBlock).not.toMatch(/animation/)
+    expect(eqBarBlock).not.toMatch(/will-change/)
+  })
+
+  it('now-playing-indicator rule includes contain property for layout isolation', () => {
+    const indicatorBlock = css.match(/\.now-playing-indicator\s*\{[^}]+\}/)?.[0]
+    expect(indicatorBlock).toBeDefined()
+    expect(indicatorBlock).toMatch(/contain\s*:/)
+  })
+})
+
+describe('AlbumTable — artist click navigation', () => {
+  it('calls onArtistClick with artist name when artist text is clicked (desktop)', async () => {
+    const onArtistClick = vi.fn()
+    render(<AlbumTable albums={ALBUMS} onArtistClick={onArtistClick} />)
+    const artistLink = screen.getByTestId('artist-link-Sade')
+    await userEvent.click(artistLink)
+    expect(onArtistClick).toHaveBeenCalledWith('Sade')
+  })
+
+  it('does not trigger onPlay when artist link is clicked', async () => {
+    const onArtistClick = vi.fn()
+    const onPlay = vi.fn()
+    render(<AlbumTable albums={ALBUMS} onArtistClick={onArtistClick} onPlay={onPlay} />)
+    const artistLink = screen.getByTestId('artist-link-Sade')
+    await userEvent.click(artistLink)
+    expect(onPlay).not.toHaveBeenCalled()
+  })
+
+  it('calls onArtistClick with artist name when artist text is clicked (mobile)', async () => {
+    useIsMobile.mockReturnValue(true)
+    const onArtistClick = vi.fn()
+    render(<AlbumTable albums={ALBUMS} onArtistClick={onArtistClick} />)
+    const artistLink = screen.getByTestId('artist-link-Sade')
+    await userEvent.click(artistLink)
+    expect(onArtistClick).toHaveBeenCalledWith('Sade')
+    useIsMobile.mockReturnValue(false)
   })
 })

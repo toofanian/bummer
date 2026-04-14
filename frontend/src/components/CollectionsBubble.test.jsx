@@ -137,10 +137,10 @@ describe('CollectionsBubble', () => {
     const rows = screen.getAllByRole('menuitemcheckbox')
     // first row (col-1) is checked — aria-checked true and checkmark present
     expect(rows[0]).toHaveAttribute('aria-checked', 'true')
-    expect(rows[0].querySelector('.collections-bubble-check')).toBeInTheDocument()
+    expect(rows[0].querySelector('[aria-hidden="true"]')).toHaveTextContent('✓')
     // second row (col-2) is not checked — aria-checked false and no checkmark
     expect(rows[1]).toHaveAttribute('aria-checked', 'false')
-    expect(rows[1].querySelector('.collections-bubble-check')).not.toBeInTheDocument()
+    expect(rows[1].querySelector('[aria-hidden="true"]')).toBeNull()
   })
 
   it('calls onToggle with collectionId and true when an unchecked row is clicked', async () => {

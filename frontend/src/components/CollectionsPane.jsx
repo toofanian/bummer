@@ -89,9 +89,9 @@ export default function CollectionsPane({ collections, onEnter, onDelete, onCrea
   }
 
   return (
-    <div className="collections-pane">
+    <div className="w-full flex flex-col h-full overflow-hidden">
       {/* Sticky create-new input at top */}
-      <div className="create-row">
+      <div className="flex gap-2 px-4 py-3 border-b border-border bg-bg flex-shrink-0 sticky top-0 z-10 opacity-70 hover:opacity-100 focus-within:opacity-100 transition-opacity duration-150">
         <input
           placeholder="New collection name"
           value={newName}
@@ -102,17 +102,18 @@ export default function CollectionsPane({ collections, onEnter, onDelete, onCrea
       </div>
 
       {collections.length === 0 ? (
-        <p className="collections-empty">No collections yet.</p>
+        <p className="p-4 text-sm text-text-dim italic">No collections yet.</p>
       ) : (
-        <div className="table-wrap">
-          <table className="collections-table">
+        <div className="flex-1 overflow-y-auto">
+          {/* Single-column list table */}
+          <table className="w-full border-collapse">
             <thead>
-              <tr>
-                <th>Collection</th>
-                <th>Albums</th>
-                <th>Updated</th>
-                <th>Art</th>
-                <th></th>
+              <tr className="border-b border-border">
+                <th className="text-left px-4 py-2 text-xs font-semibold text-text-dim uppercase tracking-wide">Collection</th>
+                <th className="text-right px-4 py-2 text-xs font-semibold text-text-dim uppercase tracking-wide w-16">Albums</th>
+                <th className="text-right px-4 py-2 text-xs font-semibold text-text-dim uppercase tracking-wide w-20 hidden sm:table-cell">Updated</th>
+                <th className="text-right px-4 py-2 w-32 hidden sm:table-cell"></th>
+                <th className="w-12"></th>
               </tr>
             </thead>
             <tbody>
@@ -124,74 +125,43 @@ export default function CollectionsPane({ collections, onEnter, onDelete, onCrea
                 return (
                   <tr
                     key={col.id}
-                    className="collection-row"
+                    className="border-b border-border cursor-pointer hover:bg-hover transition-colors duration-150 group"
                     onClick={() => onEnter(col)}
                   >
-                    {/* 1. Collection name */}
-                    <td className="collection-name">{col.name}</td>
-
-                    {/* 2. Album count */}
-                    <td className="collection-album-count">
+                    {/* Name + optional description */}
+                    <td className="px-4 py-3">
+                      <div className="text-sm font-semibold text-text">{col.name}</div>
+                      {col.description && (
+                        <div className="text-xs text-text-dim mt-0.5 truncate max-w-xs">{col.description}</div>
+                      )}
+                    </td>
+                    {/* Album count */}
+                    <td className="px-4 py-3 text-right text-sm text-text-dim tabular-nums">
                       {col.album_count != null ? col.album_count : ''}
                     </td>
-
-                    {/* 3. Updated date */}
-                    <td className="collection-updated-at">
+                    {/* Updated */}
+                    <td className="px-4 py-3 text-right text-sm text-text-dim hidden sm:table-cell">
                       {timeAgo(col.updated_at)}
                     </td>
-
-                    {/* 4. Art strip — always rendered so delete stays right-aligned */}
-                    <td className="collection-art-cell">
-                      <div className="collection-art-strip">
+                    {/* Art thumbnails */}
+                    <td className="px-4 py-3 hidden sm:table-cell">
+                      <div className="flex gap-0.5 justify-end">
                         {artAlbums.slice(0, 5).map(album => (
                           album.image_url
-                            ? <img
-                                key={album.spotify_id}
-                                src={album.image_url}
-                                alt={album.name}
-                                width={28}
-                                height={28}
-                                className="collection-art-thumb"
-                              />
-                            : <span
-                                key={album.spotify_id}
-                                className="collection-art-thumb collection-art-no-art"
-                                aria-hidden="true"
-                              />
+                            ? <img key={album.spotify_id} src={album.image_url} alt={album.name} width={24} height={24} className="w-6 h-6 rounded-sm object-cover flex-shrink-0 block" />
+                            : <span key={album.spotify_id} className="w-6 h-6 rounded-sm bg-surface-2 flex-shrink-0 block" aria-hidden="true" />
                         ))}
                       </div>
                     </td>
-
-                    {/* 5. Delete — fixed right column */}
-                    <td
-                      className="collection-delete-cell"
-                      onClick={e => e.stopPropagation()}
-                    >
+                    {/* Delete */}
+                    <td className="px-3 py-3 text-right" onClick={e => e.stopPropagation()}>
                       {isConfirming ? (
                         <>
-                          <button
-                            className="collection-confirm-delete"
-                            aria-label="Confirm delete"
-                            onClick={e => handleConfirmDelete(e, col.id)}
-                          >
-                            Delete
-                          </button>
-                          <button
-                            className="collection-cancel-delete"
-                            aria-label="Cancel"
-                            onClick={handleCancelDelete}
-                          >
-                            Cancel
-                          </button>
+                          <button className="bg-delete-red border-none text-white cursor-pointer text-xs font-semibold px-1.5 py-0.5 rounded mr-0.5 whitespace-nowrap" aria-label="Confirm delete" onClick={e => handleConfirmDelete(e, col.id)}>Delete</button>
+                          <button className="bg-transparent border border-border text-text-dim cursor-pointer text-xs px-1.5 py-0.5 rounded whitespace-nowrap" aria-label="Cancel" onClick={handleCancelDelete}>Cancel</button>
                         </>
                       ) : (
-                        <button
-                          className="collection-delete-btn"
-                          aria-label="Delete"
-                          onClick={e => handleDeleteClick(e, col.id)}
-                        >
-                          ×
-                        </button>
+                        <button className="bg-transparent border-none text-text-dim cursor-pointer text-lg p-1.5 rounded opacity-0 group-hover:opacity-50 hover:!opacity-100 hover:bg-surface-2 transition-opacity duration-150" aria-label="Delete" onClick={e => handleDeleteClick(e, col.id)}>×</button>
                       )}
                     </td>
                   </tr>

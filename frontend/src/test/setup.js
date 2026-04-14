@@ -11,3 +11,25 @@ Object.defineProperty(window, 'matchMedia', {
     removeEventListener: vi.fn(),
   })),
 })
+
+// Node.js 25 ships a built-in `localStorage` that requires --localstorage-file
+// to function. When running under Vitest/jsdom without that flag, accessing the
+// global `localStorage` hits Node's stub (which has no working methods) instead
+// of jsdom's implementation. Override the global with a simple in-memory
+// implementation so tests can call setItem/getItem/removeItem without errors.
+;(() => {
+  const store = new Map()
+  const impl = {
+    setItem(key, value) { store.set(String(key), String(value)) },
+    getItem(key) { return store.has(String(key)) ? store.get(String(key)) : null },
+    removeItem(key) { store.delete(String(key)) },
+    clear() { store.clear() },
+    key(index) { return [...store.keys()][index] ?? null },
+    get length() { return store.size },
+  }
+  Object.defineProperty(globalThis, 'localStorage', {
+    configurable: true,
+    enumerable: true,
+    get() { return impl },
+  })
+})()

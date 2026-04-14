@@ -3,7 +3,7 @@ from unittest.mock import MagicMock
 from fastapi.testclient import TestClient
 
 from main import app
-from spotify_client import get_spotify
+from spotify_client import get_user_spotify
 
 client = TestClient(app)
 
@@ -13,7 +13,7 @@ PLAYBACK_STATE = {
     "item": {
         "name": "Track One",
         "duration_ms": 240000,
-        "album": {"name": "Some Album"},
+        "album": {"name": "Some Album", "id": "album-spotify-id-123"},
         "artists": [{"name": "Artist A"}, {"name": "Artist B"}],
     },
     "device": {"name": "My Mac", "type": "Computer"},
@@ -27,7 +27,7 @@ def make_sp(playback=PLAYBACK_STATE):
 
 
 def override_spotify(sp):
-    app.dependency_overrides[get_spotify] = lambda: sp
+    app.dependency_overrides[get_user_spotify] = lambda: sp
 
 
 def clear_overrides():
@@ -48,6 +48,7 @@ def test_get_playback_state_returns_simplified_shape():
     assert data["is_playing"] is True
     assert data["track"]["name"] == "Track One"
     assert data["track"]["album"] == "Some Album"
+    assert data["track"]["album_spotify_id"] == "album-spotify-id-123"
     assert data["track"]["artists"] == ["Artist A", "Artist B"]
     assert data["track"]["progress_ms"] == 45000
     assert data["track"]["duration_ms"] == 240000
@@ -144,21 +145,19 @@ def make_no_device_error():
     return err
 
 
-def test_play_no_active_device_transfers_and_retries():
-    """When play raises 404 'No active device' and a device is available,
-    transfer playback to that device then retry start_playback — return 204."""
+def test_play_no_active_device_returns_409_even_with_available_devices():
+    """When play raises 404 'No active device', return 409 with detail 'no_device'
+    immediately — do NOT auto-transfer to an available device."""
     sp = make_sp()
-    # First call raises; second call succeeds
-    sp.start_playback.side_effect = [make_no_device_error(), None]
+    sp.start_playback.side_effect = make_no_device_error()
     sp.devices.return_value = {"devices": [{"id": "device-abc", "name": "My Mac"}]}
     override_spotify(sp)
 
     response = client.put("/playback/play", json={})
 
-    assert response.status_code == 204
-    sp.devices.assert_called_once()
-    sp.transfer_playback.assert_called_once_with("device-abc", force_play=False)
-    assert sp.start_playback.call_count == 2
+    assert response.status_code == 409
+    assert response.json()["detail"] == "no_device"
+    sp.transfer_playback.assert_not_called()
 
     clear_overrides()
 
@@ -194,20 +193,16 @@ def test_play_with_track_uri():
     clear_overrides()
 
 
-def test_play_with_track_uri_no_device_transfers_and_retries():
+def test_play_with_track_uri_no_device_returns_409():
+    """When track_uri play raises 404 'No active device', return 409 immediately."""
     sp = make_sp()
-    sp.start_playback.side_effect = [make_no_device_error(), None]
-    sp.devices.return_value = {"devices": [{"id": "device-abc", "name": "My Mac"}]}
+    sp.start_playback.side_effect = make_no_device_error()
     override_spotify(sp)
 
     response = client.put("/playback/play", json={"track_uri": "spotify:track:xyz789"})
 
-    assert response.status_code == 204
-    sp.devices.assert_called_once()
-    sp.transfer_playback.assert_called_once_with("device-abc", force_play=False)
-    assert sp.start_playback.call_count == 2
-    # Both calls used uris=
-    sp.start_playback.assert_called_with(uris=["spotify:track:xyz789"])
+    assert response.status_code == 409
+    assert response.json()["detail"] == "no_device"
 
     clear_overrides()
 
@@ -359,25 +354,6 @@ def test_play_returns_409_restricted_device_when_spotify_raises_403():
     clear_overrides()
 
 
-def test_play_restricted_device_after_no_device_recovery_returns_409():
-    """When auto-recovery succeeds (transfer) but the retry still hits 403 Restricted device,
-    return 409 with detail 'restricted_device'."""
-    sp = make_sp()
-    sp.start_playback.side_effect = [
-        make_no_device_error(),
-        make_restricted_device_error(),
-    ]
-    sp.devices.return_value = {"devices": [{"id": "device-abc", "name": "Sonos"}]}
-    override_spotify(sp)
-
-    response = client.put("/playback/play", json={})
-
-    assert response.status_code == 409
-    assert response.json()["detail"] == "restricted_device"
-
-    clear_overrides()
-
-
 # --- GET /playback/devices ---
 
 
@@ -452,5 +428,173 @@ def test_transfer_playback_missing_device_id_returns_422():
     response = client.put("/playback/transfer", json={})
 
     assert response.status_code == 422
+
+    clear_overrides()
+
+
+# --- PUT /playback/seek ---
+
+
+def test_seek_calls_spotify_seek_track():
+    sp = make_sp()
+    override_spotify(sp)
+
+    response = client.put("/playback/seek", json={"position_ms": 120000})
+
+    assert response.status_code == 204
+    sp.seek_track.assert_called_once_with(120000)
+
+    clear_overrides()
+
+
+def test_seek_no_active_device_returns_204_silently():
+    sp = make_sp()
+    sp.seek_track.side_effect = make_no_device_error()
+    override_spotify(sp)
+
+    response = client.put("/playback/seek", json={"position_ms": 60000})
+
+    assert response.status_code == 204
+
+    clear_overrides()
+
+
+def test_seek_restricted_device_returns_409():
+    sp = make_sp()
+    sp.seek_track.side_effect = make_restricted_device_error()
+    override_spotify(sp)
+
+    response = client.put("/playback/seek", json={"position_ms": 60000})
+
+    assert response.status_code == 409
+    assert response.json()["detail"] == "restricted_device"
+
+    clear_overrides()
+
+
+def test_seek_missing_position_ms_returns_422():
+    sp = make_sp()
+    override_spotify(sp)
+
+    response = client.put("/playback/seek", json={})
+
+    assert response.status_code == 422
+
+    clear_overrides()
+
+
+def test_seek_negative_position_ms_returns_422():
+    sp = make_sp()
+    override_spotify(sp)
+
+    response = client.put("/playback/seek", json={"position_ms": -1})
+
+    assert response.status_code == 422
+
+    clear_overrides()
+
+
+# --- GET /playback/queue ---
+
+QUEUE_RESPONSE = {
+    "currently_playing": {
+        "name": "Track One",
+        "album": {"name": "Some Album"},
+        "artists": [{"name": "Artist A"}],
+    },
+    "queue": [
+        {
+            "name": "Track Two",
+            "album": {"name": "Album Two"},
+            "artists": [{"name": "Artist B"}],
+            "duration_ms": 200000,
+            "uri": "spotify:track:abc123",
+        },
+        {
+            "name": "Track Three",
+            "album": {"name": "Album Three"},
+            "artists": [{"name": "Artist C"}, {"name": "Artist D"}],
+            "duration_ms": 180000,
+            "uri": "spotify:track:def456",
+        },
+    ],
+}
+
+
+def test_get_queue_returns_currently_playing_and_queue():
+    sp = make_sp()
+    sp.queue.return_value = QUEUE_RESPONSE
+    override_spotify(sp)
+
+    response = client.get("/playback/queue")
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["currently_playing"]["name"] == "Track One"
+    assert data["currently_playing"]["album"] == "Some Album"
+    assert data["currently_playing"]["artists"] == ["Artist A"]
+    assert len(data["queue"]) == 2
+    assert data["queue"][0]["name"] == "Track Two"
+    assert data["queue"][0]["artists"] == ["Artist B"]
+    assert data["queue"][0]["duration_ms"] == 200000
+    assert data["queue"][0]["uri"] == "spotify:track:abc123"
+    assert data["queue"][1]["artists"] == ["Artist C", "Artist D"]
+
+    clear_overrides()
+
+
+def test_get_queue_limits_to_20_items():
+    sp = make_sp()
+    large_queue = {
+        "currently_playing": QUEUE_RESPONSE["currently_playing"],
+        "queue": [
+            {
+                "name": f"Track {i}",
+                "album": {"name": f"Album {i}"},
+                "artists": [{"name": f"Artist {i}"}],
+                "duration_ms": 200000,
+                "uri": f"spotify:track:id{i}",
+            }
+            for i in range(30)
+        ],
+    }
+    sp.queue.return_value = large_queue
+    override_spotify(sp)
+
+    response = client.get("/playback/queue")
+
+    assert response.status_code == 200
+    data = response.json()
+    assert len(data["queue"]) == 20
+
+    clear_overrides()
+
+
+def test_get_queue_returns_empty_when_no_playback():
+    sp = make_sp()
+    sp.queue.return_value = None
+    override_spotify(sp)
+
+    response = client.get("/playback/queue")
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["currently_playing"] is None
+    assert data["queue"] == []
+
+    clear_overrides()
+
+
+def test_get_queue_returns_empty_on_no_active_device():
+    sp = make_sp()
+    sp.queue.side_effect = make_no_device_error()
+    override_spotify(sp)
+
+    response = client.get("/playback/queue")
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["currently_playing"] is None
+    assert data["queue"] == []
 
     clear_overrides()

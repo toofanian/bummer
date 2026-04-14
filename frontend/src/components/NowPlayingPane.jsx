@@ -1,192 +1,48 @@
-import { useEffect, useState } from 'react'
-import { useIsMobile } from '../hooks/useIsMobile'
-
-const PANE_WIDTH = 300
-
-const styles = {
-  pane: (open) => ({
-    position: 'fixed',
-    top: 0,
-    right: 0,
-    bottom: '64px',           // sit above PlaybackBar
-    width: `${PANE_WIDTH}px`,
-    background: 'var(--surface)',
-    borderLeft: '1px solid var(--border)',
-    display: 'flex',
-    flexDirection: 'column',
-    zIndex: 150,
-    transform: open ? 'translateX(0)' : `translateX(${PANE_WIDTH}px)`,
-    transition: 'transform 0.25s ease',
-    overflowY: 'auto',
-  }),
-  header: {
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    padding: '14px 16px 10px',
-    borderBottom: '1px solid var(--border)',
-    flexShrink: 0,
-  },
-  headerTitle: {
-    fontSize: '12px',
-    fontWeight: 700,
-    letterSpacing: '0.07em',
-    textTransform: 'uppercase',
-    color: 'var(--text-dim)',
-  },
-  closeBtn: {
-    background: 'none',
-    border: 'none',
-    color: 'var(--text-dim)',
-    cursor: 'pointer',
-    padding: '4px 6px',
-    borderRadius: '4px',
-    fontSize: '16px',
-    lineHeight: 1,
-  },
-  albumSection: {
-    padding: '24px 16px 16px',
-    borderBottom: '1px solid var(--border)',
-    flexShrink: 0,
-    display: 'flex',
-    flexDirection: 'column',
-    alignItems: 'center',
-    gap: '12px',
-  },
-  recordWrap: {
-    display: 'flex',
-    justifyContent: 'center',
-  },
-  albumName: {
-    fontSize: '14px',
-    fontWeight: 600,
-    color: 'var(--text)',
-    marginBottom: '2px',
-    whiteSpace: 'nowrap',
-    overflow: 'hidden',
-    textOverflow: 'ellipsis',
-    textAlign: 'center',
-    width: '100%',
-  },
-  artistName: {
-    fontSize: '12px',
-    color: 'var(--text-dim)',
-    whiteSpace: 'nowrap',
-    overflow: 'hidden',
-    textOverflow: 'ellipsis',
-    textAlign: 'center',
-    width: '100%',
-  },
-  deviceLine: {
-    fontSize: '11px',
-    color: 'var(--text-dim)',
-    marginTop: '2px',
-    textAlign: 'center',
-  },
-  idleMsg: {
-    padding: '16px',
-    fontSize: '13px',
-    color: 'var(--text-dim)',
-    fontStyle: 'italic',
-  },
-  trackListSection: {
-    flex: 1,
-    overflowY: 'auto',
-    padding: '8px 0',
-  },
-  trackRow: (clickable) => ({
-    display: 'flex',
-    alignItems: 'center',
-    gap: '10px',
-    padding: '7px 16px',
-    cursor: clickable ? 'pointer' : 'default',
-  }),
-  trackNumber: {
-    fontSize: '12px',
-    color: 'var(--text-dim)',
-    minWidth: '18px',
-    textAlign: 'right',
-    flexShrink: 0,
-  },
-  trackName: (isActive) => ({
-    fontSize: '13px',
-    flex: 1,
-    color: isActive ? 'var(--text)' : 'var(--text-dim)',
-    fontWeight: isActive ? 600 : 400,
-    whiteSpace: 'nowrap',
-    overflow: 'hidden',
-    textOverflow: 'ellipsis',
-  }),
-  trackDuration: {
-    fontSize: '12px',
-    color: 'var(--text-dim)',
-    flexShrink: 0,
-  },
-  loadingMsg: {
-    padding: '16px',
-    fontSize: '13px',
-    color: 'var(--text-dim)',
-  },
-  unavailableMsg: {
-    padding: '16px',
-    fontSize: '13px',
-    color: 'var(--text-dim)',
-    fontStyle: 'italic',
-  },
-}
-
-const SPIN_STYLE = `
-  @keyframes spin-record {
-    from { transform: rotate(0deg); }
-    to   { transform: rotate(360deg); }
-  }
-`
+import { useEffect, useState, useRef } from 'react'
+import { formatTime } from '../utils/playback'
 
 function VinylRecord({ isPlaying, albumImageUrl, size = 180 }) {
   return (
-    <>
-      <style>{SPIN_STYLE}</style>
-      <svg
-        role="img"
-        aria-label="Vinyl record"
-        width={size}
-        height={size}
-        viewBox="0 0 200 200"
-        style={{
-          animation: 'spin-record 3s linear infinite',
-          animationPlayState: isPlaying ? 'running' : 'paused',
-          display: 'block',
-        }}
-      >
-        <defs>
-          <clipPath id="label-clip">
-            <circle cx="100" cy="100" r="34" />
-          </clipPath>
-        </defs>
-        {/* Outer record body */}
-        <circle cx="100" cy="100" r="99" fill="#111" />
-        {/* Groove rings */}
-        {[88, 78, 68, 58, 50, 43].map(r => (
-          <circle key={r} cx="100" cy="100" r={r} fill="none" stroke="#1e1e1e" strokeWidth="1.5" />
-        ))}
-        {/* Center label — album art or plain disc */}
-        {albumImageUrl ? (
-          <image
-            href={albumImageUrl}
-            x="66" y="66" width="68" height="68"
-            clipPath="url(#label-clip)"
-            preserveAspectRatio="xMidYMid slice"
-          />
-        ) : (
-          <>
-            <circle cx="100" cy="100" r="34" fill="#2a2a2a" />
-            <circle cx="100" cy="100" r="28" fill="none" stroke="#333" strokeWidth="1" />
-          </>
-        )}
-        {/* Spindle hole */}
-        <circle cx="100" cy="100" r="5" fill="#0a0a0a" />
-      </svg>
-    </>
+    <svg
+      role="img"
+      aria-label="Vinyl record"
+      width={size}
+      height={size}
+      viewBox="0 0 200 200"
+      style={{
+        animation: 'spin-record 3s linear infinite',
+        animationPlayState: isPlaying ? 'running' : 'paused',
+        display: 'block',
+      }}
+    >
+      <defs>
+        <clipPath id="label-clip">
+          <circle cx="100" cy="100" r="34" />
+        </clipPath>
+      </defs>
+      {/* Outer record body */}
+      <circle cx="100" cy="100" r="99" fill="#111" />
+      {/* Groove rings */}
+      {[88, 78, 68, 58, 50, 43].map(r => (
+        <circle key={r} cx="100" cy="100" r={r} fill="none" stroke="#1e1e1e" strokeWidth="1.5" />
+      ))}
+      {/* Center label — album art or plain disc */}
+      {albumImageUrl ? (
+        <image
+          href={albumImageUrl}
+          x="66" y="66" width="68" height="68"
+          clipPath="url(#label-clip)"
+          preserveAspectRatio="xMidYMid slice"
+        />
+      ) : (
+        <>
+          <circle cx="100" cy="100" r="34" fill="#2a2a2a" />
+          <circle cx="100" cy="100" r="28" fill="none" stroke="#333" strokeWidth="1" />
+        </>
+      )}
+      {/* Spindle hole */}
+      <circle cx="100" cy="100" r="5" fill="#0a0a0a" />
+    </svg>
   )
 }
 
@@ -201,9 +57,11 @@ function VinylRecord({ isPlaying, albumImageUrl, size = 180 }) {
  *   albumSpotifyId  — string | null  spotify_id of the currently playing album
  *   albumImageUrl   — string | undefined  album art URL for the vinyl label
  */
-export default function NowPlayingPane({ state, open, onClose, onFetchTracks, albumSpotifyId, albumImageUrl, onPlayTrack }) {
+export default function NowPlayingPane({ state, open, onClose, onFetchTracks, albumSpotifyId, albumImageUrl, onPlayTrack, onFetchQueue }) {
   const [tracks, setTracks] = useState([])
   const [tracksLoading, setTracksLoading] = useState(false)
+  const [queue, setQueue] = useState([])
+  const queueIntervalRef = useRef(null)
 
   useEffect(() => {
     if (!albumSpotifyId) {
@@ -229,58 +87,54 @@ export default function NowPlayingPane({ state, open, onClose, onFetchTracks, al
     return () => { cancelled = true }
   }, [albumSpotifyId])  // eslint-disable-line react-hooks/exhaustive-deps
 
-const { track, device } = state
-  const currentTrackName = track?.name ?? null
-  const isMobile = useIsMobile()
+  useEffect(() => {
+    if (!open || !state.track || !onFetchQueue) {
+      setQueue([])
+      return
+    }
 
-  const paneStyle = isMobile
-    ? {
-        position: 'fixed',
-        bottom: 0,
-        left: 0,
-        right: 0,
-        height: '70vh',
-        background: 'var(--surface)',
-        borderTop: '1px solid var(--border)',
-        borderRadius: '16px 16px 0 0',
-        display: 'flex',
-        flexDirection: 'column',
-        zIndex: 150,
-        transform: open ? 'translateY(0)' : 'translateY(100%)',
-        transition: 'transform 0.3s ease',
-        overflowY: 'auto',
-        paddingBottom: 'env(safe-area-inset-bottom, 0px)',
+    let cancelled = false
+
+    async function fetchQueue() {
+      try {
+        const data = await onFetchQueue()
+        if (!cancelled) setQueue(data?.queue ?? [])
+      } catch {
+        if (!cancelled) setQueue([])
       }
-    : {
-        ...styles.pane(open),
-        bottom: 'calc(64px + env(safe-area-inset-bottom, 0px))',
-      }
+    }
+
+    fetchQueue()
+    queueIntervalRef.current = setInterval(fetchQueue, 30000)
+
+    return () => {
+      cancelled = true
+      clearInterval(queueIntervalRef.current)
+    }
+  }, [open, !!state.track, onFetchQueue]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const { track, device } = state
+  const currentTrackName = track?.name ?? null
+
+  const paneClasses = [
+    'fixed top-0 right-0 w-[320px] bg-surface border-l border-border flex flex-col z-[150] overflow-y-auto transition-transform duration-[250ms] ease',
+    open ? 'translate-x-0' : 'translate-x-[320px]',
+  ].join(' ')
 
   return (
     <aside
       role="complementary"
       aria-label="Now playing"
       aria-hidden={open ? undefined : 'true'}
-      style={paneStyle}
+      className={paneClasses}
+      style={{ bottom: 'calc(64px + env(safe-area-inset-bottom, 0px))' }}
     >
-      {/* Drag handle (mobile only — visual only) */}
-      {isMobile && (
-        <div style={{
-          width: '36px',
-          height: '4px',
-          background: 'var(--border)',
-          borderRadius: '2px',
-          margin: '10px auto 4px',
-          flexShrink: 0,
-        }} />
-      )}
-
       {/* Header */}
-      <div style={styles.header}>
-        <span style={styles.headerTitle}>Now Playing</span>
+      <div className="flex items-center justify-between px-4 pt-3.5 pb-2.5 border-b border-border flex-shrink-0">
+        <span className="text-xs font-bold tracking-wider uppercase text-text-dim">Now Playing</span>
         <button
           aria-label="Close now playing"
-          style={styles.closeBtn}
+          className="bg-transparent border-none text-text-dim cursor-pointer py-1 px-1.5 rounded text-base leading-none transition-colors duration-150 hover:text-text"
           onClick={onClose}
         >
           ✕
@@ -289,27 +143,27 @@ const { track, device } = state
 
       {/* Album / artist section */}
       {track ? (
-        <div style={styles.albumSection}>
-          <div style={styles.recordWrap}>
-            <VinylRecord isPlaying={state.is_playing} albumImageUrl={albumImageUrl} size={isMobile ? 120 : 180} />
+        <div className="px-4 pt-6 pb-4 border-b border-border flex-shrink-0 flex flex-col items-center gap-3">
+          <div className="flex justify-center">
+            <VinylRecord isPlaying={state.is_playing} albumImageUrl={albumImageUrl} size={180} />
           </div>
-          <div style={styles.albumName}>{track.album}</div>
-          <div style={styles.artistName}>{track.artists.join(', ')}</div>
+          <div className="text-sm font-semibold text-text mb-0.5 truncate text-center w-full">{track.album}</div>
+          <div className="text-xs text-text-dim truncate text-center w-full">{track.artists.join(', ')}</div>
           {device && (
-            <div style={styles.deviceLine}>Playing on {device.name}</div>
+            <div className="text-xs text-text-dim mt-0.5 text-center">Playing on {device.name}</div>
           )}
         </div>
       ) : (
-        <div style={styles.idleMsg}>Nothing playing</div>
+        <div className="p-4 text-sm text-text-dim italic">Nothing playing</div>
       )}
 
       {/* Track list */}
       {track && (
-        <div style={styles.trackListSection}>
+        <div className="flex-1 overflow-y-auto py-2">
           {albumSpotifyId === null ? (
-            <div style={styles.unavailableMsg}>Track list unavailable</div>
+            <div className="p-4 text-sm text-text-dim italic">Track list unavailable</div>
           ) : tracksLoading ? (
-            <div style={styles.loadingMsg}>Loading tracks…</div>
+            <div className="p-4 text-sm text-text-dim">Loading tracks…</div>
           ) : (
             tracks.map(t => {
               const isActive = t.name === currentTrackName
@@ -318,16 +172,30 @@ const { track, device } = state
                 <div
                   key={t.track_number}
                   data-active={isActive ? 'true' : undefined}
-                  style={styles.trackRow(clickable)}
-                  className="now-playing-track-row"
+                  className="now-playing-track-row flex items-center gap-2.5 py-[7px] px-4 transition-colors duration-150"
+                  style={{ cursor: clickable ? 'pointer' : 'default' }}
                   onClick={onPlayTrack ? () => onPlayTrack(`spotify:track:${t.spotify_id}`) : undefined}
                 >
-                  <span style={styles.trackNumber}>{t.track_number}</span>
-                  <span style={styles.trackName(isActive)}>{t.name}</span>
-                  <span style={styles.trackDuration}>{t.duration}</span>
+                  <span className="text-xs text-text-dim min-w-[18px] text-right flex-shrink-0">{t.track_number}</span>
+                  <span className={`text-sm flex-1 truncate ${isActive ? 'text-text font-semibold' : 'text-text-dim font-normal'}`}>{t.name}</span>
+                  <span className="text-xs text-text-dim flex-shrink-0">{t.duration}</span>
                 </div>
               )
             })
+          )}
+
+          {/* Up Next queue */}
+          {queue.length > 0 && (
+            <div className="border-t border-border mt-2 pt-2">
+              <div className="px-4 py-1 text-xs font-bold tracking-wider uppercase text-text-dim">Up Next</div>
+              {queue.map((item, i) => (
+                <div key={i} className="flex items-center gap-2.5 py-[7px] px-4">
+                  <span className="text-sm flex-1 truncate text-text-dim">{item.name}</span>
+                  <span className="text-xs text-text-dim flex-shrink-0">{item.artists.join(', ')}</span>
+                  <span className="text-xs text-text-dim flex-shrink-0">{formatTime(item.duration_ms)}</span>
+                </div>
+              ))}
+            </div>
           )}
         </div>
       )}

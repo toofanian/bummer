@@ -3,11 +3,14 @@ from unittest.mock import MagicMock
 from fastapi import HTTPException
 from fastapi.testclient import TestClient
 
-from db import get_db
+from auth_middleware import get_authed_db, get_current_user
 from main import app
-from spotify_client import get_spotify
+from spotify_client import get_user_spotify
 
 client = TestClient(app)
+
+FAKE_USER_ID = "test-user-id-123"
+FAKE_USER = {"user_id": FAKE_USER_ID, "token": "fake-token"}
 
 COLLECTION = {
     "id": "col-uuid-1",
@@ -38,11 +41,26 @@ def mock_db(execute_data=None):
     db.table.return_value.delete.return_value.eq.return_value.eq.return_value.execute.return_value = MagicMock(
         data=[]
     )
+    db.table.return_value.update.return_value.eq.return_value.execute.return_value = (
+        MagicMock(data=execute_data or [])
+    )
+    db.table.return_value.update.return_value.eq.return_value.eq.return_value.execute.return_value = MagicMock(
+        data=execute_data or []
+    )
+    # Chain for .select().eq().order().execute() (get_collection_albums with position ordering)
+    db.table.return_value.select.return_value.eq.return_value.order.return_value.execute.return_value = MagicMock(
+        data=execute_data or []
+    )
+    # Chain for .select().eq().order(desc=True).limit().execute() (max position lookup)
+    db.table.return_value.select.return_value.eq.return_value.order.return_value.limit.return_value.execute.return_value = MagicMock(
+        data=[]
+    )
     return db
 
 
 def override_db(db):
-    app.dependency_overrides[get_db] = lambda: db
+    app.dependency_overrides[get_authed_db] = lambda: db
+    app.dependency_overrides[get_current_user] = lambda: FAKE_USER
 
 
 def mock_spotify():
@@ -51,7 +69,7 @@ def mock_spotify():
 
 
 def override_spotify(sp):
-    app.dependency_overrides[get_spotify] = lambda: sp
+    app.dependency_overrides[get_user_spotify] = lambda: sp
 
 
 def clear_overrides():
@@ -230,6 +248,29 @@ def test_add_album_to_collection():
     clear_overrides()
 
 
+def test_add_album_assigns_next_position():
+    """Single-album add should assign position = max(existing) + 1."""
+    db = mock_db(
+        execute_data=[
+            {"collection_id": "col-uuid-1", "spotify_id": "abc123", "position": 5}
+        ]
+    )
+    # Mock the position lookup
+    db.table.return_value.select.return_value.eq.return_value.order.return_value.limit.return_value.execute.return_value = MagicMock(
+        data=[{"position": 4}]
+    )
+    override_db(db)
+    override_spotify(mock_spotify())
+
+    response = client.post(
+        "/collections/col-uuid-1/albums", json={"spotify_id": "abc123"}
+    )
+
+    assert response.status_code == 201
+
+    clear_overrides()
+
+
 def test_remove_album_from_collection():
     db = mock_db()
     override_db(db)
@@ -286,37 +327,39 @@ def test_get_all_metadata_returns_empty_dict_when_no_metadata():
 def test_get_collection_albums_returns_albums_in_collection():
     import routers.library as library_module
 
-    library_module._cache["albums"] = [
-        {
-            "spotify_id": "id1",
-            "name": "Album One",
-            "artists": ["Artist A"],
-            "release_date": "2020",
-            "total_tracks": 10,
-            "image_url": None,
-            "added_at": "2021-01-01T00:00:00Z",
-        },
-        {
-            "spotify_id": "id2",
-            "name": "Album Two",
-            "artists": ["Artist B"],
-            "release_date": "2019",
-            "total_tracks": 8,
-            "image_url": None,
-            "added_at": "2020-01-01T00:00:00Z",
-        },
-        {
-            "spotify_id": "id3",
-            "name": "Album Three",
-            "artists": ["Artist C"],
-            "release_date": "2018",
-            "total_tracks": 12,
-            "image_url": None,
-            "added_at": "2019-01-01T00:00:00Z",
-        },
-    ]
-    library_module._cache["total"] = 3
-    library_module._cache["fetched_at"] = __import__("time").time()
+    library_module._caches[FAKE_USER_ID] = {
+        "albums": [
+            {
+                "spotify_id": "id1",
+                "name": "Album One",
+                "artists": ["Artist A"],
+                "release_date": "2020",
+                "total_tracks": 10,
+                "image_url": None,
+                "added_at": "2021-01-01T00:00:00Z",
+            },
+            {
+                "spotify_id": "id2",
+                "name": "Album Two",
+                "artists": ["Artist B"],
+                "release_date": "2019",
+                "total_tracks": 8,
+                "image_url": None,
+                "added_at": "2020-01-01T00:00:00Z",
+            },
+            {
+                "spotify_id": "id3",
+                "name": "Album Three",
+                "artists": ["Artist C"],
+                "release_date": "2018",
+                "total_tracks": 12,
+                "image_url": None,
+                "added_at": "2019-01-01T00:00:00Z",
+            },
+        ],
+        "total": 3,
+        "fetched_at": __import__("time").time(),
+    }
 
     db = mock_db(execute_data=[{"spotify_id": "id1"}, {"spotify_id": "id3"}])
     override_db(db)
@@ -336,19 +379,21 @@ def test_get_collection_albums_returns_albums_in_collection():
 def test_get_collection_albums_returns_empty_when_collection_empty():
     import routers.library as library_module
 
-    library_module._cache["albums"] = [
-        {
-            "spotify_id": "id1",
-            "name": "Album One",
-            "artists": [],
-            "release_date": "2020",
-            "total_tracks": 10,
-            "image_url": None,
-            "added_at": "2021-01-01T00:00:00Z",
-        },
-    ]
-    library_module._cache["total"] = 1
-    library_module._cache["fetched_at"] = __import__("time").time()
+    library_module._caches[FAKE_USER_ID] = {
+        "albums": [
+            {
+                "spotify_id": "id1",
+                "name": "Album One",
+                "artists": [],
+                "release_date": "2020",
+                "total_tracks": 10,
+                "image_url": None,
+                "added_at": "2021-01-01T00:00:00Z",
+            },
+        ],
+        "total": 1,
+        "fetched_at": __import__("time").time(),
+    }
 
     db = mock_db(execute_data=[])
     override_db(db)
@@ -363,13 +408,165 @@ def test_get_collection_albums_returns_empty_when_collection_empty():
     clear_overrides()
 
 
+# --- Collection description ---
+
+
+def test_update_collection_description():
+    db = mock_db(execute_data=[{**COLLECTION, "description": "late night vibes"}])
+    override_db(db)
+    override_spotify(mock_spotify())
+
+    response = client.put(
+        "/collections/col-uuid-1/description", json={"description": "late night vibes"}
+    )
+
+    assert response.status_code == 200
+    assert response.json()["description"] == "late night vibes"
+
+    clear_overrides()
+
+
+def test_clear_collection_description():
+    db = mock_db(execute_data=[{**COLLECTION, "description": None}])
+    override_db(db)
+    override_spotify(mock_spotify())
+
+    response = client.put(
+        "/collections/col-uuid-1/description", json={"description": None}
+    )
+
+    assert response.status_code == 200
+    assert response.json()["description"] is None
+
+    clear_overrides()
+
+
+def test_list_collections_includes_description():
+    col_with_desc = {**COLLECTION, "description": "chill beats"}
+    db = mock_db(execute_data=[col_with_desc])
+    override_db(db)
+    override_spotify(mock_spotify())
+
+    response = client.get("/collections")
+
+    assert response.status_code == 200
+    assert response.json()[0]["description"] == "chill beats"
+
+    clear_overrides()
+
+
+# --- Collection album reorder ---
+
+
+def test_reorder_collection_albums():
+    db = mock_db()
+    # Mock the update chain: .update().eq().eq().execute()
+    db.table.return_value.update.return_value.eq.return_value.eq.return_value.execute.return_value = MagicMock(
+        data=[]
+    )
+    override_db(db)
+    override_spotify(mock_spotify())
+
+    response = client.put(
+        "/collections/col-uuid-1/albums/reorder",
+        json={"album_ids": ["id3", "id1", "id2"]},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["reordered"] is True
+
+    clear_overrides()
+
+
+def test_reorder_collection_albums_requires_album_ids():
+    db = mock_db()
+    override_db(db)
+    override_spotify(mock_spotify())
+
+    response = client.put("/collections/col-uuid-1/albums/reorder", json={})
+
+    assert response.status_code == 422
+
+    clear_overrides()
+
+
+# --- Collection cover art ---
+
+
+def test_set_collection_cover():
+    db = mock_db(execute_data=[{**COLLECTION, "cover_album_id": "album-id-1"}])
+    override_db(db)
+    override_spotify(mock_spotify())
+
+    response = client.put(
+        "/collections/col-uuid-1/cover",
+        json={"cover_album_id": "album-id-1"},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["cover_album_id"] == "album-id-1"
+
+    clear_overrides()
+
+
+def test_clear_collection_cover():
+    db = mock_db(execute_data=[{**COLLECTION, "cover_album_id": None}])
+    override_db(db)
+    override_spotify(mock_spotify())
+
+    response = client.put(
+        "/collections/col-uuid-1/cover",
+        json={"cover_album_id": None},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["cover_album_id"] is None
+
+    clear_overrides()
+
+
+# --- Bulk add ---
+
+
+def test_bulk_add_albums_to_collection():
+    db = mock_db(
+        execute_data=[
+            {"collection_id": "col-uuid-1", "spotify_id": "id1"},
+            {"collection_id": "col-uuid-1", "spotify_id": "id2"},
+        ]
+    )
+    override_db(db)
+    override_spotify(mock_spotify())
+
+    response = client.post(
+        "/collections/col-uuid-1/albums/bulk",
+        json={"spotify_ids": ["id1", "id2"]},
+    )
+
+    assert response.status_code == 201
+    assert response.json()["added"] == 2
+
+    clear_overrides()
+
+
+def test_bulk_add_requires_spotify_ids():
+    db = mock_db()
+    override_db(db)
+    override_spotify(mock_spotify())
+
+    response = client.post("/collections/col-uuid-1/albums/bulk", json={})
+
+    assert response.status_code == 422
+
+    clear_overrides()
+
+
 def test_get_collection_albums_warms_cache_when_cold():
     """When the library cache is empty, the endpoint must fetch from Spotify
     rather than returning an empty list."""
     from unittest.mock import MagicMock
 
     import routers.library as library_module
-    from spotify_client import get_spotify
 
     library_module.clear_cache()  # ensure cache is cold
 
@@ -392,7 +589,8 @@ def test_get_collection_albums_warms_cache_when_cold():
         "total": 1,
         "next": None,
     }
-    app.dependency_overrides[get_spotify] = lambda: sp
+    app.dependency_overrides[get_user_spotify] = lambda: sp
+    app.dependency_overrides[get_current_user] = lambda: FAKE_USER
 
     db = mock_db(execute_data=[{"spotify_id": "id1"}])
     override_db(db)
@@ -421,9 +619,20 @@ def _unauthenticated_spotify():
     return raise_401
 
 
+def _unauthenticated_user():
+    """Dependency override that simulates no valid user session."""
+    raise HTTPException(status_code=401, detail="Not authenticated")
+
+
+def _setup_unauthenticated_overrides():
+    """Set up dependency overrides for unauthenticated request tests."""
+    app.dependency_overrides[get_user_spotify] = _unauthenticated_spotify()
+    app.dependency_overrides[get_authed_db] = lambda: mock_db()
+    app.dependency_overrides[get_current_user] = _unauthenticated_user
+
+
 def test_get_all_metadata_returns_401_when_not_authenticated():
-    app.dependency_overrides[get_spotify] = _unauthenticated_spotify()
-    app.dependency_overrides[get_db] = lambda: mock_db()
+    _setup_unauthenticated_overrides()
 
     response = client.get("/metadata/all")
 
@@ -433,8 +642,7 @@ def test_get_all_metadata_returns_401_when_not_authenticated():
 
 
 def test_set_tier_returns_401_when_not_authenticated():
-    app.dependency_overrides[get_spotify] = _unauthenticated_spotify()
-    app.dependency_overrides[get_db] = lambda: mock_db()
+    _setup_unauthenticated_overrides()
 
     response = client.put("/metadata/abc123/tier", json={"tier": "A"})
 
@@ -444,8 +652,7 @@ def test_set_tier_returns_401_when_not_authenticated():
 
 
 def test_clear_tier_returns_401_when_not_authenticated():
-    app.dependency_overrides[get_spotify] = _unauthenticated_spotify()
-    app.dependency_overrides[get_db] = lambda: mock_db()
+    _setup_unauthenticated_overrides()
 
     response = client.delete("/metadata/abc123/tier")
 
@@ -455,8 +662,7 @@ def test_clear_tier_returns_401_when_not_authenticated():
 
 
 def test_list_collections_returns_401_when_not_authenticated():
-    app.dependency_overrides[get_spotify] = _unauthenticated_spotify()
-    app.dependency_overrides[get_db] = lambda: mock_db()
+    _setup_unauthenticated_overrides()
 
     response = client.get("/collections")
 
@@ -466,8 +672,7 @@ def test_list_collections_returns_401_when_not_authenticated():
 
 
 def test_create_collection_returns_401_when_not_authenticated():
-    app.dependency_overrides[get_spotify] = _unauthenticated_spotify()
-    app.dependency_overrides[get_db] = lambda: mock_db()
+    _setup_unauthenticated_overrides()
 
     response = client.post("/collections", json={"name": "Test"})
 
@@ -477,8 +682,7 @@ def test_create_collection_returns_401_when_not_authenticated():
 
 
 def test_delete_collection_returns_401_when_not_authenticated():
-    app.dependency_overrides[get_spotify] = _unauthenticated_spotify()
-    app.dependency_overrides[get_db] = lambda: mock_db()
+    _setup_unauthenticated_overrides()
 
     response = client.delete("/collections/col-uuid-1")
 
@@ -488,8 +692,7 @@ def test_delete_collection_returns_401_when_not_authenticated():
 
 
 def test_add_album_to_collection_returns_401_when_not_authenticated():
-    app.dependency_overrides[get_spotify] = _unauthenticated_spotify()
-    app.dependency_overrides[get_db] = lambda: mock_db()
+    _setup_unauthenticated_overrides()
 
     response = client.post(
         "/collections/col-uuid-1/albums", json={"spotify_id": "abc123"}
@@ -501,8 +704,7 @@ def test_add_album_to_collection_returns_401_when_not_authenticated():
 
 
 def test_remove_album_from_collection_returns_401_when_not_authenticated():
-    app.dependency_overrides[get_spotify] = _unauthenticated_spotify()
-    app.dependency_overrides[get_db] = lambda: mock_db()
+    _setup_unauthenticated_overrides()
 
     response = client.delete("/collections/col-uuid-1/albums/abc123")
 

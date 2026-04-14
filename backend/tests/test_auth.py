@@ -1,32 +1,11 @@
 from unittest.mock import MagicMock, patch
 
-from fastapi import HTTPException
 from fastapi.testclient import TestClient
 
+from auth_middleware import get_current_user
 from main import app
-from spotify_client import get_spotify
 
 client = TestClient(app, follow_redirects=False)
-
-
-def override_spotify_authenticated():
-    """Override get_spotify to simulate a valid Spotify session."""
-    from unittest.mock import MagicMock
-
-    app.dependency_overrides[get_spotify] = lambda: MagicMock()
-
-
-def override_spotify_unauthenticated():
-    """Override get_spotify to simulate an unauthenticated user."""
-
-    def raise_401():
-        raise HTTPException(status_code=401, detail="Not authenticated with Spotify")
-
-    app.dependency_overrides[get_spotify] = raise_401
-
-
-def clear_overrides():
-    app.dependency_overrides.clear()
 
 
 def test_health():
@@ -35,101 +14,260 @@ def test_health():
     assert response.json() == {"status": "ok"}
 
 
-def test_login_redirects_to_spotify():
-    with patch("routers.auth.get_oauth") as mock_get_oauth:
-        mock_oauth = MagicMock()
-        mock_oauth.get_authorize_url.return_value = (
-            "https://accounts.spotify.com/authorize?foo=bar"
+# --- redeem-invite tests ---
+
+
+def test_redeem_invite_valid_code():
+    mock_db = MagicMock()
+    # First call: select invite code — returns valid, unredeemed invite
+    invite_row = {
+        "code": "TESTCODE",
+        "redeemed_at": None,
+    }
+    mock_db.table.return_value.select.return_value.eq.return_value.execute.return_value.data = [
+        invite_row
+    ]
+    # update call for marking redeemed
+    mock_db.table.return_value.update.return_value.eq.return_value.execute.return_value = MagicMock()
+
+    with patch("routers.auth.get_service_db", return_value=mock_db):
+        response = client.post(
+            "/auth/redeem-invite",
+            json={"invite_code": "TESTCODE"},
         )
-        mock_get_oauth.return_value = mock_oauth
 
-        response = client.get("/auth/login")
-
-        assert response.status_code == 307
-        assert "accounts.spotify.com" in response.headers["location"]
+    assert response.status_code == 200
+    assert "redeemed" in response.json()["message"].lower()
 
 
-def test_callback_exchanges_code_and_redirects_to_frontend():
-    with patch("routers.auth.get_oauth") as mock_get_oauth:
-        mock_oauth = MagicMock()
-        mock_get_oauth.return_value = mock_oauth
+def test_redeem_invite_marks_code_as_used():
+    mock_db = MagicMock()
+    invite_row = {
+        "code": "TESTCODE",
+        "redeemed_at": None,
+    }
+    mock_db.table.return_value.select.return_value.eq.return_value.execute.return_value.data = [
+        invite_row
+    ]
+    mock_db.table.return_value.update.return_value.eq.return_value.execute.return_value = MagicMock()
 
-        response = client.get("/auth/callback?code=test_code")
+    with patch("routers.auth.get_service_db", return_value=mock_db):
+        response = client.post(
+            "/auth/redeem-invite",
+            json={"invite_code": "TESTCODE"},
+        )
 
-        mock_oauth.get_access_token.assert_called_once_with("test_code")
-        assert response.status_code == 307
-        assert "localhost:5173" in response.headers["location"]
-
-
-def test_status_returns_authenticated_when_token_is_valid():
-    with patch("routers.auth.get_oauth") as mock_get_oauth:
-        mock_oauth = MagicMock()
-        mock_oauth.get_cached_token.return_value = {"access_token": "tok"}
-        mock_oauth.is_token_expired.return_value = False
-        mock_get_oauth.return_value = mock_oauth
-
-        response = client.get("/auth/status")
-
-        assert response.status_code == 200
-        assert response.json() == {"authenticated": True}
-
-
-def test_status_returns_unauthenticated_when_no_token():
-    with patch("routers.auth.get_oauth") as mock_get_oauth:
-        mock_oauth = MagicMock()
-        mock_oauth.get_cached_token.return_value = None
-        mock_get_oauth.return_value = mock_oauth
-
-        response = client.get("/auth/status")
-
-        assert response.json() == {"authenticated": False}
+    assert response.status_code == 200
+    # Verify the update call was made to mark the code as used
+    mock_db.table.return_value.update.assert_called_once()
+    update_arg = mock_db.table.return_value.update.call_args[0][0]
+    assert "redeemed_at" in update_arg
 
 
-def test_status_returns_unauthenticated_when_token_expired():
-    with patch("routers.auth.get_oauth") as mock_get_oauth:
-        mock_oauth = MagicMock()
-        mock_oauth.get_cached_token.return_value = {"access_token": "tok"}
-        mock_oauth.is_token_expired.return_value = True
-        mock_get_oauth.return_value = mock_oauth
+def test_redeem_invite_already_used():
+    mock_db = MagicMock()
+    invite_row = {
+        "code": "ABC123",
+        "redeemed_at": "2026-01-01T00:00:00+00:00",
+    }
+    mock_db.table.return_value.select.return_value.eq.return_value.execute.return_value.data = [
+        invite_row
+    ]
 
-        response = client.get("/auth/status")
+    with patch("routers.auth.get_service_db", return_value=mock_db):
+        response = client.post(
+            "/auth/redeem-invite",
+            json={"invite_code": "ABC123"},
+        )
 
-        assert response.json() == {"authenticated": False}
-
-
-def test_logout_removes_cache_file():
-    override_spotify_authenticated()
-    with (
-        patch("routers.auth.os.path.exists", return_value=True),
-        patch("routers.auth.os.remove") as mock_remove,
-    ):
-        response = client.post("/auth/logout")
-
-        mock_remove.assert_called_once()
-        assert response.json() == {"authenticated": False}
-
-    clear_overrides()
+    assert response.status_code == 400
+    assert "already" in response.json()["detail"].lower()
 
 
-def test_logout_is_safe_when_no_cache_file():
-    override_spotify_authenticated()
-    with (
-        patch("routers.auth.os.path.exists", return_value=False),
-        patch("routers.auth.os.remove") as mock_remove,
-    ):
-        response = client.post("/auth/logout")
+def test_redeem_invite_nonexistent_code():
+    mock_db = MagicMock()
+    mock_db.table.return_value.select.return_value.eq.return_value.execute.return_value.data = []
 
-        mock_remove.assert_not_called()
-        assert response.json() == {"authenticated": False}
+    with patch("routers.auth.get_service_db", return_value=mock_db):
+        response = client.post(
+            "/auth/redeem-invite",
+            json={"invite_code": "BADCODE"},
+        )
 
-    clear_overrides()
+    assert response.status_code == 404
+    assert "not found" in response.json()["detail"].lower()
 
 
-def test_logout_returns_401_when_not_authenticated():
-    override_spotify_unauthenticated()
+# --- spotify-token tests ---
 
-    response = client.post("/auth/logout")
 
-    assert response.status_code == 401
+def _override_current_user():
+    async def mock_user():
+        return {"user_id": "user-123", "token": "fake-jwt"}
 
-    clear_overrides()
+    app.dependency_overrides[get_current_user] = mock_user
+
+
+def _clear_overrides():
+    app.dependency_overrides.clear()
+
+
+def test_store_spotify_token():
+    _override_current_user()
+    mock_db = MagicMock()
+    mock_db.table.return_value.upsert.return_value.execute.return_value = MagicMock()
+
+    with patch("routers.auth.get_service_db", return_value=mock_db):
+        response = client.post(
+            "/auth/spotify-token",
+            json={
+                "access_token": "sp-access",
+                "refresh_token": "sp-refresh",
+                "expires_in": 3600,
+                "client_id": "my-client-id",
+            },
+        )
+
+    assert response.status_code == 200
+    assert response.json()["status"] == "ok"
+    mock_db.table.return_value.upsert.assert_called_once()
+    _clear_overrides()
+
+
+def test_delete_spotify_token():
+    _override_current_user()
+    mock_db = MagicMock()
+    mock_db.table.return_value.delete.return_value.eq.return_value.execute.return_value = MagicMock()
+
+    with patch("routers.auth.get_service_db", return_value=mock_db):
+        response = client.delete("/auth/spotify-token")
+
+    assert response.status_code == 200
+    assert response.json()["status"] == "ok"
+    mock_db.table.return_value.delete.assert_called_once()
+    _clear_overrides()
+
+
+# --- spotify-status tests ---
+
+
+def test_spotify_status_no_credentials():
+    _override_current_user()
+    mock_db = MagicMock()
+    mock_db.table.return_value.select.return_value.eq.return_value.execute.return_value.data = []
+
+    with patch("routers.auth.get_service_db", return_value=mock_db):
+        response = client.get("/auth/spotify-status")
+
+    assert response.status_code == 200
+    assert response.json() == {"has_credentials": False, "client_id": None}
+    _clear_overrides()
+
+
+def test_spotify_status_with_credentials():
+    _override_current_user()
+    mock_db = MagicMock()
+    mock_db.table.return_value.select.return_value.eq.return_value.execute.return_value.data = [
+        {"user_id": "user-123", "client_id": "my-spotify-cid"}
+    ]
+
+    with patch("routers.auth.get_service_db", return_value=mock_db):
+        response = client.get("/auth/spotify-status")
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "has_credentials": True,
+        "client_id": "my-spotify-cid",
+    }
+    _clear_overrides()
+
+
+def test_spotify_status_requires_auth():
+    # No override — missing Authorization header should be rejected
+    response = client.get("/auth/spotify-status")
+    assert response.status_code in (401, 403, 422)
+
+
+# --- delete-account tests ---
+
+
+def test_delete_account_removes_user_data():
+    _override_current_user()
+    mock_db = MagicMock()
+    # table().delete().eq().execute() chain
+    mock_db.table.return_value.delete.return_value.eq.return_value.execute.return_value = MagicMock()
+    # auth.admin.delete_user
+    mock_db.auth.admin.delete_user.return_value = MagicMock()
+
+    with patch("routers.auth.get_service_db", return_value=mock_db):
+        response = client.delete("/auth/account")
+
+    assert response.status_code == 200
+    assert response.json()["status"] == "ok"
+
+    # Verify deletes happened across user-owned tables
+    called_tables = [
+        call_args[0][0] for call_args in mock_db.table.call_args_list
+    ]
+    for t in [
+        "spotify_tokens",
+        "album_metadata",
+        "collection_albums",
+        "collections",
+        "library_cache",
+        "library_snapshots",
+        "play_history",
+        "profiles",
+    ]:
+        assert t in called_tables, f"expected delete on {t}, got {called_tables}"
+
+    # auth user itself must be deleted
+    mock_db.auth.admin.delete_user.assert_called_once_with("user-123")
+    _clear_overrides()
+
+
+def test_delete_account_only_deletes_own_user_rows():
+    _override_current_user()
+    mock_db = MagicMock()
+    mock_db.table.return_value.delete.return_value.eq.return_value.execute.return_value = MagicMock()
+    mock_db.auth.admin.delete_user.return_value = MagicMock()
+
+    with patch("routers.auth.get_service_db", return_value=mock_db):
+        response = client.delete("/auth/account")
+
+    assert response.status_code == 200
+    # Every delete().eq() call must filter by user_id = "user-123"
+    eq_calls = mock_db.table.return_value.delete.return_value.eq.call_args_list
+    assert len(eq_calls) > 0
+    for call_args in eq_calls:
+        # eq("user_id", "user-123") — or for profiles table eq("id", "user-123")
+        col, val = call_args[0][0], call_args[0][1]
+        assert val == "user-123"
+        assert col in ("user_id", "id")
+    _clear_overrides()
+
+
+def test_delete_account_requires_auth():
+    response = client.delete("/auth/account")
+    assert response.status_code in (401, 403, 422)
+
+
+def test_delete_account_rate_limited():
+    _override_current_user()
+    mock_db = MagicMock()
+    mock_db.table.return_value.delete.return_value.eq.return_value.execute.return_value = MagicMock()
+    mock_db.auth.admin.delete_user.return_value = MagicMock()
+
+    # Reset the limiter state so this test is deterministic regardless of
+    # earlier tests hitting /auth/account.
+    from routers.auth import limiter as _auth_limiter
+    _auth_limiter.reset()
+
+    with patch("routers.auth.get_service_db", return_value=mock_db):
+        responses = [client.delete("/auth/account") for _ in range(5)]
+
+    statuses = [r.status_code for r in responses]
+    # The limit is 3/hour; at least one of the later requests must be throttled.
+    assert 429 in statuses, f"expected rate limit, got {statuses}"
+    _auth_limiter.reset()
+    _clear_overrides()

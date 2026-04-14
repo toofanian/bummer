@@ -209,6 +209,20 @@ describe('CollectionsPane', () => {
     expect(screen.getByText('2d ago')).toBeInTheDocument()
   })
 
+  // --- Collection descriptions ---
+
+  it('shows description as subtitle on collection card', () => {
+    const cols = [{ id: '1', name: 'Late Night', album_count: 5, description: 'low energy, headphone albums' }]
+    render(<CollectionsPane collections={cols} onEnter={() => {}} onDelete={() => {}} onCreate={() => {}} onFetchAlbums={vi.fn().mockResolvedValue([])} />)
+    expect(screen.getByText('low energy, headphone albums')).toBeInTheDocument()
+  })
+
+  it('does not show description when null', () => {
+    const cols = [{ id: '1', name: 'Late Night', album_count: 5, description: null }]
+    render(<CollectionsPane collections={cols} onEnter={() => {}} onDelete={() => {}} onCreate={() => {}} onFetchAlbums={vi.fn().mockResolvedValue([])} />)
+    expect(screen.queryByText('low energy')).not.toBeInTheDocument()
+  })
+
   // --- Sticky create-new-collection input at top ---
 
   it('has an input and button to create a new collection', () => {
@@ -271,6 +285,37 @@ describe('CollectionsPane', () => {
     const firstCollectionName = screen.getByText('Road trip')
     // The input should appear before the collection list in DOM order
     expect(input.compareDocumentPosition(firstCollectionName)).toBe(Node.DOCUMENT_POSITION_FOLLOWING)
+  })
+
+  // --- List layout (no card grid) ---
+
+  it('does not use a multi-column grid layout', () => {
+    render(
+      <CollectionsPane
+        collections={COLLECTIONS}
+        onEnter={() => {}}
+        onDelete={() => {}}
+        onFetchAlbums={() => Promise.resolve([])}
+      />
+    )
+    // The visible container should not use a grid with multiple columns
+    const gridEl = document.querySelector('.grid')
+    expect(gridEl).not.toBeInTheDocument()
+  })
+
+  it('renders each collection as a visible table row (not hidden)', () => {
+    render(
+      <CollectionsPane
+        collections={COLLECTIONS}
+        onEnter={() => {}}
+        onDelete={() => {}}
+        onFetchAlbums={() => Promise.resolve([])}
+      />
+    )
+    // The table should NOT be screen-reader-only
+    const table = document.querySelector('table')
+    expect(table).toBeInTheDocument()
+    expect(table).not.toHaveClass('sr-only')
   })
 
   // --- Table layout ---
@@ -356,7 +401,8 @@ describe('CollectionsPane', () => {
     )
     // Delete button should exist
     expect(screen.getByRole('button', { name: /delete/i })).toBeInTheDocument()
-    // Art cell (td with class collection-art-cell) should still be in DOM even when empty
-    expect(document.querySelector('.collection-art-cell')).toBeInTheDocument()
+    // Art column (5th td in each row) should still be in DOM even when empty
+    const tds = document.querySelectorAll('tbody tr td')
+    expect(tds.length).toBeGreaterThanOrEqual(5)
   })
 })

@@ -63,10 +63,10 @@ export default function CollectionsBubble({ albumCollectionIds, collections, onT
   }, [open])
 
   return (
-    <div className="collections-bubble">
+    <div className="relative inline-block">
       <button
         ref={btnRef}
-        className={`collections-bubble-btn${count > 0 ? ' has-collections' : ''}`}
+        className={`bg-transparent border border-transparent text-text-dim cursor-pointer w-[22px] h-[22px] rounded-full text-xs font-semibold flex items-center justify-center p-0 transition-all duration-100${count > 0 ? ' bg-surface-2 !border-accent text-accent' : ''}`}
         aria-label={count > 0 ? `${count} collections` : 'Add to collection'}
         onClick={handleToggle}
       >
@@ -76,13 +76,13 @@ export default function CollectionsBubble({ albumCollectionIds, collections, onT
       {open && (
         <div
           ref={dropdownRef}
-          className="collections-bubble-dropdown"
+          className="z-[1000] bg-surface border border-border rounded-lg min-w-[200px] max-w-[240px] shadow-lg overflow-hidden"
           style={{ position: 'fixed', top: pos.top, left: pos.left, right: 'auto' }}
           role="dialog"
           aria-label="Collections"
         >
           <input
-            className="collections-bubble-new-input"
+            className="w-full px-3 py-2 text-xs border-b border-border bg-surface"
             placeholder="New collection"
             value={newName}
             onChange={e => setNewName(e.target.value)}
@@ -90,23 +90,23 @@ export default function CollectionsBubble({ albumCollectionIds, collections, onT
             autoFocus
           />
 
-          <div className="collections-bubble-list">
+          <div className="max-h-[200px] overflow-y-auto">
             {collections.length === 0 ? (
-              <div className="collections-bubble-empty">No collections yet</div>
+              <div className="px-3 py-2 text-xs text-text-dim italic">No collections yet</div>
             ) : (
               collections.map(c => {
                 const checked = albumCollectionIds.includes(c.id)
                 return (
                   <div
                     key={c.id}
-                    className="collections-bubble-item"
+                    className="flex justify-between items-center px-3 py-2 cursor-pointer text-sm hover:bg-surface-2 transition-colors duration-150"
                     role="menuitemcheckbox"
                     aria-checked={checked}
                     onClick={() => handleCheckbox(c.id, checked)}
                   >
                     <span>{c.name}</span>
                     {checked && (
-                      <span className="collections-bubble-check" aria-hidden="true">✓</span>
+                      <span className="text-accent font-semibold" aria-hidden="true">✓</span>
                     )}
                   </div>
                 )

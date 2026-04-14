@@ -1,6 +1,6 @@
 {
-  "name": "Better Spotify",
-  "short_name": "Better Spotify",
+  "name": "Crate",
+  "short_name": "Crate",
   "description": "Personal music library with sorting, collections, and playback control",
   "start_url": "/",
   "display": "standalone",
