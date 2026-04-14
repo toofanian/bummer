@@ -1,14 +1,17 @@
 import { test, expect } from '@playwright/test'
 
 const mockAlbums = [
-  { spotify_id: 'album1', name: 'Kind of Blue', artists: ['Miles Davis'], image_url: 'https://example.com/1.jpg', added_at: '2024-01-15' },
-  { spotify_id: 'album2', name: 'A Love Supreme', artists: ['John Coltrane'], image_url: 'https://example.com/2.jpg', added_at: '2024-02-20' },
-  { spotify_id: 'album3', name: 'Head Hunters', artists: ['Herbie Hancock'], image_url: 'https://example.com/3.jpg', added_at: '2024-03-10' },
+  { service_id: 'album1', name: 'Kind of Blue', artists: ['Miles Davis'], image_url: 'https://example.com/1.jpg', added_at: '2024-01-15' },
+  { service_id: 'album2', name: 'A Love Supreme', artists: ['John Coltrane'], image_url: 'https://example.com/2.jpg', added_at: '2024-02-20' },
+  { service_id: 'album3', name: 'Head Hunters', artists: ['Herbie Hancock'], image_url: 'https://example.com/3.jpg', added_at: '2024-03-10' },
 ]
 
 async function mockAuthenticatedWithAlbums(page) {
   await page.route('**/auth/status', route =>
     route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ authenticated: true }) })
+  )
+  await page.route('**/library/sync', route =>
+    route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ synced_this_page: 0, total_in_cache: 0, spotify_total: 0, next_offset: 0, done: true }) })
   )
   await page.route('**/library/albums', route =>
     route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ albums: mockAlbums }) })

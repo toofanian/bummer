@@ -20,9 +20,21 @@ import App from './App'
 beforeEach(() => {
   // Ensure tests don't hit onboarding gate
   localStorage.setItem('spotify_client_id', 'test-client-id')
-  global.fetch = vi.fn().mockImplementation((url) => {
-    if (url.includes('/library/albums')) {
-      return Promise.resolve({ ok: true, json: () => Promise.resolve({ albums: [], total: 0 }) })
+  global.fetch = vi.fn().mockImplementation((url, options) => {
+    if (url.includes('/library/sync') && options?.method === 'POST') {
+      return Promise.resolve({
+        ok: true,
+        json: () => Promise.resolve({
+          synced_this_page: 0,
+          total_in_cache: 0,
+          spotify_total: 0,
+          next_offset: 0,
+          done: true,
+        }),
+      })
+    }
+    if (url.includes('/library/albums') && !url.includes('/tracks')) {
+      return Promise.resolve({ ok: true, json: () => Promise.resolve({ albums: [], total: 0, last_synced: null }) })
     }
     if (url.includes('/collections')) {
       return Promise.resolve({ ok: true, json: () => Promise.resolve([]) })

@@ -1,0 +1,31 @@
+# Vercel bundles everything not excluded here into the Python function
+# zip. backend/.venv is ~133MB on its own, which pushes the function
+# over Vercel's 250MB unzipped size limit. Exclude it and other local
+# dev / test artifacts that don't need to run in the serverless function.
+#
+# IMPORTANT: do not exclude `frontend/src/` or `frontend/node_modules/`
+# — those are needed during the Vite build step (buildCommand runs
+# `cd frontend && npm install && npm run build`).
+
+# Python virtualenv (local dev only, never runs on Vercel)
+backend/.venv/
+
+# Test files (not needed at runtime)
+backend/tests/
+
+# Python bytecode caches
+**/__pycache__/
+**/*.pyc
+**/*.pyo
+
+# Git + docs noise that doesn't need to be in the function bundle
+.git/
+docs/
+*.md
+
+# Repo-root supabase/ (migrations, seed.sql) — NOT the pip-installed
+# supabase Python package. We exclude here at clone-time instead of
+# via vercel.json's excludeFiles glob because that glob also matched
+# the nested `python_packages/supabase/` path, breaking the runtime
+# import: `ModuleNotFoundError: No module named 'supabase'`.
+supabase/

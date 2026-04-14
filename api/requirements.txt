@@ -1,0 +1,27 @@
+# Slim runtime requirements for the Vercel Python function.
+#
+# Only the top-level packages are listed — pip resolves transitive
+# deps. We intentionally do NOT pin every sub-package because Vercel's
+# Python runtime has its own conflict-resolution layer, and the
+# previously-copied backend/requirements-prod.txt pushed the function
+# bundle over Vercel's 250 MB unzipped size limit.
+#
+# Excluded vs the old list:
+#   - uvicorn, uvloop, httptools, watchfiles   (Vercel wraps ASGI
+#                                              directly — no server)
+#   - click, rich, pygments, markdown-it-py    (CLI output helpers)
+#   - PyYAML, StrEnum                          (unused)
+#   - supabase-functions                       (edge functions client)
+#
+# Top-level imports actually used by backend/ (source of truth):
+#   fastapi, pydantic, slowapi, dotenv, jwt (PyJWT[crypto]),
+#   supabase, spotipy, requests
+
+fastapi==0.134.0
+pydantic==2.12.5
+slowapi==0.1.9
+python-dotenv==1.2.1
+PyJWT[crypto]==2.11.0
+supabase==2.28.0
+spotipy==2.25.2
+requests==2.32.5

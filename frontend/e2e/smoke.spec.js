@@ -6,22 +6,15 @@ test.describe('App smoke tests', () => {
     await expect(page.locator('#root')).toBeAttached()
   })
 
-  test('unauthenticated: app triggers auth/login redirect', async ({ page }) => {
-    await page.route('**/auth/status', route =>
-      route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ authenticated: false }) })
-    )
-
-    const [, loginRequest] = await Promise.all([
-      page.goto('/'),
-      page.waitForRequest('**/auth/login'),
-    ])
-    expect(loginRequest.url()).toContain('/auth/login')
-  })
+  // Note: the former 'unauthenticated' test was deleted with the move
+  // to preview-mode E2E (VITE_VERCEL_ENV=preview auto-logs in). There
+  // is no longer an unauthenticated state to exercise in E2E — the
+  // old /auth/status and /auth/login endpoints no longer exist on the
+  // frontend (removed in the Google OAuth migration).
 
   test('authenticated: library heading is visible', async ({ page }) => {
-    // Mock all required API calls
-    await page.route('**/auth/status', route =>
-      route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ authenticated: true }) })
+    await page.route('**/library/sync', route =>
+      route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ synced_this_page: 0, total_in_cache: 0, spotify_total: 0, next_offset: 0, done: true }) })
     )
     await page.route('**/library/albums', route =>
       route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ albums: [] }) })
@@ -46,6 +39,9 @@ test.describe('Mobile viewport', () => {
     await page.route('**/auth/status', route =>
       route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ authenticated: true }) })
     )
+    await page.route('**/library/sync', route =>
+      route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ synced_this_page: 0, total_in_cache: 0, spotify_total: 0, next_offset: 0, done: true }) })
+    )
     await page.route('**/library/albums', route =>
       route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ albums: [] }) })
     )
@@ -67,6 +63,9 @@ test.describe('Mobile viewport', () => {
   test('authenticated: tab navigation switches views on mobile', async ({ page }) => {
     await page.route('**/auth/status', route =>
       route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ authenticated: true }) })
+    )
+    await page.route('**/library/sync', route =>
+      route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ synced_this_page: 0, total_in_cache: 0, spotify_total: 0, next_offset: 0, done: true }) })
     )
     await page.route('**/library/albums', route =>
       route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ albums: [] }) })

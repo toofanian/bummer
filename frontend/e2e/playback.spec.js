@@ -5,6 +5,9 @@ async function mockAuthenticatedWithPlayback(page) {
   await page.route('**/auth/status', route =>
     route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ authenticated: true }) })
   )
+  await page.route('**/library/sync', route =>
+    route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ synced_this_page: 0, total_in_cache: 0, spotify_total: 0, next_offset: 0, done: true }) })
+  )
   await page.route('**/library/albums', route =>
     route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ albums: [] }) })
   )
@@ -55,7 +58,10 @@ test.describe('PlaybackBar - Desktop', () => {
     await page.route('**/auth/status', route =>
       route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ authenticated: true }) })
     )
-    await page.route('**/library/albums', route =>
+    await page.route('**/library/sync', route =>
+    route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ synced_this_page: 0, total_in_cache: 0, spotify_total: 0, next_offset: 0, done: true }) })
+  )
+  await page.route('**/library/albums', route =>
       route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ albums: [] }) })
     )
     await page.route('**/collections', route =>
@@ -89,12 +95,19 @@ test.describe('PlaybackBar - Desktop', () => {
     await page.route('**/auth/status', route =>
       route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ authenticated: true }) })
     )
-    await page.route('**/library/albums', route =>
+    await page.route('**/library/sync', route =>
+    route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ synced_this_page: 0, total_in_cache: 0, spotify_total: 0, next_offset: 0, done: true }) })
+  )
+  await page.route('**/library/albums', route =>
       route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ albums: [] }) })
     )
     await page.route('**/collections', route =>
       route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([]) })
     )
+    // Idle-with-device state: a device exists but nothing is playing.
+    // The "Connect a device" bar only renders when there is no device,
+    // so including a device here triggers the classic "Nothing playing"
+    // idle label that this test asserts.
     await page.route('**/playback/state', route =>
       route.fulfill({
         status: 200,
@@ -102,9 +115,14 @@ test.describe('PlaybackBar - Desktop', () => {
         body: JSON.stringify({
           is_playing: false,
           track: null,
-          device: null,
+          device: { name: 'MacBook Pro', type: 'Computer' },
         }),
       })
+    )
+    await page.route('**/playback/devices', route =>
+      route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([
+        { id: 'dev1', name: 'MacBook Pro', type: 'Computer', is_active: true },
+      ]) })
     )
     await page.route('**/home**', route =>
       route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ today: [], this_week: [], rediscover: [], recommended: [] }) })

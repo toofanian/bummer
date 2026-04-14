@@ -80,7 +80,7 @@ def clear_overrides():
 
 
 def test_set_tier_returns_updated_metadata():
-    db = mock_db(execute_data=[{"spotify_id": "abc123", "tier": "A"}])
+    db = mock_db(execute_data=[{"service_id": "abc123", "tier": "A"}])
     override_db(db)
     override_spotify(mock_spotify())
 
@@ -88,7 +88,7 @@ def test_set_tier_returns_updated_metadata():
 
     assert response.status_code == 200
     assert response.json()["tier"] == "A"
-    assert response.json()["spotify_id"] == "abc123"
+    assert response.json()["service_id"] == "abc123"
 
     clear_overrides()
 
@@ -107,7 +107,7 @@ def test_set_tier_rejects_invalid_value():
 
 def test_set_tier_accepts_all_valid_tiers():
     for tier in ["S", "A", "B", "C", "D"]:
-        db = mock_db(execute_data=[{"spotify_id": "abc123", "tier": tier}])
+        db = mock_db(execute_data=[{"service_id": "abc123", "tier": tier}])
         override_db(db)
         override_spotify(mock_spotify())
 
@@ -119,7 +119,7 @@ def test_set_tier_accepts_all_valid_tiers():
 
 
 def test_clear_tier_sets_tier_to_null():
-    db = mock_db(execute_data=[{"spotify_id": "abc123", "tier": None}])
+    db = mock_db(execute_data=[{"service_id": "abc123", "tier": None}])
     override_db(db)
     override_spotify(mock_spotify())
 
@@ -235,12 +235,12 @@ def test_delete_collection():
 
 
 def test_add_album_to_collection():
-    db = mock_db(execute_data=[{"collection_id": "col-uuid-1", "spotify_id": "abc123"}])
+    db = mock_db(execute_data=[{"collection_id": "col-uuid-1", "service_id": "abc123"}])
     override_db(db)
     override_spotify(mock_spotify())
 
     response = client.post(
-        "/collections/col-uuid-1/albums", json={"spotify_id": "abc123"}
+        "/collections/col-uuid-1/albums", json={"service_id": "abc123"}
     )
 
     assert response.status_code == 201
@@ -252,7 +252,7 @@ def test_add_album_assigns_next_position():
     """Single-album add should assign position = max(existing) + 1."""
     db = mock_db(
         execute_data=[
-            {"collection_id": "col-uuid-1", "spotify_id": "abc123", "position": 5}
+            {"collection_id": "col-uuid-1", "service_id": "abc123", "position": 5}
         ]
     )
     # Mock the position lookup
@@ -263,7 +263,7 @@ def test_add_album_assigns_next_position():
     override_spotify(mock_spotify())
 
     response = client.post(
-        "/collections/col-uuid-1/albums", json={"spotify_id": "abc123"}
+        "/collections/col-uuid-1/albums", json={"service_id": "abc123"}
     )
 
     assert response.status_code == 201
@@ -287,12 +287,12 @@ def test_remove_album_from_collection():
 # --- Bulk metadata ---
 
 
-def test_get_all_metadata_returns_dict_keyed_by_spotify_id():
+def test_get_all_metadata_returns_dict_keyed_by_service_id():
     db = mock_db()
     db.table.return_value.select.return_value.execute.return_value = MagicMock(
         data=[
-            {"spotify_id": "id1", "tier": "A"},
-            {"spotify_id": "id2", "tier": "S"},
+            {"service_id": "id1", "tier": "A"},
+            {"service_id": "id2", "tier": "S"},
         ]
     )
     override_db(db)
@@ -324,87 +324,81 @@ def test_get_all_metadata_returns_empty_dict_when_no_metadata():
 # --- Collection albums ---
 
 
-def test_get_collection_albums_returns_albums_in_collection():
+def test_get_collection_albums_returns_albums_in_collection(monkeypatch):
     import routers.library as library_module
 
-    library_module._caches[FAKE_USER_ID] = {
-        "albums": [
-            {
-                "spotify_id": "id1",
-                "name": "Album One",
-                "artists": ["Artist A"],
-                "release_date": "2020",
-                "total_tracks": 10,
-                "image_url": None,
-                "added_at": "2021-01-01T00:00:00Z",
-            },
-            {
-                "spotify_id": "id2",
-                "name": "Album Two",
-                "artists": ["Artist B"],
-                "release_date": "2019",
-                "total_tracks": 8,
-                "image_url": None,
-                "added_at": "2020-01-01T00:00:00Z",
-            },
-            {
-                "spotify_id": "id3",
-                "name": "Album Three",
-                "artists": ["Artist C"],
-                "release_date": "2018",
-                "total_tracks": 12,
-                "image_url": None,
-                "added_at": "2019-01-01T00:00:00Z",
-            },
-        ],
-        "total": 3,
-        "fetched_at": __import__("time").time(),
-    }
+    cached = [
+        {
+            "service_id": "id1",
+            "name": "Album One",
+            "artists": ["Artist A"],
+            "release_date": "2020",
+            "total_tracks": 10,
+            "image_url": None,
+            "added_at": "2021-01-01T00:00:00Z",
+        },
+        {
+            "service_id": "id2",
+            "name": "Album Two",
+            "artists": ["Artist B"],
+            "release_date": "2019",
+            "total_tracks": 8,
+            "image_url": None,
+            "added_at": "2020-01-01T00:00:00Z",
+        },
+        {
+            "service_id": "id3",
+            "name": "Album Three",
+            "artists": ["Artist C"],
+            "release_date": "2018",
+            "total_tracks": 12,
+            "image_url": None,
+            "added_at": "2019-01-01T00:00:00Z",
+        },
+    ]
+    monkeypatch.setattr(
+        library_module, "get_album_cache", lambda db=None, user_id=None: cached
+    )
 
-    db = mock_db(execute_data=[{"spotify_id": "id1"}, {"spotify_id": "id3"}])
+    db = mock_db(execute_data=[{"service_id": "id1"}, {"service_id": "id3"}])
     override_db(db)
-    override_spotify(mock_spotify())  # cache is warm; Spotify won't actually be called
 
     response = client.get("/collections/col-uuid-1/albums")
 
     assert response.status_code == 200
     data = response.json()
     assert len(data["albums"]) == 2
-    assert {a["spotify_id"] for a in data["albums"]} == {"id1", "id3"}
+    assert {a["service_id"] for a in data["albums"]} == {"id1", "id3"}
 
-    library_module.clear_cache()
     clear_overrides()
 
 
-def test_get_collection_albums_returns_empty_when_collection_empty():
+def test_get_collection_albums_returns_empty_when_collection_empty(monkeypatch):
     import routers.library as library_module
 
-    library_module._caches[FAKE_USER_ID] = {
-        "albums": [
-            {
-                "spotify_id": "id1",
-                "name": "Album One",
-                "artists": [],
-                "release_date": "2020",
-                "total_tracks": 10,
-                "image_url": None,
-                "added_at": "2021-01-01T00:00:00Z",
-            },
-        ],
-        "total": 1,
-        "fetched_at": __import__("time").time(),
-    }
+    cached = [
+        {
+            "service_id": "id1",
+            "name": "Album One",
+            "artists": [],
+            "release_date": "2020",
+            "total_tracks": 10,
+            "image_url": None,
+            "added_at": "2021-01-01T00:00:00Z",
+        },
+    ]
+    monkeypatch.setattr(
+        library_module, "get_album_cache", lambda db=None, user_id=None: cached
+    )
 
     db = mock_db(execute_data=[])
     override_db(db)
-    override_spotify(mock_spotify())  # cache is warm; Spotify won't actually be called
 
     response = client.get("/collections/col-uuid-1/albums")
 
     assert response.status_code == 200
     assert response.json()["albums"] == []
 
-    library_module.clear_cache()
     clear_overrides()
 
 
@@ -531,8 +525,8 @@ def test_clear_collection_cover():
 def test_bulk_add_albums_to_collection():
     db = mock_db(
         execute_data=[
-            {"collection_id": "col-uuid-1", "spotify_id": "id1"},
-            {"collection_id": "col-uuid-1", "spotify_id": "id2"},
+            {"collection_id": "col-uuid-1", "service_id": "id1"},
+            {"collection_id": "col-uuid-1", "service_id": "id2"},
         ]
     )
     override_db(db)
@@ -540,7 +534,7 @@ def test_bulk_add_albums_to_collection():
 
     response = client.post(
         "/collections/col-uuid-1/albums/bulk",
-        json={"spotify_ids": ["id1", "id2"]},
+        json={"service_ids": ["id1", "id2"]},
     )
 
     assert response.status_code == 201
@@ -549,7 +543,7 @@ def test_bulk_add_albums_to_collection():
     clear_overrides()
 
 
-def test_bulk_add_requires_spotify_ids():
+def test_bulk_add_requires_service_ids():
     db = mock_db()
     override_db(db)
     override_spotify(mock_spotify())
@@ -561,50 +555,31 @@ def test_bulk_add_requires_spotify_ids():
     clear_overrides()
 
 
-def test_get_collection_albums_warms_cache_when_cold():
-    """When the library cache is empty, the endpoint must fetch from Spotify
-    rather than returning an empty list."""
-    from unittest.mock import MagicMock
-
+def test_get_collection_albums_returns_empty_when_library_cache_cold(monkeypatch):
+    """When the library cache is empty, the endpoint returns an empty list
+    instead of blocking on a Spotify fetch. The frontend is responsible for
+    driving library sync before requesting collections."""
     import routers.library as library_module
 
-    library_module.clear_cache()  # ensure cache is cold
+    # Library cache is empty — simulate by having get_album_cache return [].
+    monkeypatch.setattr(
+        library_module, "get_album_cache", lambda db=None, user_id=None: []
+    )
 
-    # Spotify mock returns one saved-album item
-    sp = MagicMock()
-    sp.current_user_saved_albums.return_value = {
-        "items": [
-            {
-                "added_at": "2021-01-01T00:00:00Z",
-                "album": {
-                    "id": "id1",
-                    "name": "Album One",
-                    "artists": [{"name": "Artist A"}],
-                    "release_date": "2020",
-                    "total_tracks": 10,
-                    "images": [],
-                },
-            }
-        ],
-        "total": 1,
-        "next": None,
-    }
-    app.dependency_overrides[get_user_spotify] = lambda: sp
-    app.dependency_overrides[get_current_user] = lambda: FAKE_USER
-
-    db = mock_db(execute_data=[{"spotify_id": "id1"}])
+    db = mock_db(execute_data=[{"service_id": "id1"}])
     override_db(db)
+    app.dependency_overrides[get_current_user] = lambda: FAKE_USER
 
     response = client.get("/collections/col-uuid-1/albums")
 
     assert response.status_code == 200
     data = response.json()
-    assert len(data["albums"]) == 1
-    assert data["albums"][0]["spotify_id"] == "id1"
-    assert data["albums"][0]["name"] == "Album One"
+    # Service IDs exist in the collection but can't be resolved to album
+    # metadata because the library cache is cold. The endpoint returns empty
+    # rather than blocking on a Spotify sync.
+    assert data["albums"] == []
 
-    library_module.clear_cache()
-    app.dependency_overrides.clear()
+    clear_overrides()
 
 
 # --- 401 auth tests for unprotected endpoints ---
@@ -695,7 +670,7 @@ def test_add_album_to_collection_returns_401_when_not_authenticated():
     _setup_unauthenticated_overrides()
 
     response = client.post(
-        "/collections/col-uuid-1/albums", json={"spotify_id": "abc123"}
+        "/collections/col-uuid-1/albums", json={"service_id": "abc123"}
     )
 
     assert response.status_code == 401

@@ -22,6 +22,7 @@ import OnboardingWizard from './components/OnboardingWizard'
 import BulkAddBar from './components/BulkAddBar'
 import SettingsMenu from './components/SettingsMenu'
 import { apiFetch } from './api'
+import { IS_PREVIEW } from './previewMode'
 const CACHE_KEY = 'bsi_albums_cache'
 
 export default function App() {
@@ -32,7 +33,7 @@ export default function App() {
   // albumCollectionMap: { [service_id]: string[] } — IDs of collections the album belongs to
   const [albumCollectionMap, setAlbumCollectionMap] = useState({})
   const [loading, setLoading] = useState(true)
-  const [loadingMessage, setLoadingMessage] = useState('Syncing your Spotify library... this may take a moment')
+  const [loadingMessage, setLoadingMessage] = useState('Loading...')
   const [syncing, setSyncing] = useState(false)
   const [error, setError] = useState(null)
   const [search, setSearch] = useState('')
@@ -103,69 +104,113 @@ export default function App() {
     }
   }, [nowPlayingServiceId, playback.is_playing, playingId])
 
-  const loadData = useCallback(() => {
+  const loadData = useCallback(async () => {
     setError(null)
-    setLoadingMessage('Syncing your Spotify library... this may take a moment')
     setCollections([])
     setCollectionAlbums([])
     setAlbumCollectionMap({})
 
-    // Try to load from localStorage immediately
+    // 1. Optimistic localStorage render
     const cached = (() => {
       try { return JSON.parse(localStorage.getItem(CACHE_KEY)) } catch { return null }
     })()
+    const isColdStart = !(cached?.albums?.length)
 
-    if (cached?.albums?.length) {
+    if (!isColdStart) {
+      // Warm start: render cached albums immediately, show subtle syncing pulse
       setAlbums(cached.albums)
       setLoading(false)
       setSyncing(true)
     } else {
+      // Cold start: loading screen with progress message
       setAlbums([])
       setLoading(true)
+      setLoadingMessage('Syncing your library...')
     }
 
-    return apiFetch('/library/albums', {}, sessionRef.current)
-      .then(r => r.json())
-      .then(libraryData => {
-        setAlbums(libraryData.albums)
+    try {
+      // 2. Fetch current Supabase cache state (fast, bounded)
+      const cacheResp = await apiFetch('/library/albums', {}, sessionRef.current).then(r => r.json())
+      const serverAlbums = cacheResp.albums ?? []
+
+      if (serverAlbums.length > 0) {
+        setAlbums(serverAlbums)
         try {
           localStorage.setItem(CACHE_KEY, JSON.stringify({
-            albums: libraryData.albums,
-            total: libraryData.total,
+            albums: serverAlbums,
+            total: serverAlbums.length,
             cachedAt: new Date().toISOString(),
           }))
         } catch { /* storage full or unavailable */ }
-        setSyncing(false)
-        setLoadingMessage('Loading collections...')
-        return apiFetch('/collections', {}, sessionRef.current)
-          .then(r => r.json())
-          .then(collectionsData => {
-            setCollections(collectionsData)
-            // Eagerly fetch all collection memberships so albumCollectionMap is
-            // populated on first render rather than lazily as the user navigates.
-            // Individual collection album fetches are non-fatal — a failure yields
-            // an empty albums list for that collection rather than crashing the app.
-            return Promise.all(
-              collectionsData.map(col =>
-                apiFetch(`/collections/${col.id}/albums`, {}, sessionRef.current)
-                  .then(r => r.json())
-                  .catch(() => ({ albums: [] }))  // silent fallback
-              )
-            ).then(results => {
-              const map = {}
-              results.forEach((data, i) => {
-                const colId = collectionsData[i].id
-                ;(data.albums ?? []).forEach(album => {
-                  if (!map[album.service_id]) map[album.service_id] = []
-                  map[album.service_id].push(colId)
-                })
-              })
-              setAlbumCollectionMap(map)
-            })
-          })
+      }
+
+      // 3. Drive the sync loop. Per design, always auto-refresh on app open.
+      setSyncing(true)
+      let offset = 0
+      let progress = null
+      do {
+        const resp = await apiFetch('/library/sync', {
+          method: 'POST',
+          body: JSON.stringify({ offset }),
+        }, sessionRef.current).then(r => r.json())
+        progress = resp
+        if (isColdStart) {
+          setLoadingMessage(
+            `Syncing ${progress.total_in_cache} of ${progress.spotify_total} albums...`
+          )
+        }
+        offset = progress.next_offset
+      } while (!progress.done)
+
+      // 4. Refetch the complete library
+      const finalResp = await apiFetch('/library/albums', {}, sessionRef.current).then(r => r.json())
+      setAlbums(finalResp.albums ?? [])
+      try {
+        localStorage.setItem(CACHE_KEY, JSON.stringify({
+          albums: finalResp.albums ?? [],
+          total: (finalResp.albums ?? []).length,
+          cachedAt: new Date().toISOString(),
+        }))
+      } catch { /* storage full or unavailable */ }
+      setSyncing(false)
+
+      // 5. Continue to collections fetch
+      setLoadingMessage('Loading collections...')
+      const collectionsData = await apiFetch('/collections', {}, sessionRef.current).then(r => r.json())
+      setCollections(collectionsData)
+      // Eagerly fetch all collection memberships so albumCollectionMap is
+      // populated on first render rather than lazily as the user navigates.
+      // Individual collection album fetches are non-fatal — a failure yields
+      // an empty albums list for that collection rather than crashing the app.
+      const results = await Promise.all(
+        collectionsData.map(col =>
+          apiFetch(`/collections/${col.id}/albums`, {}, sessionRef.current)
+            .then(r => r.json())
+            .catch(() => ({ albums: [] }))  // silent fallback
+        )
+      )
+      const map = {}
+      results.forEach((data, i) => {
+        const colId = collectionsData[i].id
+        ;(data.albums ?? []).forEach(album => {
+          if (!map[album.service_id]) map[album.service_id] = []
+          map[album.service_id].push(colId)
+        })
       })
-      .catch(err => setError(err.message))
-      .finally(() => { setLoading(false); setSyncing(false) })
+      setAlbumCollectionMap(map)
+    } catch (err) {
+      // If we had cached data, keep it visible and swallow the error — a
+      // failed background sync shouldn't wipe a warm UI. On cold start the
+      // user has nothing to show, so surface the error so they can retry.
+      if (isColdStart) {
+        setError(err.message)
+      } else {
+        console.warn('Background sync failed, keeping cached library:', err)
+      }
+    } finally {
+      setLoading(false)
+      setSyncing(false)
+    }
   }, [])
 
   const hasSession = !!session
@@ -536,6 +581,7 @@ export default function App() {
   const hasLocalClientId = !!localStorage.getItem('spotify_client_id')
   // Onboarding check state: 'idle' | 'checking' | 'needs_onboarding' | 'reconnecting' | 'ready'
   const [onboardingCheckState, setOnboardingCheckState] = useState(() => {
+    if (IS_PREVIEW) return 'ready' // Preview deploys skip onboarding entirely
     if (!session) return 'idle'
     if (isSpotifyCallback) return 'needs_onboarding' // OnboardingWizard handles callback
     if (hasLocalClientId) return 'ready'
@@ -544,6 +590,7 @@ export default function App() {
 
   // Transition from 'idle' once session arrives
   useEffect(() => {
+    if (IS_PREVIEW) return
     if (onboardingCheckState !== 'idle' || !session) return
     if (isSpotifyCallback) {
       setOnboardingCheckState('needs_onboarding')
@@ -555,6 +602,7 @@ export default function App() {
   }, [onboardingCheckState, session, isSpotifyCallback, hasLocalClientId])
 
   useEffect(() => {
+    if (IS_PREVIEW) return
     if (onboardingCheckState !== 'checking' || !session) return
     let cancelled = false
     ;(async () => {
@@ -642,7 +690,7 @@ export default function App() {
   if (isMobile) {
     return (
       <div className="app flex flex-col h-dvh">
-        <header className="bg-surface border-b border-border flex items-center px-4 py-2 gap-3">
+        <header className="bg-surface border-b border-border flex items-center px-4 py-2 gap-3" style={{ paddingTop: 'env(safe-area-inset-top, 0px)' }}>
           <h1>
             {view === 'home' ? 'Home' : view === 'library' ? 'Library' : view === 'collections' ? 'Collections' : view?.name ?? 'Collection'}
             {' '}<span style={{ fontSize: '10px', fontWeight: 400, opacity: 0.35, letterSpacing: '0.05em' }}>{__APP_VERSION__}</span>

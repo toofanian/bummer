@@ -89,11 +89,19 @@ export default function DevicePicker({
 
   return (
     <>
-      {/* Backdrop — clicking outside closes the picker */}
+      {/* Backdrop — clicking outside closes the picker.
+          stopPropagation prevents React synthetic events from bubbling
+          up to a parent click handler (e.g. MiniPlaybackBar's onExpand,
+          which would otherwise open FullScreenNowPlaying when you
+          dismiss the picker on mobile). */}
       <div
+        data-testid="device-picker-backdrop"
         aria-hidden="true"
         style={{ position: 'fixed', inset: 0, zIndex: 9998 }}
-        onClick={onClose}
+        onClick={(e) => {
+          e.stopPropagation()
+          onClose()
+        }}
       />
       <div
         role="listbox"

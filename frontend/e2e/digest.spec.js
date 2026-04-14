@@ -4,10 +4,10 @@ const mockDigestData = {
   start_date: '2024-03-18',
   end_date: '2024-03-25',
   added: [
-    { spotify_id: 'd1', name: 'New Album', artists: ['New Artist'], image_url: 'https://example.com/d1.jpg' },
+    { service_id: 'd1', name: 'New Album', artists: ['New Artist'], image_url: 'https://example.com/d1.jpg' },
   ],
   removed: [
-    { spotify_id: 'd2', name: 'Old Album', artists: ['Old Artist'], image_url: 'https://example.com/d2.jpg' },
+    { service_id: 'd2', name: 'Old Album', artists: ['Old Artist'], image_url: 'https://example.com/d2.jpg' },
   ],
   listened: [],
   total_start: 100,
@@ -18,6 +18,9 @@ const mockDigestData = {
 async function mockBasicRoutes(page) {
   await page.route('**/auth/status', route =>
     route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ authenticated: true }) })
+  )
+  await page.route('**/library/sync', route =>
+    route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ synced_this_page: 0, total_in_cache: 0, spotify_total: 0, next_offset: 0, done: true }) })
   )
   await page.route('**/library/albums', route =>
     route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ albums: [] }) })

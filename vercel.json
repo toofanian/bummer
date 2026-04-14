@@ -1,0 +1,17 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "buildCommand": "cd frontend && npm install && npm run build",
+  "outputDirectory": "frontend/dist",
+  "framework": null,
+  "rewrites": [
+    { "source": "/api/(.*)", "destination": "/api/index" },
+    { "source": "/((?!api/).*)", "destination": "/index.html" }
+  ],
+  "functions": {
+    "api/index.py": {
+      "runtime": "@vercel/python@4.3.0",
+      "maxDuration": 60,
+      "excludeFiles": "{frontend/**,.claude/**,.github/**,.mcp.json,backend/.venv/**,backend/tests/**,backend/scripts/**,backend/requirements.txt,backend/pyproject.toml}"
+    }
+  }
+}

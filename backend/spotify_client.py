@@ -61,6 +61,17 @@ def _refresh_token(user_id: str, token_data: dict, db: Client) -> dict:
 async def get_user_spotify(
     user: dict = Depends(get_current_user),
 ) -> spotipy.Spotify:
+    # Preview mode: skip the token refresh (the seeded music_tokens row
+    # uses a fake refresh token, so a real call to Spotify's token
+    # endpoint would crash). Return a Spotipy client with the fake
+    # access token — endpoints that only touch the DB (e.g. listing
+    # collections) will work fine; endpoints that actually call the
+    # Spotify API will fail at the call site, which is the expected
+    # limitation of the preview auth bypass.
+    import os
+    if os.getenv("VERCEL_ENV") == "preview":
+        return spotipy.Spotify(auth="PREVIEW_FAKE_ACCESS")
+
     db = get_service_db()
     return get_spotify_for_user(user["user_id"], db)
 

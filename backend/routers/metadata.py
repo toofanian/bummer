@@ -267,7 +267,6 @@ def remove_album_from_collection(
 def get_collection_albums(
     collection_id: str,
     db=Depends(get_authed_db),
-    sp: spotipy.Spotify = Depends(get_user_spotify),
     user: dict = Depends(get_current_user),
 ):
     user_id = user["user_id"]
@@ -280,16 +279,11 @@ def get_collection_albums(
     )
     ordered_ids = [row["service_id"] for row in result.data]
     ids = set(ordered_ids)
-    if not library_module._is_cache_fresh(user_id):
-        all_items, total = library_module.fetch_all_albums(sp)
-        albums_list = [library_module._normalize_album(item) for item in all_items]
-        library_module._caches[user_id] = {
-            "albums": albums_list,
-            "total": total,
-            "fetched_at": __import__("time").time(),
-        }
-    entry = library_module._caches.get(user_id)
-    cached = entry["albums"] if entry else []
-    album_map = {a["service_id"]: a for a in cached if a["service_id"] in ids}
+
+    # Read library cache from Supabase. If empty, returns empty list — the
+    # frontend is responsible for driving library sync via POST /library/sync
+    # before requesting collection albums.
+    cached_albums = library_module.get_album_cache(db, user_id=user_id)
+    album_map = {a["service_id"]: a for a in cached_albums if a["service_id"] in ids}
     albums = [album_map[sid] for sid in ordered_ids if sid in album_map]
     return {"albums": albums}

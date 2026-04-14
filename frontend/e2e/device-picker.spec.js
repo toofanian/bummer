@@ -5,6 +5,9 @@ async function mockAuthenticatedWithPlayback(page) {
   await page.route('**/auth/status', route =>
     route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ authenticated: true }) })
   )
+  await page.route('**/library/sync', route =>
+    route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ synced_this_page: 0, total_in_cache: 0, spotify_total: 0, next_offset: 0, done: true }) })
+  )
   await page.route('**/library/albums', route =>
     route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ albums: [] }) })
   )

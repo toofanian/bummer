@@ -7,8 +7,8 @@ const mockCollections = [
 
 const mockCollectionAlbums = {
   albums: [
-    { spotify_id: 'alb1', name: 'Kind of Blue', artists: ['Miles Davis'], image_url: null },
-    { spotify_id: 'alb2', name: 'A Love Supreme', artists: ['John Coltrane'], image_url: null },
+    { service_id: 'alb1', name: 'Kind of Blue', artists: ['Miles Davis'], image_url: null },
+    { service_id: 'alb2', name: 'A Love Supreme', artists: ['John Coltrane'], image_url: null },
   ],
 }
 
@@ -22,6 +22,9 @@ const mockCollectionAlbums = {
 async function setupMocks(page, { collections = mockCollections, onPost, onDelete } = {}) {
   await page.route('**/auth/status', route =>
     route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ authenticated: true }) })
+  )
+  await page.route('**/library/sync', route =>
+    route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ synced_this_page: 0, total_in_cache: 0, spotify_total: 0, next_offset: 0, done: true }) })
   )
   await page.route('**/library/albums', route =>
     route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ albums: [] }) })

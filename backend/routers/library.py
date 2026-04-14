@@ -1,32 +1,33 @@
-import time
-
 import spotipy
-from fastapi import APIRouter, BackgroundTasks, Depends
+from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel
 from supabase import Client
 
 from auth_middleware import get_authed_db, get_current_user
 from spotify_client import get_user_spotify
-from spotify_helpers import fetch_all_albums
 
 router = APIRouter(prefix="/library", tags=["library"])
 
-CACHE_TTL_SECONDS = 3600  # 1 hour
 
-_caches: dict[
-    str, dict
-] = {}  # user_id -> {"albums": ..., "total": ..., "fetched_at": ...}
+class SyncRequest(BaseModel):
+    offset: int
 
 
-def _is_cache_fresh(user_id: str) -> bool:
-    entry = _caches.get(user_id)
-    return entry is not None and (time.time() - entry["fetched_at"]) < CACHE_TTL_SECONDS
+def _dedupe_albums_by_service_id(albums: list[dict]) -> list[dict]:
+    """Collapse duplicate service_ids, keeping the first-seen position but last-wins value.
 
-
-def clear_cache(user_id: str | None = None):
-    if user_id is None:
-        _caches.clear()
-    else:
-        _caches.pop(user_id, None)
+    Used by the sync endpoint's merge path. In practice duplicates only occur
+    under retries or two-tab races (where the duplicate payloads are identical),
+    so last-wins is defensive but equivalent to first-wins in the common case.
+    """
+    seen: dict[str, dict] = {}
+    order: list[str] = []
+    for album in albums:
+        sid = album["service_id"]
+        if sid not in seen:
+            order.append(sid)
+        seen[sid] = album
+    return [seen[sid] for sid in order]
 
 
 def _get_supabase_cache(db: Client, user_id: str = None):
@@ -67,58 +68,67 @@ def _normalize_album(item: dict) -> dict:
     }
 
 
-def _background_spotify_sync(sp: spotipy.Spotify, db: Client, user_id: str):
-    """Re-sync from Spotify and update both in-memory and Supabase cache."""
-    all_items, total = fetch_all_albums(sp)
-    albums = [_normalize_album(item) for item in all_items]
-    _caches[user_id] = {"albums": albums, "total": total, "fetched_at": time.time()}
-    _save_supabase_cache(db, albums, total, user_id)
-
-
 @router.get("/albums")
 def get_albums(
-    background_tasks: BackgroundTasks,
+    db: Client = Depends(get_authed_db),
+    user: dict = Depends(get_current_user),
+):
+    """Return the user's cached library state. No Spotify calls.
+
+    The frontend is responsible for driving a sync loop via POST /library/sync
+    when the cache is empty or stale.
+    """
+    user_id = user["user_id"]
+    row = _get_supabase_cache(db, user_id=user_id)
+    if row is None:
+        return {"albums": [], "total": 0, "last_synced": None}
+    albums = row.get("albums") or []
+    return {
+        "albums": albums,
+        "total": len(albums),
+        "last_synced": row.get("synced_at"),
+    }
+
+
+@router.post("/sync")
+def sync_one_page(
+    body: SyncRequest,
     sp: spotipy.Spotify = Depends(get_user_spotify),
     db: Client = Depends(get_authed_db),
     user: dict = Depends(get_current_user),
 ):
+    if body.offset < 0 or body.offset % 50 != 0:
+        raise HTTPException(
+            status_code=400,
+            detail="offset must be a non-negative multiple of 50",
+        )
+
     user_id = user["user_id"]
 
-    # Tier 1: in-memory cache
-    if _is_cache_fresh(user_id):
-        entry = _caches[user_id]
-        return {"albums": entry["albums"], "total": entry["total"], "syncing": False}
+    # Fetch one page from Spotify
+    result = sp.current_user_saved_albums(limit=50, offset=body.offset)
+    new_albums = [_normalize_album(item) for item in result["items"]]
+    spotify_total = result["total"]
+    done = result["next"] is None
 
-    # Tier 2: Supabase cache
-    supabase_row = _get_supabase_cache(db, user_id=user_id)
-    if supabase_row:
-        _caches[user_id] = {
-            "albums": supabase_row["albums"],
-            "total": supabase_row["total"],
-            "fetched_at": time.time(),
-        }
-        entry = _caches[user_id]
-        background_tasks.add_task(_background_spotify_sync, sp, db, user_id)
-        return {"albums": entry["albums"], "total": entry["total"], "syncing": True}
+    # Compute merged cache: offset=0 clears, offset>0 appends and dedupes
+    if body.offset == 0:
+        merged = new_albums
+    else:
+        existing_row = _get_supabase_cache(db, user_id=user_id)
+        existing_albums = existing_row["albums"] if existing_row else []
+        merged = _dedupe_albums_by_service_id(existing_albums + new_albums)
 
-    # Tier 3: cold start — fetch from Spotify
-    all_items, total = fetch_all_albums(sp)
-    albums = [_normalize_album(item) for item in all_items]
-    _caches[user_id] = {"albums": albums, "total": total, "fetched_at": time.time()}
-    _save_supabase_cache(db, albums, total, user_id)
-    return {"albums": albums, "total": total, "syncing": False}
+    # Persist
+    _save_supabase_cache(db, merged, len(merged), user_id)
 
-
-@router.post("/albums/invalidate-cache")
-def invalidate_cache(
-    sp: spotipy.Spotify = Depends(get_user_spotify),
-    db: Client = Depends(get_authed_db),
-    user: dict = Depends(get_current_user),
-):
-    user_id = user["user_id"]
-    clear_cache(user_id)
-    db.table("library_cache").delete().eq("id", user_id).execute()
-    return {"cache": "cleared"}
+    return {
+        "synced_this_page": len(new_albums),
+        "total_in_cache": len(merged),
+        "spotify_total": spotify_total,
+        "next_offset": body.offset + len(new_albums),
+        "done": done,
+    }
 
 
 def _format_duration(ms: int) -> str:
@@ -152,9 +162,11 @@ def get_album_tracks(album_id: str, sp: spotipy.Spotify = Depends(get_user_spoti
 
 
 def get_album_cache(db: Client = None, user_id: str | None = None):
-    """Return cached album list, falling back to Supabase if in-memory cache is cold."""
-    if user_id and user_id in _caches and _caches[user_id]["albums"] is not None:
-        return _caches[user_id]["albums"]
+    """Return cached album list from Supabase, or empty list if absent.
+
+    Used by digest.py to read the user's library snapshot without re-fetching
+    from Spotify. Previously consulted an in-memory cache; now Supabase-only.
+    """
     if db is not None:
         row = _get_supabase_cache(db, user_id=user_id)
         if row:
