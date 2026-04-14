@@ -165,6 +165,36 @@ def test_get_albums_refetches_after_cache_expires():
     clear_overrides()
 
 
+def test_get_album_tracks_includes_artists():
+    sp = MagicMock()
+    sp.album_tracks.return_value = {
+        "items": [
+            {
+                "id": "track1",
+                "track_number": 1,
+                "name": "No Ordinary Love",
+                "duration_ms": 265000,
+                "artists": [{"id": "art1", "name": "Sade"}],
+                "next": None,
+            }
+        ],
+        "next": None,
+    }
+    override_spotify(sp)
+
+    response = client.get("/library/albums/abc123/tracks")
+
+    assert response.status_code == 200
+    tracks = response.json()["tracks"]
+    assert len(tracks) == 1
+    track = tracks[0]
+    assert "artists" in track
+    assert isinstance(track["artists"], list)
+    assert track["artists"] == ["Sade"]
+
+    clear_overrides()
+
+
 def test_cache_can_be_invalidated_explicitly():
     sp = make_spotify_mock([
         {"items": [SAVED_ALBUM], "total": 1, "next": None},

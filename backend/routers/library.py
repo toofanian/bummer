@@ -69,3 +69,33 @@ def get_albums(sp: spotipy.Spotify = Depends(get_spotify)):
 def invalidate_cache():
     clear_cache()
     return {"cache": "cleared"}
+
+
+def _format_duration(ms: int) -> str:
+    total_seconds = ms // 1000
+    minutes = total_seconds // 60
+    seconds = total_seconds % 60
+    return f"{minutes}:{seconds:02d}"
+
+
+@router.get("/albums/{spotify_id}/tracks")
+def get_album_tracks(spotify_id: str, sp: spotipy.Spotify = Depends(get_spotify)):
+    all_tracks = []
+    result = sp.album_tracks(spotify_id, limit=50)
+    while True:
+        all_tracks.extend(result["items"])
+        if not result["next"]:
+            break
+        result = sp.album_tracks(spotify_id, limit=50, offset=len(all_tracks))
+    return {
+        "tracks": [
+            {
+                "spotify_id": t["id"],
+                "track_number": t["track_number"],
+                "name": t["name"],
+                "duration": _format_duration(t["duration_ms"]),
+                "artists": [a["name"] for a in t.get("artists", [])],
+            }
+            for t in all_tracks
+        ]
+    }

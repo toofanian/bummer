@@ -2,6 +2,9 @@ from typing import Literal
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 from db import get_db
+from spotify_client import get_spotify
+import spotipy
+import routers.library as library_module
 
 router = APIRouter(tags=["metadata"])
 
@@ -48,8 +51,14 @@ def clear_tier(spotify_id: str, db=Depends(get_db)):
 
 @router.get("/collections")
 def list_collections(db=Depends(get_db)):
-    result = db.table("collections").select("*").execute()
-    return result.data
+    result = db.table("collections").select("*, collection_albums(count)").execute()
+    rows = []
+    for row in result.data:
+        count_data = row.pop("collection_albums", None)
+        album_count = count_data[0]["count"] if count_data else 0
+        row["album_count"] = album_count
+        rows.append(row)
+    return rows
 
 
 @router.post("/collections", status_code=201)
@@ -78,3 +87,17 @@ def remove_album_from_collection(collection_id: str, spotify_id: str, db=Depends
         "collection_id", collection_id
     ).eq("spotify_id", spotify_id).execute()
     return {"deleted": True}
+
+
+@router.get("/collections/{collection_id}/albums")
+def get_collection_albums(collection_id: str, db=Depends(get_db), sp: spotipy.Spotify = Depends(get_spotify)):
+    result = db.table("collection_albums").select("spotify_id").eq("collection_id", collection_id).execute()
+    ids = {row["spotify_id"] for row in result.data}
+    if not library_module._is_cache_fresh():
+        all_items, total = library_module._fetch_all_albums(sp)
+        library_module._cache["albums"] = [library_module._normalize_album(item) for item in all_items]
+        library_module._cache["total"] = total
+        library_module._cache["fetched_at"] = __import__("time").time()
+    cached = library_module._cache.get("albums") or []
+    albums = [a for a in cached if a["spotify_id"] in ids]
+    return {"albums": albums}

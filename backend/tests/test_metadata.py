@@ -2,16 +2,23 @@ from unittest.mock import MagicMock
 from fastapi.testclient import TestClient
 from main import app
 from db import get_db
+from spotify_client import get_spotify
 
 client = TestClient(app)
 
-COLLECTION = {"id": "col-uuid-1", "name": "Road trip", "created_at": "2021-01-01T00:00:00Z"}
+COLLECTION = {
+    "id": "col-uuid-1",
+    "name": "Road trip",
+    "created_at": "2021-01-01T00:00:00Z",
+    "updated_at": "2021-06-15T00:00:00Z",
+}
 
 
 def mock_db(execute_data=None):
     """Return a MagicMock Supabase client whose .execute() returns given data."""
     db = MagicMock()
     db.table.return_value.select.return_value.execute.return_value = MagicMock(data=execute_data or [])
+    db.table.return_value.select.return_value.eq.return_value.execute.return_value = MagicMock(data=execute_data or [])
     db.table.return_value.insert.return_value.execute.return_value = MagicMock(data=execute_data or [])
     db.table.return_value.upsert.return_value.execute.return_value = MagicMock(data=execute_data or [])
     db.table.return_value.delete.return_value.eq.return_value.execute.return_value = MagicMock(data=[])
@@ -21,6 +28,15 @@ def mock_db(execute_data=None):
 
 def override_db(db):
     app.dependency_overrides[get_db] = lambda: db
+
+
+def mock_spotify():
+    """Return a MagicMock Spotify client (used as a no-op when cache is pre-warmed)."""
+    return MagicMock()
+
+
+def override_spotify(sp):
+    app.dependency_overrides[get_spotify] = lambda: sp
 
 
 def clear_overrides():
@@ -102,6 +118,37 @@ def test_list_collections_returns_all_collections():
     assert len(data) == 1
     assert data[0]["name"] == "Road trip"
     assert data[0]["id"] == "col-uuid-1"
+
+    clear_overrides()
+
+
+def test_list_collections_includes_album_count():
+    """GET /collections must include album_count on each row."""
+    collection_with_count = {**COLLECTION, "collection_albums": [{"count": 3}]}
+    db = mock_db(execute_data=[collection_with_count])
+    override_db(db)
+
+    response = client.get("/collections")
+
+    assert response.status_code == 200
+    data = response.json()
+    assert len(data) == 1
+    assert data[0]["album_count"] == 3
+
+    clear_overrides()
+
+
+def test_list_collections_includes_created_at_and_updated_at():
+    """GET /collections must include created_at and updated_at on each row."""
+    db = mock_db(execute_data=[COLLECTION])
+    override_db(db)
+
+    response = client.get("/collections")
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data[0]["created_at"] == "2021-01-01T00:00:00Z"
+    assert data[0]["updated_at"] == "2021-06-15T00:00:00Z"
 
     clear_overrides()
 
@@ -194,3 +241,94 @@ def test_get_all_metadata_returns_empty_dict_when_no_metadata():
     assert response.json() == {}
 
     clear_overrides()
+
+
+# --- Collection albums ---
+
+def test_get_collection_albums_returns_albums_in_collection():
+    import routers.library as library_module
+    library_module._cache["albums"] = [
+        {"spotify_id": "id1", "name": "Album One", "artists": ["Artist A"], "release_date": "2020", "total_tracks": 10, "image_url": None, "added_at": "2021-01-01T00:00:00Z"},
+        {"spotify_id": "id2", "name": "Album Two", "artists": ["Artist B"], "release_date": "2019", "total_tracks": 8,  "image_url": None, "added_at": "2020-01-01T00:00:00Z"},
+        {"spotify_id": "id3", "name": "Album Three","artists": ["Artist C"], "release_date": "2018", "total_tracks": 12, "image_url": None, "added_at": "2019-01-01T00:00:00Z"},
+    ]
+    library_module._cache["total"] = 3
+    library_module._cache["fetched_at"] = __import__("time").time()
+
+    db = mock_db(execute_data=[{"spotify_id": "id1"}, {"spotify_id": "id3"}])
+    override_db(db)
+    override_spotify(mock_spotify())  # cache is warm; Spotify won't actually be called
+
+    response = client.get("/collections/col-uuid-1/albums")
+
+    assert response.status_code == 200
+    data = response.json()
+    assert len(data["albums"]) == 2
+    assert {a["spotify_id"] for a in data["albums"]} == {"id1", "id3"}
+
+    library_module.clear_cache()
+    clear_overrides()
+
+
+def test_get_collection_albums_returns_empty_when_collection_empty():
+    import routers.library as library_module
+    library_module._cache["albums"] = [
+        {"spotify_id": "id1", "name": "Album One", "artists": [], "release_date": "2020", "total_tracks": 10, "image_url": None, "added_at": "2021-01-01T00:00:00Z"},
+    ]
+    library_module._cache["total"] = 1
+    library_module._cache["fetched_at"] = __import__("time").time()
+
+    db = mock_db(execute_data=[])
+    override_db(db)
+    override_spotify(mock_spotify())  # cache is warm; Spotify won't actually be called
+
+    response = client.get("/collections/col-uuid-1/albums")
+
+    assert response.status_code == 200
+    assert response.json()["albums"] == []
+
+    library_module.clear_cache()
+    clear_overrides()
+
+
+def test_get_collection_albums_warms_cache_when_cold():
+    """When the library cache is empty, the endpoint must fetch from Spotify
+    rather than returning an empty list."""
+    from unittest.mock import MagicMock
+    import routers.library as library_module
+    from spotify_client import get_spotify
+
+    library_module.clear_cache()  # ensure cache is cold
+
+    # Spotify mock returns one saved-album item
+    sp = MagicMock()
+    sp.current_user_saved_albums.return_value = {
+        "items": [{
+            "added_at": "2021-01-01T00:00:00Z",
+            "album": {
+                "id": "id1",
+                "name": "Album One",
+                "artists": [{"name": "Artist A"}],
+                "release_date": "2020",
+                "total_tracks": 10,
+                "images": [],
+            },
+        }],
+        "total": 1,
+        "next": None,
+    }
+    app.dependency_overrides[get_spotify] = lambda: sp
+
+    db = mock_db(execute_data=[{"spotify_id": "id1"}])
+    override_db(db)
+
+    response = client.get("/collections/col-uuid-1/albums")
+
+    assert response.status_code == 200
+    data = response.json()
+    assert len(data["albums"]) == 1
+    assert data["albums"][0]["spotify_id"] == "id1"
+    assert data["albums"][0]["name"] == "Album One"
+
+    library_module.clear_cache()
+    app.dependency_overrides.clear()
