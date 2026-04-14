@@ -22,6 +22,3 @@ Bummer is a personal project, but feedback is welcome:
 - **Have a feature idea?** [Start a discussion](https://github.com/toofanian/bummer/discussions/categories/ideas) — upvote existing ideas or propose new ones
 - **Browse the backlog:** [Project board](https://github.com/users/toofanian/projects/3)
 
-## License
-
-[Functional Source License 1.1 (FSL-1.1-ALv2)](LICENSE) — source-available, converts to Apache 2.0 after two years.
