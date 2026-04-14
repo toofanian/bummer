@@ -4,8 +4,6 @@ A personal music library manager that syncs with Spotify and provides a more int
 
 **Live at [thedeathofshuffle.com](https://thedeathofshuffle.com)**
 
-![Library view](screenshots/library.png)
-
 ## What it does
 
 - Sync your Spotify library and browse it as a proper album catalog
