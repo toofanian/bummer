@@ -1,5 +1,34 @@
+/* Loading screen */
+.loading-screen {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100dvh;
+  gap: 16px;
+}
+
+.loading-spinner {
+  width: 36px;
+  height: 36px;
+  border: 3px solid var(--border);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.loading-message {
+  font-size: 14px;
+  color: var(--text-dim);
+  margin: 0;
+}
+
 /* Layout */
-.app { display: flex; flex-direction: column; height: 100vh; overflow: hidden; transition: padding-right 0.25s ease; }
+.app { display: flex; flex-direction: column; height: 100dvh; overflow: hidden; transition: padding-right 0.25s ease; }
 
 .app-header {
   display: flex;
@@ -32,7 +61,7 @@ nav button.active { background: var(--surface-2); color: var(--text); }
   overflow: hidden;
   display: flex;
   flex-direction: column;
-  padding-bottom: 64px;
+  padding-bottom: calc(64px + env(safe-area-inset-bottom, 0px));
   transition: padding-right 0.25s ease;
 }
 
@@ -309,11 +338,58 @@ nav button.active { background: var(--surface-2); color: var(--text); }
 
 .collections-pane .create-row input { flex: 1; }
 
-.collection-list {
-  list-style: none;
-  overflow-y: auto;
-  flex: 1;
+/* Collections table */
+.collections-table {
+  width: 100%;
+  border-collapse: collapse;
 }
+
+.collections-table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: var(--bg);
+  padding: 10px 8px;
+  text-align: left;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+  border-bottom: 1px solid var(--border);
+  user-select: none;
+  white-space: nowrap;
+}
+
+/* Name, Albums, Updated cols: shrink to content (width:1px trick); Art col takes remaining space */
+.collections-table thead th:nth-child(1) { width: 1px; padding-right: 32px; white-space: nowrap; }
+.collections-table thead th:nth-child(2) { width: 1px;  text-align: right; white-space: nowrap; }
+.collections-table thead th:nth-child(3) { width: 1px;  text-align: right; white-space: nowrap; }
+.collections-table thead th:nth-child(4) { /* Art — no width set, takes all remaining space */ }
+.collections-table thead th:nth-child(5) { width: 40px;  }
+
+.collections-table tbody tr {
+  border-bottom: 1px solid var(--border);
+  cursor: pointer;
+  transition: background 0.1s;
+}
+
+.collections-table tbody tr:hover { background: var(--hover); }
+.collections-table tbody tr:active { background: var(--selected); }
+
+.collections-table td {
+  padding: 8px 8px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  vertical-align: middle;
+}
+
+.collections-table td:nth-child(1) { width: 1px; padding-right: 32px; white-space: nowrap; }
+.collections-table td:nth-child(2) { width: 1px; text-align: right; font-size: 11px; color: var(--text-dim); white-space: nowrap; }
+.collections-table td:nth-child(3) { width: 1px; text-align: right; font-size: 11px; color: var(--text-dim); white-space: nowrap; }
+/* td:nth-child(4) — Art cell: no width set, takes all remaining space */
+.collections-table td:nth-child(5) { width: 40px; text-align: center; padding: 0; }
 
 .collections-empty {
   color: var(--text-dim);
@@ -354,53 +430,16 @@ nav button.active { background: var(--surface-2); color: var(--text); }
 }
 
 .search-input:focus { border-color: var(--focus-border); }
-/* Collection rows */
-.collection-row {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 10px 16px;
-  border-bottom: 1px solid var(--border);
-  cursor: pointer;
-  transition: background 0.1s;
-  user-select: none;
-}
-
-.collection-row:hover { background: var(--hover); }
-.collection-row:active { background: var(--selected); }
-
+/* Collection rows (table-based) */
 .collection-name {
   color: var(--text);
   font-size: 15px;
   font-weight: 600;
+}
+
+.collection-delete-cell {
+  text-align: center;
   white-space: nowrap;
-  flex-shrink: 0;
-}
-
-/* Metadata block: album count + date, right of name, dim text */
-.collection-meta {
-  display: flex;
-  align-items: center;
-  gap: 0;
-  flex-shrink: 0;
-  font-size: 11px;
-  color: var(--text-dim);
-  opacity: 0.7;
-  white-space: nowrap;
-}
-
-.collection-album-count {
-  font-size: 11px;
-  color: var(--text-dim);
-}
-
-.collection-meta-sep {
-  color: var(--text-dim);
-}
-
-.collection-updated-at {
-  font-size: 11px;
-  color: var(--text-dim);
 }
 
 .collection-delete-btn {
@@ -416,8 +455,36 @@ nav button.active { background: var(--surface-2); color: var(--text); }
   transition: opacity 0.15s, background 0.1s;
 }
 
-.collection-row:hover .collection-delete-btn { opacity: 0.5; }
+.collections-table tbody tr:hover .collection-delete-btn { opacity: 0.5; }
 .collection-delete-btn:hover { background: var(--surface-2); opacity: 1 !important; color: var(--text); }
+
+.collection-confirm-delete {
+  background: #c0392b;
+  border: none;
+  color: #fff;
+  cursor: pointer;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 6px;
+  border-radius: 4px;
+  margin-right: 2px;
+  white-space: nowrap;
+}
+
+.collection-confirm-delete:hover { background: #a93226; }
+
+.collection-cancel-delete {
+  background: none;
+  border: 1px solid var(--border);
+  color: var(--text-dim);
+  cursor: pointer;
+  font-size: 11px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  white-space: nowrap;
+}
+
+.collection-cancel-delete:hover { background: var(--surface-2); color: var(--text); }
 
 /* Inline album art thumbnail strip inside collection rows */
 .collection-art-strip {
@@ -506,6 +573,7 @@ tr.album-row.now-playing:hover { background-color: var(--now-playing); }
 }
 .shake { animation: shake 0.5s ease; }
 
+
 /* Now Playing Card (left zone of PlaybackBar) */
 .now-playing-card {
   display: flex;
@@ -519,7 +587,7 @@ tr.album-row.now-playing:hover { background-color: var(--now-playing); }
   padding: 6px 10px;
   cursor: pointer;
   transition: background 0.15s, border-color 0.15s;
-  max-width: 100%;
+  width: 200px;
 }
 
 .now-playing-card:hover {
@@ -538,4 +606,176 @@ tr.album-row.now-playing:hover { background-color: var(--now-playing); }
   pointer-events: none;
   background: transparent;
   border-color: transparent;
+}
+
+/* =====================
+   Mobile album card list (≤768px)
+   ===================== */
+
+.album-card-list {
+  display: none;
+  flex-direction: column;
+  flex: 1;
+  overflow-y: auto;
+}
+
+.album-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--border);
+  cursor: pointer;
+  transition: background 0.1s;
+  min-height: 64px;
+}
+
+.album-card:active { background: var(--selected); }
+.album-card.now-playing { background: var(--now-playing); }
+
+.album-card img {
+  width: 44px;
+  height: 44px;
+  border-radius: 4px;
+  object-fit: cover;
+  flex-shrink: 0;
+}
+
+.album-card-placeholder {
+  width: 44px;
+  height: 44px;
+  border-radius: 4px;
+  background: var(--surface-2);
+  flex-shrink: 0;
+}
+
+.album-card-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.album-card-name {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.album-card-artist {
+  font-size: 12px;
+  color: var(--text-dim);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.album-card-year {
+  font-size: 12px;
+  color: var(--text-dim);
+  flex-shrink: 0;
+}
+
+.album-card-expand-btn {
+  background: none;
+  border: none;
+  color: var(--text-dim);
+  cursor: pointer;
+  padding: 8px;
+  font-size: 18px;
+  line-height: 1;
+  flex-shrink: 0;
+  min-width: 44px;
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+}
+
+.album-card-tracks {
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+}
+
+.album-card-track-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 16px 10px 72px;
+  min-height: 44px;
+  cursor: pointer;
+  border-top: 1px solid var(--border);
+}
+
+.album-card-track-row.now-playing { background: var(--now-playing); }
+.album-card-track-row:active { background: var(--selected); }
+
+.album-card-track-number {
+  font-size: 12px;
+  color: var(--text-dim);
+  min-width: 18px;
+  text-align: right;
+  flex-shrink: 0;
+}
+
+.album-card-track-name {
+  flex: 1;
+  font-size: 13px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.album-card-track-name.active {
+  color: var(--text);
+  font-weight: 600;
+}
+
+.album-card-track-duration {
+  font-size: 12px;
+  color: var(--text-dim);
+  flex-shrink: 0;
+}
+
+/* =====================
+   Breakpoint: show cards, hide table on mobile
+   ===================== */
+@media (max-width: 768px) {
+  .album-table { display: none; }
+  .album-card-list { display: flex; }
+
+  .collections-bubble-btn {
+    width: 32px;
+    height: 32px;
+    border-radius: 16px;
+    font-size: 13px;
+  }
+
+  .collection-delete-btn {
+    opacity: 0.6 !important;
+    min-width: 44px;
+    min-height: 44px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .collections-table td {
+    padding: 12px 8px;
+  }
+
+  .search-input {
+    width: 100%;
+    margin-left: 0;
+  }
+
+  .now-playing-card {
+    width: auto;
+    max-width: 150px;
+  }
 }

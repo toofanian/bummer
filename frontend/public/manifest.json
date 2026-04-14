@@ -1,0 +1,17 @@
+{
+  "name": "Better Spotify",
+  "short_name": "Better Spotify",
+  "description": "Personal music library with sorting, collections, and playback control",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#111111",
+  "theme_color": "#111111",
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import CollectionsBubble from './CollectionsBubble'
+import { useIsMobile } from '../hooks/useIsMobile'
 
 const COLUMNS = [
   { key: 'name',        label: 'Album'      },
@@ -129,6 +130,7 @@ export default function AlbumTable({
   const [sortKey, setSortKey] = useState('added_at')
   const [sortDir, setSortDir] = useState('desc')
   const [expanded, setExpanded] = useState({})
+  const isMobile = useIsMobile()
 
   if (loading) return <p>Loading...</p>
   if (!albums.length) return <p>No albums found.</p>
@@ -161,6 +163,70 @@ export default function AlbumTable({
     const nextIdx = direction === 'down' ? idx + 1 : idx - 1
     if (nextIdx < 0 || nextIdx >= navList.length) return
     document.getElementById(navList[nextIdx].id)?.focus()
+  }
+
+  if (isMobile) {
+    return (
+      <div className="album-card-list">
+        {sorted.map(album => {
+          const isExpanded = !!expanded[album.spotify_id]
+          const isPlaying = playingId === album.spotify_id
+          const exp = expanded[album.spotify_id]
+
+          return (
+            <div key={album.spotify_id}>
+              <div
+                data-testid={`album-card-${album.spotify_id}`}
+                className={`album-card${isPlaying ? ' now-playing' : ''}`}
+                onClick={() => onPlay && onPlay(album.spotify_id)}
+              >
+                {album.image_url
+                  ? <img src={album.image_url} alt={album.name} width={44} height={44} />
+                  : <div className="album-card-placeholder" />
+                }
+                <div className="album-card-info">
+                  <span className="album-card-name">{album.name}</span>
+                  <span className="album-card-artist">{album.artists.join(', ')}</span>
+                </div>
+                <span className="album-card-year">{formatYear(album.release_date)}</span>
+                <button
+                  aria-label={isExpanded ? 'Collapse' : 'Expand'}
+                  className="album-card-expand-btn"
+                  onClick={e => { e.stopPropagation(); handleExpand(album.spotify_id) }}
+                >
+                  <span className={`expand-chevron${isExpanded ? ' expanded' : ''}`}>›</span>
+                </button>
+              </div>
+
+              {isExpanded && (
+                <div className="album-card-tracks">
+                  {exp.loading ? (
+                    <div className="album-card-track-row">
+                      <span style={{ color: 'var(--text-dim)', fontSize: 13 }}>Loading tracks…</span>
+                    </div>
+                  ) : (
+                    exp.tracks.map(t => {
+                      const isActive = playingTrackName && t.name === playingTrackName
+                      return (
+                        <div
+                          key={t.track_number}
+                          className={`album-card-track-row${isActive ? ' now-playing' : ''}`}
+                          onClick={() => onPlayTrack && onPlayTrack(`spotify:track:${t.spotify_id}`)}
+                        >
+                          <span className="album-card-track-number">{t.track_number}</span>
+                          <span className={`album-card-track-name${isActive ? ' active' : ''}`}>{t.name}</span>
+                          <span className="album-card-track-duration">{t.duration}</span>
+                        </div>
+                      )
+                    })
+                  )}
+                </div>
+              )}
+            </div>
+          )
+        })}
+      </div>
+    )
   }
 
   return (

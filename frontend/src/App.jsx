@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import AlbumTable from './components/AlbumTable'
 import CollectionsPane from './components/CollectionsPane'
 import PlaybackBar from './components/PlaybackBar'
@@ -7,7 +7,8 @@ import { filterAlbums } from './filterAlbums'
 import { usePlayback } from './usePlayback'
 import './App.css'
 
-const API = 'http://127.0.0.1:8000'
+const API = import.meta.env.VITE_API_URL ?? 'http://127.0.0.1:8000'
+
 
 export default function App() {
   const [view, setView] = useState('library') // 'library' | 'collections' | collection object
@@ -17,49 +18,70 @@ export default function App() {
   // albumCollectionMap: { [spotify_id]: string[] } — IDs of collections the album belongs to
   const [albumCollectionMap, setAlbumCollectionMap] = useState({})
   const [loading, setLoading] = useState(true)
+  const [loadingMessage, setLoadingMessage] = useState('Checking authentication...')
   const [error, setError] = useState(null)
   const [search, setSearch] = useState('')
   const [playingId, setPlayingId] = useState(null)
   const [paneOpen, setPaneOpen] = useState(false)
   const [playbackMessage, setPlaybackMessage] = useState(null)
-  const { state: playback, play, playTrack, pause, previousTrack, nextTrack, setVolume } = usePlayback()
+  const { state: playback, play, playTrack, pause, previousTrack, nextTrack, setVolume, fetchDevices, transferPlayback } = usePlayback()
   const nowPlayingAlbum = albums.find(a => a.name === playback.track?.album)
   const nowPlayingSpotifyId = nowPlayingAlbum?.spotify_id ?? null
   const nowPlayingImageUrl = nowPlayingAlbum?.image_url ?? null
 
-  useEffect(() => {
-    fetch(`${API}/auth/status`)
+  const loadData = useCallback(() => {
+    setError(null)
+    setLoading(true)
+    setLoadingMessage('Checking authentication...')
+    setAlbums([])
+    setCollections([])
+    setCollectionAlbums([])
+    setAlbumCollectionMap({})
+    return fetch(`${API}/auth/status`)
       .then(r => r.json())
       .then(({ authenticated }) => {
         if (!authenticated) { window.location.href = `${API}/auth/login`; return }
-        return Promise.all([
-          fetch(`${API}/library/albums`).then(r => r.json()),
-          fetch(`${API}/collections`).then(r => r.json()),
-        ]).then(([libraryData, collectionsData]) => {
-          setAlbums(libraryData.albums)
-          setCollections(collectionsData)
-          // Eagerly fetch all collection memberships so albumCollectionMap is
-          // populated on first render rather than lazily as the user navigates
-          return Promise.all(
-            collectionsData.map(col =>
-              fetch(`${API}/collections/${col.id}/albums`).then(r => r.json())
-            )
-          ).then(results => {
-            const map = {}
-            results.forEach((data, i) => {
-              const colId = collectionsData[i].id
-              ;(data.albums ?? []).forEach(album => {
-                if (!map[album.spotify_id]) map[album.spotify_id] = []
-                map[album.spotify_id].push(colId)
+        setLoadingMessage('Syncing your Spotify library... this may take a moment')
+        return fetch(`${API}/library/albums`)
+          .then(r => r.json())
+          .then(libraryData => {
+            setAlbums(libraryData.albums)
+            setLoadingMessage('Loading collections...')
+            return fetch(`${API}/collections`)
+              .then(r => r.json())
+              .then(collectionsData => {
+                setCollections(collectionsData)
+                // Eagerly fetch all collection memberships so albumCollectionMap is
+                // populated on first render rather than lazily as the user navigates.
+                // Individual collection album fetches are non-fatal — a failure yields
+                // an empty albums list for that collection rather than crashing the app.
+                return Promise.all(
+                  collectionsData.map(col =>
+                    fetch(`${API}/collections/${col.id}/albums`)
+                      .then(r => r.json())
+                      .catch(() => ({ albums: [] }))  // silent fallback
+                  )
+                ).then(results => {
+                  const map = {}
+                  results.forEach((data, i) => {
+                    const colId = collectionsData[i].id
+                    ;(data.albums ?? []).forEach(album => {
+                      if (!map[album.spotify_id]) map[album.spotify_id] = []
+                      map[album.spotify_id].push(colId)
+                    })
+                  })
+                  setAlbumCollectionMap(map)
+                })
               })
-            })
-            setAlbumCollectionMap(map)
           })
-        })
       })
       .catch(err => setError(err.message))
       .finally(() => setLoading(false))
   }, [])
+
+  useEffect(() => {
+    loadData()
+  }, [loadData])
 
   async function handleCreateCollection(name) {
     // Optimistic update: add a temporary collection immediately so the UI
@@ -160,6 +182,9 @@ export default function App() {
         if (err === 'no_device') {
           setPlaybackMessage({ code: 'NO_DEVICE', text: 'No Spotify device found. Open Spotify on any device and try again.' })
           setTimeout(() => setPlaybackMessage(null), 4000)
+        } else if (err === 'restricted_device') {
+          setPlaybackMessage({ code: 'RESTRICTED', text: 'This device restricts API playback. Start playing in Spotify first, then control it here.' })
+          setTimeout(() => setPlaybackMessage(null), 6000)
         }
       }
       return err
@@ -211,14 +236,41 @@ export default function App() {
     }
   }
 
-  if (error) return <p style={{ padding: '2rem', color: '#f88' }}>Error: {error}</p>
+  if (loading) return (
+    <div className="loading-screen">
+      <div className="loading-spinner" />
+      {loadingMessage && <p className="loading-message">{loadingMessage}</p>}
+    </div>
+  )
+
+  if (error) return (
+    <div style={{ padding: '2rem' }}>
+      <p style={{ color: '#f88' }}>Error: {error}</p>
+      <button
+        onClick={loadData}
+        disabled={loading}
+        style={{
+          marginTop: '1rem',
+          padding: '0.5rem 1.25rem',
+          background: '#222',
+          color: loading ? '#888' : '#eee',
+          border: '1px solid #555',
+          borderRadius: '6px',
+          cursor: loading ? 'default' : 'pointer',
+          fontSize: '0.95rem',
+        }}
+      >
+        {loading ? 'Loading…' : 'Retry'}
+      </button>
+    </div>
+  )
 
   const isInCollection = view !== 'library' && view !== 'collections'
 
   return (
     <div className="app" style={paneOpen ? { paddingRight: '300px' } : {}}>
       <header className="app-header">
-        <h1>Library</h1>
+        <h1>Library <span style={{ fontSize: '10px', fontWeight: 400, opacity: 0.35, letterSpacing: '0.05em' }}>{__APP_VERSION__}</span></h1>
         <input
           className="search-input"
           placeholder="Search…"
@@ -321,6 +373,8 @@ export default function App() {
         message={playbackMessage}
         nowPlayingSpotifyId={nowPlayingSpotifyId}
         onFocusAlbum={handleFocusAlbum}
+        onFetchDevices={fetchDevices}
+        onTransferPlayback={transferPlayback}
       />
     </div>
   )

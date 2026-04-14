@@ -132,7 +132,7 @@ describe('usePlayback', () => {
       if (url.includes('/playback/state')) {
         return Promise.resolve({ ok: true, json: async () => IDLE_STATE })
       }
-      return Promise.resolve({ ok: false, status: 409 })
+      return Promise.resolve({ ok: false, status: 409, json: async () => ({ detail: 'no_device' }) })
     })
     vi.stubGlobal('fetch', fetchMock)
 
@@ -152,7 +152,7 @@ describe('usePlayback', () => {
       if (url.includes('/playback/state')) {
         return Promise.resolve({ ok: true, json: async () => IDLE_STATE })
       }
-      return Promise.resolve({ ok: false, status: 409 })
+      return Promise.resolve({ ok: false, status: 409, json: async () => ({ detail: 'no_device' }) })
     })
     vi.stubGlobal('fetch', fetchMock)
 
@@ -168,7 +168,7 @@ describe('usePlayback', () => {
       if (url.includes('/playback/state')) {
         return Promise.resolve({ ok: true, json: async () => IDLE_STATE })
       }
-      return Promise.resolve({ ok: false, status: 409 })
+      return Promise.resolve({ ok: false, status: 409, json: async () => ({ detail: 'no_device' }) })
     })
     vi.stubGlobal('fetch', fetchMock)
 
@@ -201,7 +201,7 @@ describe('usePlayback', () => {
       if (url.includes('/playback/state')) {
         return Promise.resolve({ ok: true, json: async () => IDLE_STATE })
       }
-      return Promise.resolve({ ok: false, status: 409 })
+      return Promise.resolve({ ok: false, status: 409, json: async () => ({ detail: 'no_device' }) })
     })
     vi.stubGlobal('fetch', fetchMock)
 
@@ -289,5 +289,130 @@ describe('usePlayback', () => {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ volume_percent: 75 }),
     })
+  })
+
+  it('play() returns "restricted_device" when backend returns 409 with detail "restricted_device"', async () => {
+    fetchMock = vi.fn().mockImplementation((url) => {
+      if (url.includes('/playback/state')) {
+        return Promise.resolve({ ok: true, json: async () => IDLE_STATE })
+      }
+      return Promise.resolve({
+        ok: false,
+        status: 409,
+        json: async () => ({ detail: 'restricted_device' }),
+      })
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    const { result } = renderHook(() => usePlayback())
+
+    let returnValue
+    await act(async () => {
+      returnValue = await result.current.play('spotify:album:abc123')
+    })
+
+    expect(returnValue).toBe('restricted_device')
+  })
+
+  it('playTrack() returns "restricted_device" when backend returns 409 with detail "restricted_device"', async () => {
+    fetchMock = vi.fn().mockImplementation((url) => {
+      if (url.includes('/playback/state')) {
+        return Promise.resolve({ ok: true, json: async () => IDLE_STATE })
+      }
+      return Promise.resolve({
+        ok: false,
+        status: 409,
+        json: async () => ({ detail: 'restricted_device' }),
+      })
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    const { result } = renderHook(() => usePlayback())
+
+    let returnValue
+    await act(async () => {
+      returnValue = await result.current.playTrack('spotify:track:xyz789')
+    })
+
+    expect(returnValue).toBe('restricted_device')
+  })
+})
+
+describe('fetchDevices', () => {
+  it('returns device list from /playback/devices', async () => {
+    const devices = [
+      { id: 'abc', name: "Alex's iPhone", type: 'Smartphone', is_active: true },
+      { id: 'def', name: 'My Mac', type: 'Computer', is_active: false },
+    ]
+    fetchMock = vi.fn().mockImplementation((url) => {
+      if (url.includes('/playback/devices')) {
+        return Promise.resolve({ ok: true, json: async () => devices })
+      }
+      return Promise.resolve({ ok: true, json: async () => IDLE_STATE })
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    const { result } = renderHook(() => usePlayback())
+
+    let returned
+    await act(async () => {
+      returned = await result.current.fetchDevices()
+    })
+
+    expect(returned).toEqual(devices)
+    expect(fetchMock).toHaveBeenCalledWith(expect.stringContaining('/playback/devices'))
+  })
+
+  it('returns empty array when fetch fails', async () => {
+    fetchMock = vi.fn().mockImplementation((url) => {
+      if (url.includes('/playback/devices')) {
+        return Promise.resolve({ ok: false })
+      }
+      return Promise.resolve({ ok: true, json: async () => IDLE_STATE })
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    const { result } = renderHook(() => usePlayback())
+
+    let returned
+    await act(async () => {
+      returned = await result.current.fetchDevices()
+    })
+
+    expect(returned).toEqual([])
+  })
+})
+
+describe('transferPlayback', () => {
+  it('calls PUT /playback/transfer with device_id and then refreshes state', async () => {
+    const newState = {
+      is_playing: true,
+      track: { name: 'Song', album: 'Album', artists: ['Artist'], progress_ms: 0, duration_ms: 200000 },
+      device: { name: 'My Mac', type: 'Computer' },
+    }
+
+    fetchMock = vi.fn().mockImplementation((url, opts) => {
+      if (url.includes('/playback/transfer')) {
+        return Promise.resolve({ ok: true, json: async () => ({}) })
+      }
+      if (url.includes('/playback/state')) {
+        // After transfer, return newState so we can verify refresh
+        return Promise.resolve({ ok: true, json: async () => newState })
+      }
+      return Promise.resolve({ ok: true, json: async () => IDLE_STATE })
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    const { result } = renderHook(() => usePlayback())
+
+    await act(async () => {
+      await result.current.transferPlayback('abc123')
+    })
+
+    const transferCall = fetchMock.mock.calls.find(c => c[0].includes('/playback/transfer'))
+    expect(transferCall).toBeTruthy()
+    const body = JSON.parse(transferCall[1].body)
+    expect(body.device_id).toBe('abc123')
+    expect(transferCall[1].method).toBe('PUT')
   })
 })

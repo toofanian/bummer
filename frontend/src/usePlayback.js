@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 
-const API = 'http://127.0.0.1:8000'
+const API = import.meta.env.VITE_API_URL ?? 'http://127.0.0.1:8000'
 const POLL_INTERVAL_MS = 3000
 
 export function usePlayback() {
@@ -35,6 +35,10 @@ export function usePlayback() {
     })
 
     if (res.status === 409) {
+      const data = await res.json()
+      if (data.detail === 'restricted_device') {
+        return 'restricted_device'
+      }
       setState(prev => ({ ...prev, playError: 'no_device' }))
       setTimeout(() => {
         setState(prev => ({ ...prev, playError: null }))
@@ -54,6 +58,10 @@ export function usePlayback() {
     })
 
     if (res.status === 409) {
+      const data = await res.json()
+      if (data.detail === 'restricted_device') {
+        return 'restricted_device'
+      }
       setState(prev => ({ ...prev, playError: 'no_device' }))
       setTimeout(() => {
         setState(prev => ({ ...prev, playError: null }))
@@ -86,5 +94,25 @@ export function usePlayback() {
     })
   }, [])
 
-  return { state, play, playTrack, pause, previousTrack, nextTrack, setVolume }
+  const fetchDevices = useCallback(async () => {
+    const res = await fetch(`${API}/playback/devices`)
+    if (!res.ok) return []
+    return res.json()
+  }, [])
+
+  const transferPlayback = useCallback(async (deviceId) => {
+    await fetch(`${API}/playback/transfer`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ device_id: deviceId }),
+    })
+    // Refresh state so device name in PlaybackBar updates immediately
+    const res = await fetch(`${API}/playback/state`)
+    if (res.ok) {
+      const data = await res.json()
+      setState(prev => ({ ...prev, ...data }))
+    }
+  }, [])
+
+  return { state, play, playTrack, pause, previousTrack, nextTrack, setVolume, fetchDevices, transferPlayback }
 }

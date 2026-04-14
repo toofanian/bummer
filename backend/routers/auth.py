@@ -1,7 +1,10 @@
-from fastapi import APIRouter
-from fastapi.responses import RedirectResponse
-from spotify_client import get_oauth, CACHE_PATH
 import os
+
+import spotipy
+from fastapi import APIRouter, Depends
+from fastapi.responses import RedirectResponse
+
+from spotify_client import CACHE_PATH, get_oauth, get_spotify
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -33,7 +36,7 @@ def status():
 
 
 @router.post("/logout")
-def logout():
+def logout(sp: spotipy.Spotify = Depends(get_spotify)):
     """Clear cached tokens."""
     if os.path.exists(CACHE_PATH):
         os.remove(CACHE_PATH)

@@ -1,8 +1,32 @@
 from unittest.mock import MagicMock, patch
+
+from fastapi import HTTPException
 from fastapi.testclient import TestClient
+
 from main import app
+from spotify_client import get_spotify
 
 client = TestClient(app, follow_redirects=False)
+
+
+def override_spotify_authenticated():
+    """Override get_spotify to simulate a valid Spotify session."""
+    from unittest.mock import MagicMock
+
+    app.dependency_overrides[get_spotify] = lambda: MagicMock()
+
+
+def override_spotify_unauthenticated():
+    """Override get_spotify to simulate an unauthenticated user."""
+
+    def raise_401():
+        raise HTTPException(status_code=401, detail="Not authenticated with Spotify")
+
+    app.dependency_overrides[get_spotify] = raise_401
+
+
+def clear_overrides():
+    app.dependency_overrides.clear()
 
 
 def test_health():
@@ -14,7 +38,9 @@ def test_health():
 def test_login_redirects_to_spotify():
     with patch("routers.auth.get_oauth") as mock_get_oauth:
         mock_oauth = MagicMock()
-        mock_oauth.get_authorize_url.return_value = "https://accounts.spotify.com/authorize?foo=bar"
+        mock_oauth.get_authorize_url.return_value = (
+            "https://accounts.spotify.com/authorize?foo=bar"
+        )
         mock_get_oauth.return_value = mock_oauth
 
         response = client.get("/auth/login")
@@ -72,22 +98,38 @@ def test_status_returns_unauthenticated_when_token_expired():
 
 
 def test_logout_removes_cache_file():
-    with patch("routers.auth.get_oauth"), \
-         patch("routers.auth.os.path.exists", return_value=True) as mock_exists, \
-         patch("routers.auth.os.remove") as mock_remove:
-
+    override_spotify_authenticated()
+    with (
+        patch("routers.auth.os.path.exists", return_value=True),
+        patch("routers.auth.os.remove") as mock_remove,
+    ):
         response = client.post("/auth/logout")
 
         mock_remove.assert_called_once()
         assert response.json() == {"authenticated": False}
 
+    clear_overrides()
+
 
 def test_logout_is_safe_when_no_cache_file():
-    with patch("routers.auth.get_oauth"), \
-         patch("routers.auth.os.path.exists", return_value=False), \
-         patch("routers.auth.os.remove") as mock_remove:
-
+    override_spotify_authenticated()
+    with (
+        patch("routers.auth.os.path.exists", return_value=False),
+        patch("routers.auth.os.remove") as mock_remove,
+    ):
         response = client.post("/auth/logout")
 
         mock_remove.assert_not_called()
         assert response.json() == {"authenticated": False}
+
+    clear_overrides()
+
+
+def test_logout_returns_401_when_not_authenticated():
+    override_spotify_unauthenticated()
+
+    response = client.post("/auth/logout")
+
+    assert response.status_code == 401
+
+    clear_overrides()

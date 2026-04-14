@@ -2,6 +2,7 @@ import spotipy
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import Response
 from pydantic import BaseModel, Field
+
 from spotify_client import get_spotify
 
 router = APIRouter(prefix="/playback", tags=["playback"])
@@ -16,8 +17,16 @@ class VolumeRequest(BaseModel):
     volume_percent: int = Field(..., ge=0, le=100)
 
 
+class TransferRequest(BaseModel):
+    device_id: str
+
+
 def _is_no_active_device(exc: spotipy.exceptions.SpotifyException) -> bool:
     return exc.http_status == 404 and "No active device" in str(exc)
+
+
+def _is_restricted_device(exc: spotipy.exceptions.SpotifyException) -> bool:
+    return exc.http_status == 403 and "Restricted" in str(exc)
 
 
 @router.get("/state")
@@ -66,6 +75,8 @@ def play_playback(body: PlayRequest, sp: spotipy.Spotify = Depends(get_spotify))
     try:
         _start()
     except spotipy.exceptions.SpotifyException as e:
+        if _is_restricted_device(e):
+            raise HTTPException(status_code=409, detail="restricted_device")
         if not _is_no_active_device(e):
             raise
         # Auto-recover: find an available device and transfer playback to it
@@ -74,7 +85,12 @@ def play_playback(body: PlayRequest, sp: spotipy.Spotify = Depends(get_spotify))
         if not devices:
             raise HTTPException(status_code=409, detail="no_device")
         sp.transfer_playback(devices[0]["id"], force_play=False)
-        _start()
+        try:
+            _start()
+        except spotipy.exceptions.SpotifyException as e2:
+            if _is_restricted_device(e2):
+                raise HTTPException(status_code=409, detail="restricted_device")
+            raise
     return Response(status_code=204)
 
 
@@ -108,4 +124,27 @@ def set_volume(body: VolumeRequest, sp: spotipy.Spotify = Depends(get_spotify)):
         if _is_no_active_device(e):
             return Response(status_code=204)
         raise
+    return Response(status_code=204)
+
+
+@router.get("/devices")
+def get_devices(sp: spotipy.Spotify = Depends(get_spotify)):
+    result = sp.devices()
+    devices = result.get("devices", [])
+    return [
+        {
+            "id": d["id"],
+            "name": d["name"],
+            "type": d["type"],
+            "is_active": d.get("is_active", False),
+        }
+        for d in devices
+    ]
+
+
+@router.put("/transfer")
+def transfer_playback(
+    body: TransferRequest, sp: spotipy.Spotify = Depends(get_spotify)
+):
+    sp.transfer_playback(body.device_id, force_play=True)
     return Response(status_code=204)

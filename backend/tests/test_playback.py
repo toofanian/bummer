@@ -1,5 +1,7 @@
 from unittest.mock import MagicMock
+
 from fastapi.testclient import TestClient
+
 from main import app
 from spotify_client import get_spotify
 
@@ -33,6 +35,7 @@ def clear_overrides():
 
 
 # --- GET /playback/state ---
+
 
 def test_get_playback_state_returns_simplified_shape():
     sp = make_sp()
@@ -85,6 +88,7 @@ def test_get_playback_state_idle_when_no_item():
 
 # --- PUT /playback/pause ---
 
+
 def test_pause_calls_spotify_pause():
     sp = make_sp()
     override_spotify(sp)
@@ -98,6 +102,7 @@ def test_pause_calls_spotify_pause():
 
 
 # --- PUT /playback/play ---
+
 
 def test_play_resumes_without_context():
     sp = make_sp()
@@ -115,7 +120,9 @@ def test_play_with_album_context_uri():
     sp = make_sp()
     override_spotify(sp)
 
-    response = client.put("/playback/play", json={"context_uri": "spotify:album:abc123"})
+    response = client.put(
+        "/playback/play", json={"context_uri": "spotify:album:abc123"}
+    )
 
     assert response.status_code == 204
     sp.start_playback.assert_called_once_with(context_uri="spotify:album:abc123")
@@ -125,8 +132,10 @@ def test_play_with_album_context_uri():
 
 # --- play: no active device ---
 
+
 def make_no_device_error():
     import spotipy
+
     err = spotipy.exceptions.SpotifyException(
         http_status=404,
         code=-1,
@@ -138,7 +147,6 @@ def make_no_device_error():
 def test_play_no_active_device_transfers_and_retries():
     """When play raises 404 'No active device' and a device is available,
     transfer playback to that device then retry start_playback — return 204."""
-    import spotipy
     sp = make_sp()
     # First call raises; second call succeeds
     sp.start_playback.side_effect = [make_no_device_error(), None]
@@ -173,6 +181,7 @@ def test_play_no_active_device_no_devices_returns_409():
 
 # --- play: track_uri ---
 
+
 def test_play_with_track_uri():
     sp = make_sp()
     override_spotify(sp)
@@ -205,6 +214,7 @@ def test_play_with_track_uri_no_device_transfers_and_retries():
 
 # --- pause: no active device ---
 
+
 def test_pause_no_active_device_returns_204_silently():
     """When pause raises 404 'No active device', return 204 silently — nothing to pause."""
     sp = make_sp()
@@ -219,6 +229,7 @@ def test_pause_no_active_device_returns_204_silently():
 
 
 # --- POST /playback/previous ---
+
 
 def test_previous_calls_spotify_previous_track():
     sp = make_sp()
@@ -246,6 +257,7 @@ def test_previous_no_active_device_returns_204_silently():
 
 # --- POST /playback/next ---
 
+
 def test_next_calls_spotify_next_track():
     sp = make_sp()
     override_spotify(sp)
@@ -271,6 +283,7 @@ def test_next_no_active_device_returns_204_silently():
 
 
 # --- PUT /playback/volume ---
+
 
 def test_volume_calls_spotify_volume():
     sp = make_sp()
@@ -314,5 +327,130 @@ def test_volume_no_active_device_returns_204_silently():
     response = client.put("/playback/volume", json={"volume_percent": 50})
 
     assert response.status_code == 204
+
+    clear_overrides()
+
+
+# --- play: restricted device (403) ---
+
+
+def make_restricted_device_error():
+    import spotipy
+
+    err = spotipy.exceptions.SpotifyException(
+        http_status=403,
+        code=-1,
+        msg="Restricted device",
+    )
+    return err
+
+
+def test_play_returns_409_restricted_device_when_spotify_raises_403():
+    """When Spotify returns 403 'Restricted device', return 409 with detail 'restricted_device'."""
+    sp = make_sp()
+    sp.start_playback.side_effect = make_restricted_device_error()
+    override_spotify(sp)
+
+    response = client.put("/playback/play", json={})
+
+    assert response.status_code == 409
+    assert response.json()["detail"] == "restricted_device"
+
+    clear_overrides()
+
+
+def test_play_restricted_device_after_no_device_recovery_returns_409():
+    """When auto-recovery succeeds (transfer) but the retry still hits 403 Restricted device,
+    return 409 with detail 'restricted_device'."""
+    sp = make_sp()
+    sp.start_playback.side_effect = [
+        make_no_device_error(),
+        make_restricted_device_error(),
+    ]
+    sp.devices.return_value = {"devices": [{"id": "device-abc", "name": "Sonos"}]}
+    override_spotify(sp)
+
+    response = client.put("/playback/play", json={})
+
+    assert response.status_code == 409
+    assert response.json()["detail"] == "restricted_device"
+
+    clear_overrides()
+
+
+# --- GET /playback/devices ---
+
+
+def test_get_devices_returns_device_list():
+    sp = make_sp()
+    sp.devices.return_value = {
+        "devices": [
+            {
+                "id": "abc123",
+                "name": "Alex's iPhone",
+                "type": "Smartphone",
+                "is_active": True,
+            },
+            {"id": "def456", "name": "My Mac", "type": "Computer", "is_active": False},
+        ]
+    }
+    override_spotify(sp)
+
+    response = client.get("/playback/devices")
+
+    assert response.status_code == 200
+    data = response.json()
+    assert len(data) == 2
+    assert data[0] == {
+        "id": "abc123",
+        "name": "Alex's iPhone",
+        "type": "Smartphone",
+        "is_active": True,
+    }
+    assert data[1] == {
+        "id": "def456",
+        "name": "My Mac",
+        "type": "Computer",
+        "is_active": False,
+    }
+
+    clear_overrides()
+
+
+def test_get_devices_returns_empty_list_when_no_devices():
+    sp = make_sp()
+    sp.devices.return_value = {"devices": []}
+    override_spotify(sp)
+
+    response = client.get("/playback/devices")
+
+    assert response.status_code == 200
+    assert response.json() == []
+
+    clear_overrides()
+
+
+# --- PUT /playback/transfer ---
+
+
+def test_transfer_playback_calls_spotify_transfer():
+    sp = make_sp()
+    override_spotify(sp)
+
+    response = client.put("/playback/transfer", json={"device_id": "abc123"})
+
+    assert response.status_code == 204
+    sp.transfer_playback.assert_called_once_with("abc123", force_play=True)
+
+    clear_overrides()
+
+
+def test_transfer_playback_missing_device_id_returns_422():
+    sp = make_sp()
+    override_spotify(sp)
+
+    response = client.put("/playback/transfer", json={})
+
+    assert response.status_code == 422
 
     clear_overrides()

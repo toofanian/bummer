@@ -1,4 +1,4 @@
-.PHONY: dev stop backend frontend test test-backend test-frontend
+.PHONY: dev stop backend frontend test test-backend test-frontend test-e2e lint lint-fix
 
 stop:
 	@kill $$(cat /tmp/bsi-backend.pid 2>/dev/null) $$(cat /tmp/bsi-frontend.pid 2>/dev/null) 2>/dev/null || true
@@ -26,3 +26,12 @@ test-backend:
 
 test-frontend:
 	@cd frontend && npm test -- --run
+
+test-e2e:
+	@cd frontend && npm run test:e2e
+
+lint:
+	@source backend/.venv/bin/activate && cd backend && ruff check . && ruff format --check .
+
+lint-fix:
+	@source backend/.venv/bin/activate && cd backend && ruff check --fix . && ruff format .

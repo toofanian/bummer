@@ -1,4 +1,5 @@
 import { useState, useRef, useCallback, useEffect } from 'react'
+import { useIsMobile } from '../hooks/useIsMobile'
 
 const styles = {
   bar: {
@@ -6,13 +7,16 @@ const styles = {
     bottom: 0,
     left: 0,
     right: 0,
-    height: '64px',
+    minHeight: '64px',
     background: 'var(--surface)',
     borderTop: '1px solid var(--border)',
     display: 'grid',
     gridTemplateColumns: '1fr auto 1fr',
     alignItems: 'center',
-    padding: '0 16px',
+    paddingTop: '0',
+    paddingRight: '16px',
+    paddingLeft: '16px',
+    paddingBottom: 'env(safe-area-inset-bottom, 0px)',
     zIndex: 200,
     gap: '8px',
   },
@@ -80,25 +84,25 @@ const styles = {
     border: 'none',
     color: 'var(--text-dim)',
     cursor: 'pointer',
-    padding: '6px 8px',
+    padding: '4px 6px',
     borderRadius: '4px',
-    fontSize: '16px',
+    fontSize: '13px',
     lineHeight: 1,
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
     transition: 'color 0.15s, background 0.15s',
   },
-  // Prominent play/pause: filled circle
+  // Prominent play/pause: pill / rounded rectangle
   playPauseBtn: {
     background: 'var(--text)',
     border: 'none',
     color: 'var(--bg)',
     cursor: 'pointer',
-    width: '36px',
-    height: '36px',
-    borderRadius: '50%',
-    fontSize: '14px',
+    height: '20px',
+    padding: '0 12px',
+    borderRadius: '10px',
+    fontSize: '18px',
     lineHeight: 1,
     display: 'flex',
     alignItems: 'center',
@@ -111,7 +115,12 @@ const styles = {
     whiteSpace: 'nowrap',
     overflow: 'hidden',
     textOverflow: 'ellipsis',
-    maxWidth: '280px',
+    maxWidth: '420px',
+  },
+  messageCode: {
+    fontWeight: 700,
+    marginRight: '5px',
+    letterSpacing: '0.04em',
   },
   // --- Right zone ---
   rightZone: {
@@ -120,21 +129,76 @@ const styles = {
     gap: '8px',
     justifyContent: 'flex-end',
     minWidth: 0,
-    overflow: 'hidden',
   },
   deviceName: {
-    fontSize: '11px',
+    fontSize: '13px',
     color: 'var(--text-dim)',
     opacity: 0.7,
     whiteSpace: 'nowrap',
     overflow: 'hidden',
     textOverflow: 'ellipsis',
-    maxWidth: '100px',
+    maxWidth: '200px',
   },
-  volumeSlider: {
-    width: '80px',
+  devicePickerBtn: {
+    background: 'none',
+    border: 'none',
+    color: 'var(--text-dim)',
+    opacity: 0.7,
     cursor: 'pointer',
-    accentColor: 'var(--accent)',
+    fontSize: '13px',
+    padding: '2px 4px',
+    borderRadius: '4px',
+    whiteSpace: 'nowrap',
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+    maxWidth: '200px',
+    lineHeight: 1,
+  },
+  devicePopover: {
+    position: 'absolute',
+    bottom: 'calc(100% + 8px)',
+    right: 0,
+    background: 'var(--surface)',
+    border: '1px solid var(--border)',
+    borderRadius: '8px',
+    padding: '4px 0',
+    minWidth: '200px',
+    boxShadow: '0 4px 16px rgba(0,0,0,0.3)',
+    zIndex: 300,
+  },
+  deviceRow: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '8px',
+    padding: '8px 12px',
+    cursor: 'pointer',
+    fontSize: '13px',
+    color: 'var(--text)',
+    userSelect: 'none',
+  },
+  deviceRowActive: {
+    color: 'var(--text-dim)',
+    cursor: 'default',
+  },
+  devicePopoverMessage: {
+    padding: '8px 12px',
+    fontSize: '13px',
+    color: 'var(--text-dim)',
+    fontStyle: 'italic',
+  },
+  toggleBtn: {
+    background: 'none',
+    border: 'none',
+    color: 'var(--text-dim)',
+    cursor: 'pointer',
+    padding: '8px 14px',
+    borderRadius: '4px',
+    fontSize: '22px',
+    lineHeight: 1,
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    transition: 'color 0.15s, background 0.15s',
   },
   iconBtnActive: {
     color: 'var(--text)',
@@ -148,6 +212,56 @@ function useDebouncedCallback(fn, delay) {
     clearTimeout(timer.current)
     timer.current = setTimeout(() => fn(...args), delay)
   }, [fn, delay])
+}
+
+const THUMB = 12
+
+function VolumeSlider({ value, onChange }) {
+  const containerRef = useRef(null)
+
+  function getValueFromPointer(e) {
+    const rect = containerRef.current.getBoundingClientRect()
+    const pct = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width))
+    return Math.round(pct * 100)
+  }
+
+  function handlePointerDown(e) {
+    e.preventDefault()
+    containerRef.current.setPointerCapture(e.pointerId)
+    onChange(getValueFromPointer(e))
+  }
+
+  function handlePointerMove(e) {
+    if (!containerRef.current.hasPointerCapture(e.pointerId)) return
+    onChange(getValueFromPointer(e))
+  }
+
+  function handleKeyDown(e) {
+    let next = value
+    if (e.key === 'ArrowRight' || e.key === 'ArrowUp') next = Math.min(100, value + 5)
+    if (e.key === 'ArrowLeft' || e.key === 'ArrowDown') next = Math.max(0, value - 5)
+    if (next !== value) { e.preventDefault(); onChange(next) }
+  }
+
+  const pct = value / 100
+  return (
+    <div
+      ref={containerRef}
+      role="slider"
+      aria-label="Volume"
+      aria-valuemin={0}
+      aria-valuemax={100}
+      aria-valuenow={value}
+      tabIndex={0}
+      onPointerDown={handlePointerDown}
+      onPointerMove={handlePointerMove}
+      onKeyDown={handleKeyDown}
+      style={{ position: 'relative', width: '100px', height: `${THUMB}px`, cursor: 'pointer', display: 'flex', alignItems: 'center', flexShrink: 0 }}
+    >
+      <div style={{ position: 'absolute', left: 0, right: 0, height: '3px', background: 'var(--surface-2)', borderRadius: '2px' }} />
+      <div style={{ position: 'absolute', left: `calc(${pct} * (100% - ${THUMB}px))`, width: `${THUMB}px`, height: `${THUMB}px`, borderRadius: '50%', background: 'var(--text)' }} />
+    </div>
+  )
 }
 
 /**
@@ -180,14 +294,21 @@ export default function PlaybackBar({
   message,
   nowPlayingSpotifyId,
   onFocusAlbum,
+  onFetchDevices,
+  onTransferPlayback,
 }) {
   const { is_playing, track, device } = state
   const [volume, setVolume] = useState(50)
+  const isMobile = useIsMobile()
+  const [devicesOpen, setDevicesOpen] = useState(false)
+  const [devices, setDevices] = useState([])
+  const [devicesLoading, setDevicesLoading] = useState(false)
+  const devicePickerRef = useRef(null)
 
   const artistLine = track ? track.artists.join(', ') : null
 
   const toggleBtnStyle = {
-    ...styles.iconBtn,
+    ...styles.toggleBtn,
     ...(paneOpen ? styles.iconBtnActive : {}),
   }
 
@@ -218,10 +339,36 @@ export default function PlaybackBar({
     return () => document.removeEventListener('keydown', handleKeyDown)
   }, [is_playing, onPause, onPlay])
 
-  function handleVolumeChange(e) {
-    const v = Number(e.target.value)
-    setVolume(v)
-    debouncedSetVolume(v)
+  useEffect(() => {
+    if (!devicesOpen) return
+    function handleKeyDown(e) {
+      if (e.key === 'Escape') setDevicesOpen(false)
+    }
+    function handleMouseDown(e) {
+      if (devicePickerRef.current && !devicePickerRef.current.contains(e.target)) {
+        setDevicesOpen(false)
+      }
+    }
+    document.addEventListener('keydown', handleKeyDown)
+    document.addEventListener('mousedown', handleMouseDown)
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown)
+      document.removeEventListener('mousedown', handleMouseDown)
+    }
+  }, [devicesOpen])
+
+  async function handleOpenDevicePicker() {
+    setDevicesOpen(true)
+    setDevicesLoading(true)
+    setDevices([])
+    const list = await onFetchDevices()
+    setDevices(list)
+    setDevicesLoading(false)
+  }
+
+  async function handleTransfer(deviceId) {
+    setDevicesOpen(false)
+    await onTransferPlayback(deviceId)
   }
 
   return (
@@ -310,21 +457,53 @@ export default function PlaybackBar({
 
       {/* RIGHT ZONE: volume + device name + pane toggle */}
       <div data-testid="playback-right" style={styles.rightZone}>
-        {onSetVolume != null && (
-          <input
-            type="range"
-            aria-label="Volume"
-            min="0"
-            max="100"
+        {!isMobile && onSetVolume != null && (
+          <VolumeSlider
             value={volume}
-            onChange={handleVolumeChange}
-            style={styles.volumeSlider}
+            onChange={(v) => { setVolume(v); debouncedSetVolume(v) }}
           />
         )}
 
-        {device && (
+        {!isMobile && (device && onFetchDevices ? (
+          <div ref={devicePickerRef} style={{ position: 'relative' }}>
+            <button
+              aria-label={device.name}
+              style={styles.devicePickerBtn}
+              onClick={handleOpenDevicePicker}
+            >
+              ▸ {device.name} ▾
+            </button>
+            {devicesOpen && (
+              <div style={styles.devicePopover} role="listbox" aria-label="Select device">
+                {devicesLoading ? (
+                  <div style={styles.devicePopoverMessage}>...</div>
+                ) : devices.length === 0 ? (
+                  <div style={styles.devicePopoverMessage}>No other devices found</div>
+                ) : (
+                  devices.map(d => (
+                    <div
+                      key={d.id}
+                      data-testid="device-row"
+                      role="option"
+                      aria-selected={d.is_active}
+                      style={{
+                        ...styles.deviceRow,
+                        ...(d.is_active ? styles.deviceRowActive : {}),
+                      }}
+                      onClick={d.is_active ? undefined : () => handleTransfer(d.id)}
+                    >
+                      <span style={{ width: '14px', flexShrink: 0 }}>{d.is_active ? '✓' : ''}</span>
+                      <span data-testid="device-option">{d.name}</span>
+                      <span style={{ fontSize: '11px', color: 'var(--text-dim)', marginLeft: 'auto' }}>{d.type}</span>
+                    </div>
+                  ))
+                )}
+              </div>
+            )}
+          </div>
+        ) : device ? (
           <span style={styles.deviceName}>▸ {device.name}</span>
-        )}
+        ) : null)}
 
         <button
           aria-label="Now playing"

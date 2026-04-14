@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useIsMobile } from '../hooks/useIsMobile'
 
 const PANE_WIDTH = 300
 
@@ -141,15 +142,15 @@ const SPIN_STYLE = `
   }
 `
 
-function VinylRecord({ isPlaying, albumImageUrl }) {
+function VinylRecord({ isPlaying, albumImageUrl, size = 180 }) {
   return (
     <>
       <style>{SPIN_STYLE}</style>
       <svg
         role="img"
         aria-label="Vinyl record"
-        width="180"
-        height="180"
+        width={size}
+        height={size}
         viewBox="0 0 200 200"
         style={{
           animation: 'spin-record 3s linear infinite',
@@ -230,14 +231,50 @@ export default function NowPlayingPane({ state, open, onClose, onFetchTracks, al
 
 const { track, device } = state
   const currentTrackName = track?.name ?? null
+  const isMobile = useIsMobile()
+
+  const paneStyle = isMobile
+    ? {
+        position: 'fixed',
+        bottom: 0,
+        left: 0,
+        right: 0,
+        height: '70vh',
+        background: 'var(--surface)',
+        borderTop: '1px solid var(--border)',
+        borderRadius: '16px 16px 0 0',
+        display: 'flex',
+        flexDirection: 'column',
+        zIndex: 150,
+        transform: open ? 'translateY(0)' : 'translateY(100%)',
+        transition: 'transform 0.3s ease',
+        overflowY: 'auto',
+        paddingBottom: 'env(safe-area-inset-bottom, 0px)',
+      }
+    : {
+        ...styles.pane(open),
+        bottom: 'calc(64px + env(safe-area-inset-bottom, 0px))',
+      }
 
   return (
     <aside
       role="complementary"
       aria-label="Now playing"
       aria-hidden={open ? undefined : 'true'}
-      style={styles.pane(open)}
+      style={paneStyle}
     >
+      {/* Drag handle (mobile only — visual only) */}
+      {isMobile && (
+        <div style={{
+          width: '36px',
+          height: '4px',
+          background: 'var(--border)',
+          borderRadius: '2px',
+          margin: '10px auto 4px',
+          flexShrink: 0,
+        }} />
+      )}
+
       {/* Header */}
       <div style={styles.header}>
         <span style={styles.headerTitle}>Now Playing</span>
@@ -254,7 +291,7 @@ const { track, device } = state
       {track ? (
         <div style={styles.albumSection}>
           <div style={styles.recordWrap}>
-            <VinylRecord isPlaying={state.is_playing} albumImageUrl={albumImageUrl} />
+            <VinylRecord isPlaying={state.is_playing} albumImageUrl={albumImageUrl} size={isMobile ? 120 : 180} />
           </div>
           <div style={styles.albumName}>{track.album}</div>
           <div style={styles.artistName}>{track.artists.join(', ')}</div>

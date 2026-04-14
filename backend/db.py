@@ -1,5 +1,6 @@
 import os
-from supabase import create_client, Client
+
+from supabase import Client, create_client
 
 
 def get_db() -> Client:

@@ -2,9 +2,13 @@ import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import CollectionsPane from './CollectionsPane'
 
+// 2 days ago and 5 days ago — computed dynamically so tests always pass relative to now
+const TWO_DAYS_AGO = new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString()
+const FIVE_DAYS_AGO = new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString()
+
 const COLLECTIONS = [
-  { id: 'col-1', name: 'Road trip', album_count: 5, updated_at: '2025-01-15T00:00:00Z' },
-  { id: 'col-2', name: '90s classics', album_count: 12, updated_at: '2024-08-03T00:00:00Z' },
+  { id: 'col-1', name: 'Road trip', album_count: 5, updated_at: TWO_DAYS_AGO },
+  { id: 'col-2', name: '90s classics', album_count: 12, updated_at: FIVE_DAYS_AGO },
 ]
 
 const ALBUMS = [
@@ -50,10 +54,8 @@ describe('CollectionsPane', () => {
         onFetchAlbums={() => Promise.resolve([])}
       />
     )
-    // Click the row itself (the li element with role="button" or the row container)
-    // We look for the collection row and click it
-    const rows = screen.getAllByRole('listitem')
-    await userEvent.click(rows[0])
+    // Click on the collection name text — the whole row (tr) triggers onEnter
+    await userEvent.click(screen.getByText('Road trip'))
     expect(onEnter).toHaveBeenCalledWith(COLLECTIONS[0])
   })
 
@@ -71,7 +73,7 @@ describe('CollectionsPane', () => {
     expect(onEnter).toHaveBeenCalledWith(COLLECTIONS[0])
   })
 
-  it('calls onDelete with collection id when Delete is clicked', async () => {
+  it('calls onDelete with collection id when Delete is confirmed (two-click flow)', async () => {
     const onDelete = vi.fn()
     render(
       <CollectionsPane
@@ -81,7 +83,10 @@ describe('CollectionsPane', () => {
         onFetchAlbums={() => Promise.resolve([])}
       />
     )
-    await userEvent.click(screen.getAllByRole('button', { name: /delete/i })[0])
+    // First click opens confirmation
+    await userEvent.click(screen.getAllByRole('button', { name: /^delete$/i })[0])
+    // Second click confirms (aria-label="Confirm delete")
+    await userEvent.click(screen.getByRole('button', { name: /confirm delete/i }))
     expect(onDelete).toHaveBeenCalledWith('col-1')
   })
 
@@ -162,7 +167,7 @@ describe('CollectionsPane', () => {
     })
   })
 
-  it('shows album count next to each collection name when album_count is provided', () => {
+  it('shows album count in the Albums column when album_count is provided', () => {
     render(
       <CollectionsPane
         collections={COLLECTIONS}
@@ -171,11 +176,11 @@ describe('CollectionsPane', () => {
         onFetchAlbums={() => Promise.resolve([])}
       />
     )
-    expect(screen.getByText('5 albums')).toBeInTheDocument()
-    expect(screen.getByText('12 albums')).toBeInTheDocument()
+    expect(screen.getByText('5')).toBeInTheDocument()
+    expect(screen.getByText('12')).toBeInTheDocument()
   })
 
-  it('shows formatted updated_at date for each collection', () => {
+  it('shows relative updated_at date for each collection', () => {
     render(
       <CollectionsPane
         collections={COLLECTIONS}
@@ -184,13 +189,13 @@ describe('CollectionsPane', () => {
         onFetchAlbums={() => Promise.resolve([])}
       />
     )
-    // '2025-01-15T00:00:00Z' -> 'Jan 2025'
-    expect(screen.getByText(/Jan 2025/)).toBeInTheDocument()
-    // '2024-08-03T00:00:00Z' -> 'Aug 2024'
-    expect(screen.getByText(/Aug 2024/)).toBeInTheDocument()
+    // TWO_DAYS_AGO -> '2d ago'
+    expect(screen.getByText('2d ago')).toBeInTheDocument()
+    // FIVE_DAYS_AGO -> '5d ago'
+    expect(screen.getByText('5d ago')).toBeInTheDocument()
   })
 
-  it('shows metadata block with album count and date in a single combined span', () => {
+  it('shows album count and updated date in separate columns', () => {
     render(
       <CollectionsPane
         collections={[COLLECTIONS[0]]}
@@ -199,9 +204,9 @@ describe('CollectionsPane', () => {
         onFetchAlbums={() => Promise.resolve([])}
       />
     )
-    // The metadata block should contain both the count and the date
-    expect(screen.getByText(/5 albums/)).toBeInTheDocument()
-    expect(screen.getByText(/Jan 2025/)).toBeInTheDocument()
+    // Album count in Albums column, relative date in Updated column
+    expect(screen.getByText('5')).toBeInTheDocument()
+    expect(screen.getByText('2d ago')).toBeInTheDocument()
   })
 
   // --- Sticky create-new-collection input at top ---
@@ -266,5 +271,92 @@ describe('CollectionsPane', () => {
     const firstCollectionName = screen.getByText('Road trip')
     // The input should appear before the collection list in DOM order
     expect(input.compareDocumentPosition(firstCollectionName)).toBe(Node.DOCUMENT_POSITION_FOLLOWING)
+  })
+
+  // --- Table layout ---
+
+  it('renders a table with column headers', () => {
+    render(
+      <CollectionsPane
+        collections={COLLECTIONS}
+        onEnter={() => {}}
+        onDelete={() => {}}
+        onFetchAlbums={() => Promise.resolve([])}
+      />
+    )
+    expect(document.querySelector('table')).toBeInTheDocument()
+    expect(screen.getByRole('columnheader', { name: /collection/i })).toBeInTheDocument()
+    expect(screen.getByRole('columnheader', { name: /albums/i })).toBeInTheDocument()
+    expect(screen.getByRole('columnheader', { name: /updated/i })).toBeInTheDocument()
+  })
+
+  // --- Delete confirmation ---
+
+  it('delete button shows confirmation on first click', async () => {
+    render(
+      <CollectionsPane
+        collections={COLLECTIONS}
+        onEnter={() => {}}
+        onDelete={() => {}}
+        onFetchAlbums={() => Promise.resolve([])}
+      />
+    )
+    const deleteBtns = screen.getAllByRole('button', { name: /^delete$/i })
+    await userEvent.click(deleteBtns[0])
+    // After first click, confirm (aria-label="Confirm delete") and cancel buttons appear
+    expect(screen.getByRole('button', { name: /confirm delete/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /cancel/i })).toBeInTheDocument()
+  })
+
+  it('confirm delete calls onDelete', async () => {
+    const onDelete = vi.fn()
+    render(
+      <CollectionsPane
+        collections={COLLECTIONS}
+        onEnter={() => {}}
+        onDelete={onDelete}
+        onFetchAlbums={() => Promise.resolve([])}
+      />
+    )
+    // First click — triggers confirmation
+    const deleteBtns = screen.getAllByRole('button', { name: /^delete$/i })
+    await userEvent.click(deleteBtns[0])
+    // Second click — confirms deletion
+    const confirmBtn = screen.getByRole('button', { name: /confirm delete/i })
+    await userEvent.click(confirmBtn)
+    expect(onDelete).toHaveBeenCalledWith('col-1')
+  })
+
+  it('cancel delete does not call onDelete', async () => {
+    const onDelete = vi.fn()
+    render(
+      <CollectionsPane
+        collections={COLLECTIONS}
+        onEnter={() => {}}
+        onDelete={onDelete}
+        onFetchAlbums={() => Promise.resolve([])}
+      />
+    )
+    const deleteBtns = screen.getAllByRole('button', { name: /^delete$/i })
+    await userEvent.click(deleteBtns[0])
+    const cancelBtn = screen.getByRole('button', { name: /cancel/i })
+    await userEvent.click(cancelBtn)
+    expect(onDelete).not.toHaveBeenCalled()
+  })
+
+  it('delete button is visible in the last column even for empty collections', async () => {
+    const emptyCollection = [{ id: 'col-empty', name: 'Empty', album_count: 0, updated_at: null }]
+    render(
+      <CollectionsPane
+        collections={emptyCollection}
+        onEnter={() => {}}
+        onDelete={() => {}}
+        onFetchAlbums={() => Promise.resolve([])}
+      />
+    )
+    // Delete button should exist
+    expect(screen.getByRole('button', { name: /delete/i })).toBeInTheDocument()
+    // Art cell (td with class collection-art-cell) should still be in DOM even when empty
+    expect(document.querySelector('.collection-art-cell')).toBeInTheDocument()
   })
 })

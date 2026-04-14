@@ -1,5 +1,9 @@
 """Run a SQL migration file against Supabase. Usage: python migrate.py migrations/001_initial.sql"""
-import os, sys, httpx
+
+import os
+import sys
+
+import httpx
 from dotenv import load_dotenv
 
 load_dotenv(dotenv_path=".env")

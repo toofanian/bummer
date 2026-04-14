@@ -1,6 +1,9 @@
-import { render, screen, act } from '@testing-library/react'
+import { render, screen, act, fireEvent } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import AlbumTable from './AlbumTable'
+import { useIsMobile } from '../hooks/useIsMobile'
+
+vi.mock('../hooks/useIsMobile', () => ({ useIsMobile: vi.fn().mockReturnValue(false) }))
 
 const ALBUMS = [
   {
@@ -520,6 +523,9 @@ describe('AlbumTable', () => {
     expect(trackRows[1].classList.contains('now-playing')).toBe(false)
   })
 
+  // reset mobile mock to desktop after each test in this describe block
+  afterEach(() => useIsMobile.mockReturnValue(false))
+
   it('now-playing indicator on an active track row contains .eq-bar elements and not a music note emoji', async () => {
     const tracks = [
       { track_number: 1, name: 'No Ordinary Love', duration: '4:25', spotify_id: 'tid1', artists: ['Sade'] },
@@ -542,5 +548,75 @@ describe('AlbumTable', () => {
     expect(indicator).not.toBeNull()
     expect(indicator.querySelectorAll('.eq-bar')).toHaveLength(4)
     expect(indicator.textContent).not.toContain('♫')
+  })
+})
+
+describe('AlbumTable mobile card list', () => {
+  beforeEach(() => useIsMobile.mockReturnValue(true))
+  afterEach(() => useIsMobile.mockReturnValue(false))
+
+  it('renders a card list instead of a table on mobile', () => {
+    render(<AlbumTable albums={ALBUMS} loading={false} />)
+    expect(document.querySelector('.album-card-list')).toBeInTheDocument()
+    expect(document.querySelector('table')).not.toBeInTheDocument()
+  })
+
+  it('renders one card per album', () => {
+    render(<AlbumTable albums={ALBUMS} loading={false} />)
+    expect(document.querySelectorAll('.album-card')).toHaveLength(ALBUMS.length)
+  })
+
+  it('shows album name and artist in each card', () => {
+    render(<AlbumTable albums={ALBUMS} loading={false} />)
+    expect(screen.getByText('Love Deluxe')).toBeInTheDocument()
+    expect(screen.getByText('Sade')).toBeInTheDocument()
+    expect(screen.getByText('Room On Fire')).toBeInTheDocument()
+    expect(screen.getByText('The Strokes')).toBeInTheDocument()
+  })
+
+  it('single tap on a card calls onPlay with the album spotify_id', () => {
+    const onPlay = vi.fn()
+    render(<AlbumTable albums={ALBUMS} loading={false} onPlay={onPlay} />)
+    const card = document.querySelector('[data-testid="album-card-id1"]')
+    fireEvent.click(card)
+    expect(onPlay).toHaveBeenCalledWith('id1')
+  })
+
+  it('tapping the expand button does not trigger onPlay', () => {
+    const onPlay = vi.fn()
+    const onFetchTracks = vi.fn().mockResolvedValue([])
+    render(<AlbumTable albums={ALBUMS} loading={false} onPlay={onPlay} onFetchTracks={onFetchTracks} />)
+    const expandBtn = screen.getAllByRole('button', { name: /expand/i })[0]
+    fireEvent.click(expandBtn)
+    expect(onPlay).not.toHaveBeenCalled()
+  })
+
+  it('tapping a track row calls onPlayTrack', async () => {
+    const tracks = [
+      { track_number: 1, name: 'No Ordinary Love', duration: '4:25', spotify_id: 'tid1', artists: ['Sade'] },
+    ]
+    const onFetchTracks = vi.fn().mockResolvedValue(tracks)
+    const onPlayTrack = vi.fn()
+    render(
+      <AlbumTable
+        albums={[ALBUMS[0]]}
+        loading={false}
+        onFetchTracks={onFetchTracks}
+        onPlayTrack={onPlayTrack}
+      />
+    )
+    const expandBtn = screen.getByRole('button', { name: /expand/i })
+    fireEvent.click(expandBtn)
+    await screen.findByText('No Ordinary Love')
+
+    const trackRow = document.querySelector('.album-card-track-row')
+    fireEvent.click(trackRow)
+    expect(onPlayTrack).toHaveBeenCalledWith('spotify:track:tid1')
+  })
+
+  it('applies now-playing class to the card when playingId matches', () => {
+    render(<AlbumTable albums={ALBUMS} loading={false} playingId="id1" />)
+    const card = document.querySelector('[data-testid="album-card-id1"]')
+    expect(card).toHaveClass('now-playing')
   })
 })

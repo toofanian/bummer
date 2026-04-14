@@ -597,13 +597,13 @@ describe('PlaybackBar', () => {
         onSetVolume={vi.fn()}
       />
     )
-    const rightZone = screen.getByTestId('playback-right')
-    const slider = rightZone.querySelector('input[type="range"]')
+    const slider = screen.getByRole('slider', { name: 'Volume' })
     expect(slider).toBeTruthy()
-    expect(slider).toHaveAttribute('aria-label', 'Volume')
+    expect(slider).toHaveAttribute('aria-valuemin', '0')
+    expect(slider).toHaveAttribute('aria-valuemax', '100')
   })
 
-  it('volume slider has min=0, max=100', () => {
+  it('volume slider has aria-valuemin=0, aria-valuemax=100', () => {
     render(
       <PlaybackBar
         state={PLAYING_STATE}
@@ -614,13 +614,12 @@ describe('PlaybackBar', () => {
         onSetVolume={vi.fn()}
       />
     )
-    const rightZone = screen.getByTestId('playback-right')
-    const slider = rightZone.querySelector('input[type="range"]')
-    expect(slider).toHaveAttribute('min', '0')
-    expect(slider).toHaveAttribute('max', '100')
+    const slider = screen.getByRole('slider', { name: 'Volume' })
+    expect(slider).toHaveAttribute('aria-valuemin', '0')
+    expect(slider).toHaveAttribute('aria-valuemax', '100')
   })
 
-  it('calls onSetVolume with numeric value when slider changes', async () => {
+  it('calls onSetVolume with numeric value when slider changes via keyboard', async () => {
     const onSetVolume = vi.fn()
     render(
       <PlaybackBar
@@ -632,14 +631,155 @@ describe('PlaybackBar', () => {
         onSetVolume={onSetVolume}
       />
     )
-    const rightZone = screen.getByTestId('playback-right')
-    const slider = rightZone.querySelector('input[type="range"]')
-    await userEvent.type(slider, '{arrowup}')
-    // onSetVolume may be debounced, but we just verify it was called
-    // We fire change event directly for reliability
-    fireEvent.change(slider, { target: { value: '60' } })
+    const slider = screen.getByRole('slider', { name: 'Volume' })
+    slider.focus()
+    await userEvent.keyboard('{ArrowUp}{ArrowUp}{ArrowUp}')
     // give debounce time to fire
     await new Promise(r => setTimeout(r, 400))
-    expect(onSetVolume).toHaveBeenCalledWith(60)
+    expect(onSetVolume).toHaveBeenCalled()
+    const lastCall = onSetVolume.mock.calls.at(-1)[0]
+    expect(lastCall).toBeGreaterThan(50) // started at 50, went up
+  })
+})
+
+// --- Device picker ---
+
+const DEVICE_LIST = [
+  { id: 'mac-id', name: 'My Mac', type: 'Computer', is_active: true },
+  { id: 'iphone-id', name: "Alex's iPhone", type: 'Smartphone', is_active: false },
+]
+
+const defaultProps = {
+  onPlay: vi.fn(),
+  onPause: vi.fn(),
+  onPrevious: vi.fn(),
+  onNext: vi.fn(),
+  paneOpen: false,
+  onTogglePane: vi.fn(),
+}
+
+describe('device picker', () => {
+  it('renders device name as a button when onFetchDevices is provided', () => {
+    render(
+      <PlaybackBar
+        {...defaultProps}
+        state={PLAYING_STATE}
+        onFetchDevices={vi.fn()}
+        onTransferPlayback={vi.fn()}
+      />
+    )
+    expect(screen.getByRole('button', { name: /my mac/i })).toBeInTheDocument()
+  })
+
+  it('opens device list popover on click and shows devices', async () => {
+    const user = userEvent.setup()
+    const onFetchDevices = vi.fn().mockResolvedValue(DEVICE_LIST)
+    render(
+      <PlaybackBar
+        {...defaultProps}
+        state={PLAYING_STATE}
+        onFetchDevices={onFetchDevices}
+        onTransferPlayback={vi.fn()}
+      />
+    )
+
+    await user.click(screen.getByRole('button', { name: /my mac/i }))
+
+    expect(await screen.findByText("Alex's iPhone")).toBeInTheDocument()
+  })
+
+  it('shows checkmark next to active device', async () => {
+    const user = userEvent.setup()
+    const onFetchDevices = vi.fn().mockResolvedValue(DEVICE_LIST)
+    render(
+      <PlaybackBar
+        {...defaultProps}
+        state={PLAYING_STATE}
+        onFetchDevices={onFetchDevices}
+        onTransferPlayback={vi.fn()}
+      />
+    )
+
+    await user.click(screen.getByRole('button', { name: /my mac/i }))
+    await screen.findByText("Alex's iPhone")
+
+    const rows = screen.getAllByTestId('device-row')
+    const activeRow = rows.find(r => r.textContent.includes('My Mac'))
+    expect(activeRow).toHaveTextContent('✓')
+  })
+
+  it('calls onTransferPlayback with device id when clicking inactive device', async () => {
+    const user = userEvent.setup()
+    const onFetchDevices = vi.fn().mockResolvedValue(DEVICE_LIST)
+    const onTransferPlayback = vi.fn().mockResolvedValue(undefined)
+    render(
+      <PlaybackBar
+        {...defaultProps}
+        state={PLAYING_STATE}
+        onFetchDevices={onFetchDevices}
+        onTransferPlayback={onTransferPlayback}
+      />
+    )
+
+    await user.click(screen.getByRole('button', { name: /my mac/i }))
+    await screen.findByText("Alex's iPhone")
+    await user.click(screen.getByText("Alex's iPhone"))
+
+    expect(onTransferPlayback).toHaveBeenCalledWith('iphone-id')
+  })
+
+  it('closes popover after transferring to a device', async () => {
+    const user = userEvent.setup()
+    const onFetchDevices = vi.fn().mockResolvedValue(DEVICE_LIST)
+    const onTransferPlayback = vi.fn().mockResolvedValue(undefined)
+    render(
+      <PlaybackBar
+        {...defaultProps}
+        state={PLAYING_STATE}
+        onFetchDevices={onFetchDevices}
+        onTransferPlayback={onTransferPlayback}
+      />
+    )
+
+    await user.click(screen.getByRole('button', { name: /my mac/i }))
+    await screen.findByText("Alex's iPhone")
+    await user.click(screen.getByText("Alex's iPhone"))
+
+    expect(screen.queryByText("Alex's iPhone")).not.toBeInTheDocument()
+  })
+
+  it('shows "No other devices found" when device list is empty', async () => {
+    const user = userEvent.setup()
+    const onFetchDevices = vi.fn().mockResolvedValue([])
+    render(
+      <PlaybackBar
+        {...defaultProps}
+        state={PLAYING_STATE}
+        onFetchDevices={onFetchDevices}
+        onTransferPlayback={vi.fn()}
+      />
+    )
+
+    await user.click(screen.getByRole('button', { name: /my mac/i }))
+    expect(await screen.findByText('No other devices found')).toBeInTheDocument()
+  })
+
+  it('closes popover when Escape is pressed', async () => {
+    const user = userEvent.setup()
+    const onFetchDevices = vi.fn().mockResolvedValue(DEVICE_LIST)
+    render(
+      <PlaybackBar
+        {...defaultProps}
+        state={PLAYING_STATE}
+        onFetchDevices={onFetchDevices}
+        onTransferPlayback={vi.fn()}
+      />
+    )
+
+    await user.click(screen.getByRole('button', { name: /my mac/i }))
+    await screen.findByText("Alex's iPhone")
+
+    await user.keyboard('{Escape}')
+    expect(screen.queryByText("Alex's iPhone")).not.toBeInTheDocument()
   })
 })

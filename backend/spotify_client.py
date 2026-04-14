@@ -1,12 +1,13 @@
 import os
+
 import spotipy
-from spotipy.oauth2 import SpotifyOAuth
 from fastapi import HTTPException
+from spotipy.oauth2 import SpotifyOAuth
 
 SCOPES = [
-    "user-library-read",            # read saved albums/tracks
-    "user-read-playback-state",     # read current playback
-    "user-modify-playback-state",   # control playback (Premium)
+    "user-library-read",  # read saved albums/tracks
+    "user-read-playback-state",  # read current playback
+    "user-modify-playback-state",  # control playback (Premium)
     "user-read-currently-playing",
     "playlist-read-private",
     "playlist-read-collaborative",
