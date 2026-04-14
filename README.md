@@ -1,6 +1,6 @@
 # Bummer
 
-A personal music library manager that syncs with Spotify and adds the organization tools Spotify won't — sorting, tags, collections, and full-album playback. Album-first. Curation-first. The death of shuffle.
+A personal music library manager that syncs with Spotify and provides a more intentional music listening experience. Album-first. Curation-first. The death of shuffle.
 
 **Live at [thedeathofshuffle.com](https://thedeathofshuffle.com)**
 
@@ -8,15 +8,15 @@ A personal music library manager that syncs with Spotify and adds the organizati
 
 ## What it does
 
-- Sync your Spotify library and browse it as a proper album collection
-- Create collections that mean something — not just playlists
-- Group and explore by artist
-- Play albums front to back via Spotify Connect
-- Track your listening history and get a weekly digest
+- Sync your Spotify library and browse it as a proper album catalog
+- Create collections of albums, not just playlist of songs.
+- Group and explore by artist.
+- Playback supported Spotify Connect.
+- Track your library at it changes with a weekly digest.
 
 ## Feedback
 
-Bummer is a personal project, but feedback is welcome:
+Bummer is a personal project. Your feedback is welcome, I'm excited to build a better tool for us:
 
 - **Found a bug?** [File an issue](https://github.com/toofanian/bummer/issues/new?template=bug.yml)
 - **Have a feature idea?** [Start a discussion](https://github.com/toofanian/bummer/discussions/categories/ideas) — upvote existing ideas or propose new ones
