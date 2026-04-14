@@ -144,39 +144,42 @@ export default function App() {
         } catch { /* storage full or unavailable */ }
       }
 
-      // 3. Drive the sync loop. Per design, always auto-refresh on app open.
-      setSyncing(true)
-      let offset = 0
-      let progress = null
-      do {
-        const resp = await apiFetch('/library/sync', {
-          method: 'POST',
-          body: JSON.stringify({ offset }),
-        }, sessionRef.current).then(r => r.json())
-        progress = resp
-        if (isColdStart) {
-          setLoadingMessage(
-            `Syncing ${progress.total_in_cache} of ${progress.spotify_total} albums...`
-          )
-        }
-        offset = progress.next_offset
-      } while (!progress.done)
+      // 3. Drive the sync loop — skip in preview (no real Spotify tokens).
+      if (!IS_PREVIEW) {
+        setSyncing(true)
+        let offset = 0
+        let progress = null
+        do {
+          const resp = await apiFetch('/library/sync', {
+            method: 'POST',
+            body: JSON.stringify({ offset }),
+          }, sessionRef.current).then(r => r.json())
+          progress = resp
+          if (isColdStart) {
+            setLoadingMessage(
+              `Syncing ${progress.total_in_cache} of ${progress.spotify_total} albums...`
+            )
+          }
+          offset = progress.next_offset
+        } while (!progress.done)
 
-      // 4. Refetch the complete library
-      const finalResp = await apiFetch('/library/albums', {}, sessionRef.current).then(r => r.json())
-      setAlbums(finalResp.albums ?? [])
-      try {
-        localStorage.setItem(CACHE_KEY, JSON.stringify({
-          albums: finalResp.albums ?? [],
-          total: (finalResp.albums ?? []).length,
-          cachedAt: new Date().toISOString(),
-        }))
-      } catch { /* storage full or unavailable */ }
+        // 4. Refetch the complete library
+        const finalResp = await apiFetch('/library/albums', {}, sessionRef.current).then(r => r.json())
+        setAlbums(finalResp.albums ?? [])
+        try {
+          localStorage.setItem(CACHE_KEY, JSON.stringify({
+            albums: finalResp.albums ?? [],
+            total: (finalResp.albums ?? []).length,
+            cachedAt: new Date().toISOString(),
+          }))
+        } catch { /* storage full or unavailable */ }
+      }
       setSyncing(false)
 
       // 5. Continue to collections fetch
       setLoadingMessage('Loading collections...')
-      const collectionsData = await apiFetch('/collections', {}, sessionRef.current).then(r => r.json())
+      const collectionsRaw = await apiFetch('/collections', {}, sessionRef.current).then(r => r.json())
+      const collectionsData = Array.isArray(collectionsRaw) ? collectionsRaw : []
       setCollections(collectionsData)
       // Eagerly fetch all collection memberships so albumCollectionMap is
       // populated on first render rather than lazily as the user navigates.
@@ -886,7 +889,7 @@ export default function App() {
   return (
     <div className="app flex flex-col h-dvh" style={(paneOpen || digestOpen) && !isMobile ? { paddingRight: digestOpen ? '340px' : '300px' } : {}}>
       <header className="h-14 bg-surface border-b border-border flex items-center px-5 gap-6">
-        <h1>Crate <span style={{ fontSize: '10px', fontWeight: 400, opacity: 0.35, letterSpacing: '0.05em' }}>{__APP_VERSION__}</span></h1>
+        <h1>Bummer<span style={{ fontSize: '10px', fontWeight: 400, opacity: 0.35, letterSpacing: '0.05em' }}>{__APP_VERSION__}</span></h1>
         <nav className="flex gap-1">
           <button
             className={`bg-transparent border-none text-sm cursor-pointer px-3 py-1.5 rounded transition-colors duration-150 hover:text-text hover:bg-hover${view === 'home' ? ' active text-text border-b-2 border-accent' : ' text-text-dim'}`}

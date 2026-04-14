@@ -1,4 +1,4 @@
-"""Vercel Python entry point for the Crate FastAPI backend.
+"""Vercel Python entry point for the Bummer FastAPI backend.
 
 Lazy import pattern: expose a minimal FastAPI instance at module
 load time so Vercel's Python builder can detect the function, then

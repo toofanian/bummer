@@ -63,7 +63,7 @@ export function useAppleMusicAuth() {
         await MusicKit.configure({
           developerToken: developer_token,
           app: {
-            name: 'Crate',
+            name: 'Bummer',
             build: '1.0.0',
           },
         })

@@ -62,7 +62,7 @@ export default function SettingsMenu({ onLogout, session }) {
       {open && (
         <div className="absolute right-0 top-full mt-1 bg-surface border border-border rounded shadow-lg z-50 min-w-[160px]">
           <a
-            href="mailto:steels_tastier_8r@icloud.com?subject=Crate%20Feedback&body=Hey%20Alex%2C%0A%0A"
+            href="mailto:steels_tastier_8r@icloud.com?subject=Bummer%20Feedback&body=Hey%20Alex%2C%0A%0A"
             className="block px-4 py-2 text-sm text-text hover:bg-hover transition-colors duration-150 no-underline"
           >
             Send Feedback
@@ -96,7 +96,7 @@ export default function SettingsMenu({ onLogout, session }) {
           <div className="bg-surface border border-border rounded-lg p-6 max-w-md w-full flex flex-col gap-4">
             <h2 className="text-lg font-bold text-text">Delete account?</h2>
             <p className="text-sm text-text-dim">
-              This will permanently delete your Crate account and all associated data —
+              This will permanently delete your Bummer account and all associated data —
               your Spotify tokens, collections, tags, ratings, play history, and library
               snapshots. This cannot be undone.
             </p>

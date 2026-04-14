@@ -9,7 +9,7 @@ function ServiceSelector({ onSelect }) {
     <div className="flex flex-col items-center justify-center min-h-screen gap-6 p-8">
       <h1 className="text-2xl font-bold">Choose your music service</h1>
       <p className="text-gray-400 max-w-sm text-center">
-        Crate works with your existing music library. Pick the service you use.
+        Bummer works with your existing music library. Pick the service you use.
       </p>
       <div className="flex flex-col gap-3 w-full max-w-sm">
         <button
@@ -154,10 +154,10 @@ function SpotifySetup({ session, onComplete }) {
     <div className="flex flex-col items-center justify-center min-h-screen gap-6 p-8">
       <h1 className="text-2xl font-bold">Connect Spotify</h1>
       <p className="text-gray-400 max-w-sm text-center">
-        Crate uses your own Spotify developer app to sync your library and control playback. <span className="text-white">Spotify Premium is required.</span>
+        Bummer uses your own Spotify developer app to sync your library and control playback. <span className="text-white">Spotify Premium is required.</span>
       </p>
       <p className="text-gray-500 max-w-sm text-center text-sm">
-        Crate can read and modify your library, control playback, view your listening history and top artists, and manage playlists and followed artists. It cannot change your password, make purchases, or access any other Spotify data. Your tokens are stored to keep your library synced in the background. You can delete your account and all stored data anytime from Settings.
+        Bummer can read and modify your library, control playback, view your listening history and top artists, and manage playlists and followed artists. It cannot change your password, make purchases, or access any other Spotify data. Your tokens are stored to keep your library synced in the background. You can delete your account and all stored data anytime from Settings.
       </p>
       <ol className="flex flex-col gap-3 w-full max-w-sm text-sm text-gray-400 list-decimal list-outside pl-5">
         <li>
@@ -169,7 +169,7 @@ function SpotifySetup({ session, onComplete }) {
           and log in with your Spotify account.
         </li>
         <li>Click <span className="text-white">Create app</span>.</li>
-        <li>Give it any name and description (e.g., "My Crate").</li>
+        <li>Give it any name and description (e.g., "My Bummer").</li>
         <li>
           Paste this redirect URI:
           <div className="mt-2 flex items-stretch gap-2">

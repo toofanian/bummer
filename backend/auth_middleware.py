@@ -19,7 +19,7 @@ from supabase import Client, create_client
 # the plaintext password is stored only in the Vercel preview scope
 # env var PREVIEW_USER_PASSWORD.
 PREVIEW_USER_ID = "00000000-0000-0000-0000-000000000001"
-PREVIEW_USER_EMAIL = "preview@crate.local"
+PREVIEW_USER_EMAIL = "preview@bummer.local"
 
 # Session cache for the preview user. Signing in on every request
 # would hammer GoTrue — cache the access_token + expiry in-process and

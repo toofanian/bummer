@@ -1,6 +1,6 @@
 {
-  "name": "Crate",
-  "short_name": "Crate",
+  "name": "Bummer",
+  "short_name": "Bummer",
   "description": "Personal music library with sorting, collections, and playback control",
   "start_url": "/",
   "display": "standalone",

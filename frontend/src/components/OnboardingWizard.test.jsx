@@ -95,7 +95,7 @@ describe('OnboardingWizard', () => {
 
     it('shows consent language on the client_id step', () => {
       render(<OnboardingWizard session={fakeSession} onComplete={vi.fn()} />)
-      expect(screen.getByText(/Crate can read and modify your library/i)).toBeInTheDocument()
+      expect(screen.getByText(/Bummer can read and modify your library/i)).toBeInTheDocument()
     })
 
     it('posts tokens and calls onComplete after OAuth callback', async () => {

@@ -18,4 +18,4 @@ export const IS_PREVIEW = import.meta.env.VITE_VERCEL_ENV === 'preview'
 
 export const PREVIEW_USER_ID = '00000000-0000-0000-0000-000000000001'
 
-export const PREVIEW_USER_EMAIL = 'preview@crate.local'
+export const PREVIEW_USER_EMAIL = 'preview@bummer.local'
