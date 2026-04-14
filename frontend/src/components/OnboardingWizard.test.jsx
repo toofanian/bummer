@@ -32,83 +32,133 @@ describe('OnboardingWizard', () => {
   beforeEach(() => {
     localStorage.clear()
     vi.clearAllMocks()
-  })
-
-  it('renders step 1: enter client id', () => {
-    render(<OnboardingWizard session={fakeSession} onComplete={vi.fn()} />)
-    expect(screen.getByPlaceholderText(/client id/i)).toBeInTheDocument()
-  })
-
-  it('saves client_id to localStorage on submit', async () => {
-    render(<OnboardingWizard session={fakeSession} onComplete={vi.fn()} />)
-    fireEvent.change(screen.getByPlaceholderText(/client id/i), {
-      target: { value: 'my-client-id' }
-    })
-    fireEvent.click(screen.getByRole('button', { name: /connect spotify/i }))
-    await waitFor(() => {
-      expect(localStorage.getItem('spotify_client_id')).toBe('my-client-id')
-    })
-  })
-
-  it('shows consent language on the client_id step', () => {
-    render(<OnboardingWizard session={fakeSession} onComplete={vi.fn()} />)
-    expect(screen.getByText(/By connecting Spotify, you agree/i)).toBeInTheDocument()
-  })
-
-  it('posts tokens and calls onComplete after OAuth callback', async () => {
-    // Simulate landing on the callback URL with ?code=
-    window.history.replaceState({}, '', '/auth/spotify/callback?code=abc')
-    localStorage.setItem('spotify_client_id', 'cid')
-    fetch.mockResolvedValueOnce({ ok: true, json: async () => ({}) })
-    const onComplete = vi.fn()
-    render(<OnboardingWizard session={fakeSession} onComplete={onComplete} />)
-    await waitFor(() => expect(onComplete).toHaveBeenCalled())
-    // Must have posted to /auth/spotify-token
-    expect(fetch).toHaveBeenCalledWith(
-      expect.stringContaining('/auth/spotify-token'),
-      expect.objectContaining({ method: 'POST' }),
-    )
     window.history.replaceState({}, '', '/')
   })
 
-  it('does NOT render a "Yes, store it" consent button anywhere', () => {
-    render(<OnboardingWizard session={fakeSession} onComplete={vi.fn()} />)
-    expect(screen.queryByRole('button', { name: /yes, store it/i })).not.toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: /no thanks/i })).not.toBeInTheDocument()
+  describe('service selector', () => {
+    it('renders service selector when no service is chosen', () => {
+      render(<OnboardingWizard session={fakeSession} onComplete={vi.fn()} />)
+      expect(screen.getByText(/choose your music service/i)).toBeInTheDocument()
+      expect(screen.getByText(/spotify/i)).toBeInTheDocument()
+      expect(screen.getByText(/apple music/i)).toBeInTheDocument()
+    })
+
+    it('shows Spotify setup after selecting Spotify', () => {
+      render(<OnboardingWizard session={fakeSession} onComplete={vi.fn()} />)
+      fireEvent.click(screen.getByText('Spotify'))
+      expect(screen.getByRole('heading', { name: /connect spotify/i })).toBeInTheDocument()
+    })
+
+    it('shows Apple Music setup after selecting Apple Music', () => {
+      render(<OnboardingWizard session={fakeSession} onComplete={vi.fn()} />)
+      fireEvent.click(screen.getByText('Apple Music'))
+      expect(screen.getByText(/coming soon/i)).toBeInTheDocument()
+    })
+
+    it('skips service selector when spotify_client_id exists', () => {
+      localStorage.setItem('spotify_client_id', 'existing-id')
+      render(<OnboardingWizard session={fakeSession} onComplete={vi.fn()} />)
+      expect(screen.queryByText(/choose your music service/i)).not.toBeInTheDocument()
+      expect(screen.getByPlaceholderText(/client id/i)).toBeInTheDocument()
+    })
+
+    it('skips service selector on Spotify OAuth callback', () => {
+      window.history.replaceState({}, '', '/auth/spotify/callback?code=abc')
+      localStorage.setItem('spotify_client_id', 'cid')
+      fetch.mockResolvedValueOnce({ ok: true, json: async () => ({}) })
+      render(<OnboardingWizard session={fakeSession} onComplete={vi.fn()} />)
+      expect(screen.queryByText(/choose your music service/i)).not.toBeInTheDocument()
+    })
   })
 
-  it('displays the Spotify redirect URI on the client_id step', () => {
-    render(<OnboardingWizard session={fakeSession} onComplete={vi.fn()} />)
-    // matches either configured env value or localhost fallback
-    const uri = import.meta.env.VITE_SPOTIFY_REDIRECT_URI ?? 'http://localhost:5173/auth/spotify/callback'
-    expect(screen.getByText(uri)).toBeInTheDocument()
+  describe('Spotify setup', () => {
+    beforeEach(() => {
+      // Pre-select Spotify to skip service selector
+      localStorage.setItem('music_service_type', 'spotify')
+    })
+
+    it('renders step 1: enter client id', () => {
+      render(<OnboardingWizard session={fakeSession} onComplete={vi.fn()} />)
+      expect(screen.getByPlaceholderText(/client id/i)).toBeInTheDocument()
+    })
+
+    it('saves client_id to localStorage on submit', async () => {
+      render(<OnboardingWizard session={fakeSession} onComplete={vi.fn()} />)
+      fireEvent.change(screen.getByPlaceholderText(/client id/i), {
+        target: { value: 'my-client-id' }
+      })
+      fireEvent.click(screen.getByRole('button', { name: /connect spotify/i }))
+      await waitFor(() => {
+        expect(localStorage.getItem('spotify_client_id')).toBe('my-client-id')
+      })
+    })
+
+    it('shows consent language on the client_id step', () => {
+      render(<OnboardingWizard session={fakeSession} onComplete={vi.fn()} />)
+      expect(screen.getByText(/Crate can read and modify your library/i)).toBeInTheDocument()
+    })
+
+    it('posts tokens and calls onComplete after OAuth callback', async () => {
+      window.history.replaceState({}, '', '/auth/spotify/callback?code=abc')
+      localStorage.setItem('spotify_client_id', 'cid')
+      fetch.mockResolvedValueOnce({ ok: true, json: async () => ({}) })
+      const onComplete = vi.fn()
+      render(<OnboardingWizard session={fakeSession} onComplete={onComplete} />)
+      await waitFor(() => expect(onComplete).toHaveBeenCalled())
+      expect(fetch).toHaveBeenCalledWith(
+        expect.stringContaining('/auth/spotify-token'),
+        expect.objectContaining({ method: 'POST' }),
+      )
+      window.history.replaceState({}, '', '/')
+    })
+
+    it('displays the Spotify redirect URI on the client_id step', () => {
+      render(<OnboardingWizard session={fakeSession} onComplete={vi.fn()} />)
+      const uri = import.meta.env.VITE_SPOTIFY_REDIRECT_URI ?? 'http://localhost:5173/auth/spotify/callback'
+      expect(screen.getByText(uri)).toBeInTheDocument()
+    })
+
+    it('copies the redirect URI to clipboard when copy button is clicked', async () => {
+      const writeText = vi.fn().mockResolvedValue()
+      vi.stubGlobal('navigator', { clipboard: { writeText } })
+      render(<OnboardingWizard session={fakeSession} onComplete={vi.fn()} />)
+      const uri = import.meta.env.VITE_SPOTIFY_REDIRECT_URI ?? 'http://localhost:5173/auth/spotify/callback'
+      fireEvent.click(screen.getByRole('button', { name: /copy redirect uri/i }))
+      await waitFor(() => expect(writeText).toHaveBeenCalledWith(uri))
+    })
+
+    it('shows "Copied" feedback after successful clipboard copy', async () => {
+      const writeText = vi.fn().mockResolvedValue()
+      vi.stubGlobal('navigator', { clipboard: { writeText } })
+      render(<OnboardingWizard session={fakeSession} onComplete={vi.fn()} />)
+      fireEvent.click(screen.getByRole('button', { name: /copy redirect uri/i }))
+      await waitFor(() => expect(screen.getAllByText(/copied/i).length).toBeGreaterThan(0))
+    })
+
+    it('shows error when token storage fails after OAuth callback', async () => {
+      window.history.replaceState({}, '', '/auth/spotify/callback?code=abc')
+      localStorage.setItem('spotify_client_id', 'cid')
+      fetch.mockResolvedValueOnce({ ok: false, json: async () => ({ detail: 'Server error' }) })
+      const onComplete = vi.fn()
+      render(<OnboardingWizard session={fakeSession} onComplete={onComplete} />)
+      await waitFor(() => expect(screen.getByText(/server error/i)).toBeInTheDocument())
+      expect(onComplete).not.toHaveBeenCalled()
+      window.history.replaceState({}, '', '/')
+    })
   })
 
-  it('copies the redirect URI to clipboard when copy button is clicked', async () => {
-    const writeText = vi.fn().mockResolvedValue()
-    vi.stubGlobal('navigator', { clipboard: { writeText } })
-    render(<OnboardingWizard session={fakeSession} onComplete={vi.fn()} />)
-    const uri = import.meta.env.VITE_SPOTIFY_REDIRECT_URI ?? 'http://localhost:5173/auth/spotify/callback'
-    fireEvent.click(screen.getByRole('button', { name: /copy redirect uri/i }))
-    await waitFor(() => expect(writeText).toHaveBeenCalledWith(uri))
-  })
+  describe('Apple Music setup', () => {
+    it('shows coming soon message', () => {
+      localStorage.setItem('music_service_type', 'apple_music')
+      render(<OnboardingWizard session={fakeSession} onComplete={vi.fn()} />)
+      expect(screen.getByText(/coming soon/i)).toBeInTheDocument()
+    })
 
-  it('shows "Copied" feedback after successful clipboard copy', async () => {
-    const writeText = vi.fn().mockResolvedValue()
-    vi.stubGlobal('navigator', { clipboard: { writeText } })
-    render(<OnboardingWizard session={fakeSession} onComplete={vi.fn()} />)
-    fireEvent.click(screen.getByRole('button', { name: /copy redirect uri/i }))
-    await waitFor(() => expect(screen.getAllByText(/copied/i).length).toBeGreaterThan(0))
-  })
-
-  it('shows error when token storage fails after OAuth callback', async () => {
-    window.history.replaceState({}, '', '/auth/spotify/callback?code=abc')
-    localStorage.setItem('spotify_client_id', 'cid')
-    fetch.mockResolvedValueOnce({ ok: false, json: async () => ({ detail: 'Server error' }) })
-    const onComplete = vi.fn()
-    render(<OnboardingWizard session={fakeSession} onComplete={onComplete} />)
-    await waitFor(() => expect(screen.getByText(/server error/i)).toBeInTheDocument())
-    expect(onComplete).not.toHaveBeenCalled()
-    window.history.replaceState({}, '', '/')
+    it('has a back button that returns to service selector', () => {
+      localStorage.setItem('music_service_type', 'apple_music')
+      render(<OnboardingWizard session={fakeSession} onComplete={vi.fn()} />)
+      fireEvent.click(screen.getByRole('button', { name: /back/i }))
+      expect(screen.getByText(/choose your music service/i)).toBeInTheDocument()
+    })
   })
 })

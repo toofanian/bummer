@@ -32,7 +32,7 @@ afterEach(() => {
 const CACHE_KEY = 'bsi_albums_cache'
 
 const CACHED_ALBUMS = [
-  { spotify_id: 'abc123', name: 'Cached Album', artists: ['Artist'], image_url: null, release_date: '2020', total_tracks: 10, added_at: '2021-01-01T00:00:00Z' }
+  { service_id: 'abc123', name: 'Cached Album', artists: ['Artist'], image_url: null, release_date: '2020', total_tracks: 10, added_at: '2021-01-01T00:00:00Z' }
 ]
 
 function seedLocalStorageCache(albums = CACHED_ALBUMS) {
@@ -155,7 +155,7 @@ describe('App — onboarding auth gate', () => {
 
     render(<App />)
     await waitFor(() =>
-      expect(screen.getByRole('heading', { name: /connect spotify/i })).toBeInTheDocument(),
+      expect(screen.getByText(/choose your music service/i)).toBeInTheDocument(),
     )
     expect(localStorage.getItem('spotify_client_id')).toBeNull()
   })
@@ -179,7 +179,7 @@ describe('App — onboarding auth gate', () => {
 
     render(<App />)
     await waitFor(() =>
-      expect(screen.getByRole('heading', { name: /connect spotify/i })).toBeInTheDocument(),
+      expect(screen.getByText(/choose your music service/i)).toBeInTheDocument(),
     )
   })
 })
@@ -597,7 +597,7 @@ describe('App — localStorage cache + syncing pulse', () => {
     }))
 
     const albumsWithArtists = [
-      { spotify_id: 'abc123', name: 'Test Album', artists: ['Test Artist'], image_url: null, release_date: '2020', total_tracks: 10, added_at: '2021-01-01T00:00:00Z' },
+      { service_id: 'abc123', name: 'Test Album', artists: ['Test Artist'], image_url: null, release_date: '2020', total_tracks: 10, added_at: '2021-01-01T00:00:00Z' },
     ]
     seedLocalStorageCache(albumsWithArtists)
     global.fetch = vi.fn().mockImplementation((url) => {
@@ -661,7 +661,7 @@ describe('App — localStorage cache + syncing pulse', () => {
     }))
 
     const albumsWithArtists = [
-      { spotify_id: 'abc123', name: 'Test Album', artists: ['Test Artist'], image_url: null, release_date: '2020', total_tracks: 10, added_at: '2021-01-01T00:00:00Z' },
+      { service_id: 'abc123', name: 'Test Album', artists: ['Test Artist'], image_url: null, release_date: '2020', total_tracks: 10, added_at: '2021-01-01T00:00:00Z' },
     ]
     seedLocalStorageCache(albumsWithArtists)
     global.fetch = vi.fn().mockImplementation((url) => {
@@ -701,7 +701,7 @@ describe('App — localStorage cache + syncing pulse', () => {
     seedLocalStorageCache()
     const freshAlbums = [
       ...CACHED_ALBUMS,
-      { spotify_id: 'new123', name: 'New Album', artists: ['New Artist'], image_url: null, release_date: '2025', total_tracks: 8, added_at: '2025-01-01T00:00:00Z' }
+      { service_id: 'new123', name: 'New Album', artists: ['New Artist'], image_url: null, release_date: '2025', total_tracks: 8, added_at: '2025-01-01T00:00:00Z' }
     ]
     global.fetch = vi.fn().mockImplementation((url) => {
 
@@ -737,7 +737,7 @@ describe('App — localStorage cache + syncing pulse', () => {
     }))
 
     const albumsWithArtists = [
-      { spotify_id: 'abc123', name: 'Test Album', artists: ['Test Artist'], image_url: null, release_date: '2020', total_tracks: 10, added_at: '2021-01-01T00:00:00Z' },
+      { service_id: 'abc123', name: 'Test Album', artists: ['Test Artist'], image_url: null, release_date: '2020', total_tracks: 10, added_at: '2021-01-01T00:00:00Z' },
     ]
     seedLocalStorageCache(albumsWithArtists)
     localStorage.setItem('library_view', 'artists')
@@ -770,7 +770,7 @@ describe('App — localStorage cache + syncing pulse', () => {
     }))
 
     const albumsWithArtists = [
-      { spotify_id: 'abc123', name: 'Test Album', artists: ['Test Artist'], image_url: null, release_date: '2020', total_tracks: 10, added_at: '2021-01-01T00:00:00Z' },
+      { service_id: 'abc123', name: 'Test Album', artists: ['Test Artist'], image_url: null, release_date: '2020', total_tracks: 10, added_at: '2021-01-01T00:00:00Z' },
     ]
     seedLocalStorageCache(albumsWithArtists)
 
@@ -802,13 +802,13 @@ describe('App — localStorage cache + syncing pulse', () => {
 
 describe('App — playback state persistence on reload', () => {
   const PLAYING_ALBUMS = [
-    { spotify_id: 'album-1', name: 'Currently Playing Album', artists: ['Artist A'], image_url: null, release_date: '2023', total_tracks: 12, added_at: '2023-01-01T00:00:00Z' },
-    { spotify_id: 'album-2', name: 'Other Album', artists: ['Artist B'], image_url: null, release_date: '2022', total_tracks: 10, added_at: '2022-01-01T00:00:00Z' },
+    { service_id: 'album-1', name: 'Currently Playing Album', artists: ['Artist A'], image_url: null, release_date: '2023', total_tracks: 12, added_at: '2023-01-01T00:00:00Z' },
+    { service_id: 'album-2', name: 'Other Album', artists: ['Artist B'], image_url: null, release_date: '2022', total_tracks: 10, added_at: '2022-01-01T00:00:00Z' },
   ]
 
   const PLAYBACK_STATE_PLAYING = {
     is_playing: true,
-    track: { name: 'Track 1', album: 'Currently Playing Album', album_spotify_id: 'album-1', artists: ['Artist A'] },
+    track: { name: 'Track 1', album: 'Currently Playing Album', album_service_id: 'album-1', artists: ['Artist A'] },
     device: { name: 'My Speaker' },
   }
 
@@ -900,7 +900,7 @@ describe('App — playback state persistence on reload', () => {
     clearLocalStorageCache()
   })
 
-  it('resolves now-playing album by spotify_id when two albums share a name', async () => {
+  it('resolves now-playing album by service_id when two albums share a name', async () => {
     window.matchMedia = vi.fn().mockImplementation(query => ({
       matches: false,
       media: query,
@@ -909,13 +909,13 @@ describe('App — playback state persistence on reload', () => {
     }))
 
     const DUPLICATE_NAME_ALBUMS = [
-      { spotify_id: 'frank-iero-parachutes', name: 'Parachutes', artists: ['Frank Iero'], image_url: null, release_date: '2016', total_tracks: 11, added_at: '2016-01-01T00:00:00Z' },
-      { spotify_id: 'coldplay-parachutes', name: 'Parachutes', artists: ['Coldplay'], image_url: null, release_date: '2000', total_tracks: 10, added_at: '2000-01-01T00:00:00Z' },
+      { service_id: 'frank-iero-parachutes', name: 'Parachutes', artists: ['Frank Iero'], image_url: null, release_date: '2016', total_tracks: 11, added_at: '2016-01-01T00:00:00Z' },
+      { service_id: 'coldplay-parachutes', name: 'Parachutes', artists: ['Coldplay'], image_url: null, release_date: '2000', total_tracks: 10, added_at: '2000-01-01T00:00:00Z' },
     ]
 
     const DUPLICATE_PLAYBACK = {
       is_playing: true,
-      track: { name: 'Yellow', album: 'Parachutes', album_spotify_id: 'coldplay-parachutes', artists: ['Coldplay'] },
+      track: { name: 'Yellow', album: 'Parachutes', album_service_id: 'coldplay-parachutes', artists: ['Coldplay'] },
       device: { name: 'My Speaker' },
     }
 
@@ -926,7 +926,7 @@ describe('App — playback state persistence on reload', () => {
 
     await userEvent.click(await screen.findByRole('button', { name: /^library( syncing)?$/i }))
 
-    // Only the Coldplay row should be marked as now-playing, matched via album_spotify_id
+    // Only the Coldplay row should be marked as now-playing, matched via album_service_id
     await waitFor(() => {
       const coldplayRow = document.getElementById('row-album-coldplay-parachutes')
       expect(coldplayRow).toBeTruthy()

@@ -20,7 +20,7 @@ class CollectionBody(BaseModel):
 
 
 class CollectionAlbumBody(BaseModel):
-    spotify_id: str
+    service_id: str
 
 
 class DescriptionBody(BaseModel):
@@ -32,7 +32,7 @@ class ReorderBody(BaseModel):
 
 
 class BulkAddBody(BaseModel):
-    spotify_ids: list[str] = Field(..., max_length=500)
+    service_ids: list[str] = Field(..., max_length=500)
 
 
 class CoverBody(BaseModel):
@@ -47,15 +47,15 @@ def get_all_metadata(
     db=Depends(get_authed_db), sp: spotipy.Spotify = Depends(get_user_spotify)
 ):
     result = db.table("album_metadata").select("*").execute()
-    return {row["spotify_id"]: {"tier": row["tier"]} for row in result.data}
+    return {row["service_id"]: {"tier": row["tier"]} for row in result.data}
 
 
 # --- Tier ---
 
 
-@router.put("/metadata/{spotify_id}/tier")
+@router.put("/metadata/{album_id}/tier")
 def set_tier(
-    spotify_id: str,
+    album_id: str,
     body: TierBody,
     db=Depends(get_authed_db),
     sp: spotipy.Spotify = Depends(get_user_spotify),
@@ -65,7 +65,7 @@ def set_tier(
         db.table("album_metadata")
         .upsert(
             {
-                "spotify_id": spotify_id,
+                "service_id": album_id,
                 "tier": body.tier,
                 "user_id": user["user_id"],
             }
@@ -75,9 +75,9 @@ def set_tier(
     return result.data[0]
 
 
-@router.delete("/metadata/{spotify_id}/tier")
+@router.delete("/metadata/{album_id}/tier")
 def clear_tier(
-    spotify_id: str,
+    album_id: str,
     db=Depends(get_authed_db),
     sp: spotipy.Spotify = Depends(get_user_spotify),
     user: dict = Depends(get_current_user),
@@ -86,7 +86,7 @@ def clear_tier(
         db.table("album_metadata")
         .upsert(
             {
-                "spotify_id": spotify_id,
+                "service_id": album_id,
                 "tier": None,
                 "user_id": user["user_id"],
             }
@@ -177,7 +177,7 @@ def add_album_to_collection(
         .insert(
             {
                 "collection_id": collection_id,
-                "spotify_id": body.spotify_id,
+                "service_id": body.service_id,
                 "position": next_pos,
                 "user_id": user["user_id"],
             }
@@ -213,7 +213,7 @@ def reorder_collection_albums(
     for i, album_id in enumerate(body.album_ids):
         db.table("collection_albums").update({"position": i}).eq(
             "collection_id", collection_id
-        ).eq("spotify_id", album_id).execute()
+        ).eq("service_id", album_id).execute()
     return {"reordered": True}
 
 
@@ -240,25 +240,25 @@ def bulk_add_albums_to_collection(
     rows = [
         {
             "collection_id": collection_id,
-            "spotify_id": sid,
+            "service_id": sid,
             "position": start_pos + i,
             "user_id": user_id,
         }
-        for i, sid in enumerate(body.spotify_ids)
+        for i, sid in enumerate(body.service_ids)
     ]
     db.table("collection_albums").insert(rows).execute()
     return {"added": len(rows)}
 
 
-@router.delete("/collections/{collection_id}/albums/{spotify_id}")
+@router.delete("/collections/{collection_id}/albums/{album_id}")
 def remove_album_from_collection(
     collection_id: str,
-    spotify_id: str,
+    album_id: str,
     db=Depends(get_authed_db),
     sp: spotipy.Spotify = Depends(get_user_spotify),
 ):
     db.table("collection_albums").delete().eq("collection_id", collection_id).eq(
-        "spotify_id", spotify_id
+        "service_id", album_id
     ).execute()
     return {"deleted": True}
 
@@ -273,12 +273,12 @@ def get_collection_albums(
     user_id = user["user_id"]
     result = (
         db.table("collection_albums")
-        .select("spotify_id, position")
+        .select("service_id, position")
         .eq("collection_id", collection_id)
         .order("position")
         .execute()
     )
-    ordered_ids = [row["spotify_id"] for row in result.data]
+    ordered_ids = [row["service_id"] for row in result.data]
     ids = set(ordered_ids)
     if not library_module._is_cache_fresh(user_id):
         all_items, total = library_module.fetch_all_albums(sp)
@@ -290,6 +290,6 @@ def get_collection_albums(
         }
     entry = library_module._caches.get(user_id)
     cached = entry["albums"] if entry else []
-    album_map = {a["spotify_id"]: a for a in cached if a["spotify_id"] in ids}
+    album_map = {a["service_id"]: a for a in cached if a["service_id"] in ids}
     albums = [album_map[sid] for sid in ordered_ids if sid in album_map]
     return {"albums": albums}

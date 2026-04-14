@@ -63,7 +63,7 @@ def store_spotify_token(
     """Store or update Spotify PKCE tokens for the authenticated user."""
     db = get_service_db()
     now = datetime.now(timezone.utc)
-    db.table("spotify_tokens").upsert(
+    db.table("music_tokens").upsert(
         {
             "user_id": user["user_id"],
             "access_token": body.access_token,
@@ -82,7 +82,7 @@ def delete_spotify_token(
 ):
     """Delete Spotify tokens for the authenticated user."""
     db = get_service_db()
-    db.table("spotify_tokens").delete().eq("user_id", user["user_id"]).execute()
+    db.table("music_tokens").delete().eq("user_id", user["user_id"]).execute()
     return {"status": "ok"}
 
 
@@ -93,7 +93,7 @@ def spotify_status(
     """Return whether the authenticated user has stored Spotify credentials."""
     db = get_service_db()
     result = (
-        db.table("spotify_tokens")
+        db.table("music_tokens")
         .select("client_id")
         .eq("user_id", user["user_id"])
         .execute()
@@ -108,7 +108,7 @@ def spotify_status(
 
 # Tables that store per-user rows keyed by a `user_id` column.
 _USER_DATA_TABLES = (
-    "spotify_tokens",
+    "music_tokens",
     "album_metadata",
     "collection_albums",
     "collections",

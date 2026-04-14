@@ -42,11 +42,11 @@ function sortAlbums(albums, key, direction) {
 function buildNavList(sorted, expanded) {
   const list = []
   for (const album of sorted) {
-    list.push({ type: 'album', id: `row-album-${album.spotify_id}` })
-    const exp = expanded[album.spotify_id]
+    list.push({ type: 'album', id: `row-album-${album.service_id}` })
+    const exp = expanded[album.service_id]
     if (exp && !exp.loading) {
       for (const t of exp.tracks) {
-        list.push({ type: 'track', id: `row-track-${t.spotify_id}` })
+        list.push({ type: 'track', id: `row-track-${t.service_id}` })
       }
     }
   }
@@ -74,9 +74,9 @@ const MobileAlbumCard = memo(function MobileAlbumCard({ album, isExpanded, isPla
   return (
     <div ref={sortableRef} style={sortableStyle}>
       <div
-        data-testid={`album-card-${album.spotify_id}`}
+        data-testid={`album-card-${album.service_id}`}
         className={`album-card flex items-center gap-3 px-4 py-2.5 border-b border-border cursor-pointer transition-colors duration-100 min-h-16 active:bg-selected${isPlaying ? ' now-playing bg-now-playing' : ''}`}
-        onClick={() => onPlay && onPlay(album.spotify_id)}
+        onClick={() => onPlay && onPlay(album.service_id)}
       >
         {dragHandleProps && (
           <button
@@ -88,7 +88,7 @@ const MobileAlbumCard = memo(function MobileAlbumCard({ album, isExpanded, isPla
         )}
         <div
           className="relative flex-shrink-0 w-11 h-11"
-          onClick={selectable ? (e) => { e.stopPropagation(); onToggleSelect?.(album.spotify_id) } : undefined}
+          onClick={selectable ? (e) => { e.stopPropagation(); onToggleSelect?.(album.service_id) } : undefined}
         >
           {album.image_url
             ? <img src={album.image_url} alt={album.name} width={44} height={44} className="w-11 h-11 rounded object-cover flex-shrink-0" />
@@ -105,7 +105,7 @@ const MobileAlbumCard = memo(function MobileAlbumCard({ album, isExpanded, isPla
             </span>
           )}
           {selectable && isSelected && (
-            <span data-testid={`select-check-${album.spotify_id}`} className="absolute inset-0 flex items-center justify-center bg-accent/70 rounded"><span className="text-white text-lg">✓</span></span>
+            <span data-testid={`select-check-${album.service_id}`} className="absolute inset-0 flex items-center justify-center bg-accent/70 rounded"><span className="text-white text-lg">✓</span></span>
           )}
         </div>
         <div className="flex-1 min-w-0 flex flex-col gap-0.5">
@@ -116,14 +116,14 @@ const MobileAlbumCard = memo(function MobileAlbumCard({ album, isExpanded, isPla
           <CollectionsBubble
             albumCollectionIds={albumCollectionIds}
             collections={collections || []}
-            onToggle={(colId, add) => onToggleCollection?.(album.spotify_id, colId, add)}
+            onToggle={(colId, add) => onToggleCollection?.(album.service_id, colId, add)}
             onCreate={name => onCreateCollection?.(name)}
           />
         )}
         <button
           aria-label={isExpanded ? 'Collapse' : 'Expand'}
           className="bg-transparent border-none text-text-dim cursor-pointer p-2 text-lg flex-shrink-0 min-w-11 min-h-11 flex items-center justify-center rounded"
-          onClick={e => { e.stopPropagation(); onExpand(album.spotify_id) }}
+          onClick={e => { e.stopPropagation(); onExpand(album.service_id) }}
         >
           <span className={`expand-chevron${isExpanded ? ' expanded' : ''}`}>▸</span>
         </button>
@@ -143,7 +143,7 @@ const MobileAlbumCard = memo(function MobileAlbumCard({ album, isExpanded, isPla
                   key={t.track_number}
                   className={`album-card-track-row flex items-center gap-2.5 px-4 py-2.5 min-h-11 cursor-pointer border-t border-border${isActive ? ' now-playing bg-now-playing' : ''}`}
                   style={{ paddingLeft: 72 }}
-                  onClick={() => onPlayTrack && onPlayTrack(`spotify:track:${t.spotify_id}`)}
+                  onClick={() => onPlayTrack && onPlayTrack(`spotify:track:${t.service_id}`)}
                 >
                   <span className="text-xs text-text-dim w-5 text-right flex-shrink-0">{t.track_number}</span>
                   <span className={`text-sm text-text flex-1 min-w-0 truncate${isActive ? ' font-semibold' : ''}`}>{t.name}</span>
@@ -162,19 +162,19 @@ const DesktopAlbumRow = memo(function DesktopAlbumRow({ album, isExpanded, isPla
   function handleAlbumKeyDown(e) {
     if (e.key === 'ArrowDown') {
       e.preventDefault()
-      navigateRow(`row-album-${album.spotify_id}`, 'down')
+      navigateRow(`row-album-${album.service_id}`, 'down')
     } else if (e.key === 'ArrowUp') {
       e.preventDefault()
-      navigateRow(`row-album-${album.spotify_id}`, 'up')
+      navigateRow(`row-album-${album.service_id}`, 'up')
     } else if (e.key === 'ArrowRight') {
       e.preventDefault()
-      if (!isExpanded) onExpand(album.spotify_id)
+      if (!isExpanded) onExpand(album.service_id)
     } else if (e.key === 'ArrowLeft') {
       e.preventDefault()
-      if (isExpanded) onExpand(album.spotify_id)
+      if (isExpanded) onExpand(album.service_id)
     } else if (e.key === 'Enter') {
       e.preventDefault()
-      onPlay && onPlay(album.spotify_id)
+      onPlay && onPlay(album.service_id)
     } else if (e.key === 'Escape') {
       e.currentTarget.blur()
     }
@@ -182,14 +182,14 @@ const DesktopAlbumRow = memo(function DesktopAlbumRow({ album, isExpanded, isPla
 
   return [
     <tr
-      key={album.spotify_id}
+      key={album.service_id}
       ref={sortableRef}
       style={sortableStyle}
-      id={`row-album-${album.spotify_id}`}
+      id={`row-album-${album.service_id}`}
       className={`album-row border-b border-border transition-colors duration-100 hover:bg-hover focus:outline-none focus:bg-selected focus:shadow-[inset_3px_0_0_var(--color-accent)]${isPlaying ? ' now-playing bg-now-playing' : ''}`}
       tabIndex={0}
       onKeyDown={handleAlbumKeyDown}
-      onDoubleClick={() => onPlay && onPlay(album.spotify_id)}
+      onDoubleClick={() => onPlay && onPlay(album.service_id)}
     >
       {dragHandleProps && (
         <td className="px-1 py-1.5 align-middle">
@@ -204,7 +204,7 @@ const DesktopAlbumRow = memo(function DesktopAlbumRow({ album, isExpanded, isPla
       <td className="px-2 py-1.5 whitespace-nowrap overflow-hidden text-ellipsis align-middle">
         <button
           aria-label={isExpanded ? 'Collapse' : 'Expand'}
-          onClick={() => onExpand(album.spotify_id)}
+          onClick={() => onExpand(album.service_id)}
           className="expand-btn bg-transparent border-none text-text-dim cursor-pointer p-0 transition-colors duration-150 hover:text-text"
           style={{ fontSize: 20 }}
         >
@@ -213,7 +213,7 @@ const DesktopAlbumRow = memo(function DesktopAlbumRow({ album, isExpanded, isPla
       </td>
       <td
         className="px-2 py-1.5 whitespace-nowrap overflow-hidden text-ellipsis align-middle relative"
-        onClick={selectable ? (e) => { e.stopPropagation(); onToggleSelect?.(album.spotify_id) } : undefined}
+        onClick={selectable ? (e) => { e.stopPropagation(); onToggleSelect?.(album.service_id) } : undefined}
       >
         {isPlaying ? (
           <span className="now-playing-indicator inline-flex items-end justify-center w-10 h-10">
@@ -227,7 +227,7 @@ const DesktopAlbumRow = memo(function DesktopAlbumRow({ album, isExpanded, isPla
           : <img src={null} alt="No cover" width={40} height={40} className="rounded-sm object-cover block" style={{ background: '#333' }} />
         }
         {selectable && isSelected && (
-          <span data-testid={`select-check-${album.spotify_id}`} className="absolute inset-0 flex items-center justify-center bg-accent/70 rounded-sm"><span className="text-white text-lg">✓</span></span>
+          <span data-testid={`select-check-${album.service_id}`} className="absolute inset-0 flex items-center justify-center bg-accent/70 rounded-sm"><span className="text-white text-lg">✓</span></span>
         )}
       </td>
       <td className="px-2 py-1.5 whitespace-nowrap overflow-hidden text-ellipsis align-middle">{album.name}</td>
@@ -239,7 +239,7 @@ const DesktopAlbumRow = memo(function DesktopAlbumRow({ album, isExpanded, isPla
           <CollectionsBubble
             albumCollectionIds={albumCollectionIds}
             collections={collections || []}
-            onToggle={(colId, add) => onToggleCollection?.(album.spotify_id, colId, add)}
+            onToggle={(colId, add) => onToggleCollection?.(album.service_id, colId, add)}
             onCreate={name => onCreateCollection?.(name)}
           />
         )}
@@ -247,7 +247,7 @@ const DesktopAlbumRow = memo(function DesktopAlbumRow({ album, isExpanded, isPla
     </tr>,
     isExpanded && expandedEntry && (
       <TrackList
-        key={`${album.spotify_id}-tracks`}
+        key={`${album.service_id}-tracks`}
         tracks={expandedEntry.tracks}
         loading={expandedEntry.loading}
         onPlayTrack={onPlayTrack}
@@ -256,8 +256,8 @@ const DesktopAlbumRow = memo(function DesktopAlbumRow({ album, isExpanded, isPla
         navigateRow={navigateRow}
         hasHandleColumn={!!dragHandleProps}
         onCollapseToAlbum={() => {
-          onExpand(album.spotify_id)
-          setTimeout(() => document.getElementById(`row-album-${album.spotify_id}`)?.focus(), 0)
+          onExpand(album.service_id)
+          setTimeout(() => document.getElementById(`row-album-${album.service_id}`)?.focus(), 0)
         }}
       />
     ),
@@ -283,22 +283,22 @@ function TrackList({ tracks, loading, onPlayTrack, playingTrackId, playingTrackN
       <td></td>
     </tr>,
     ...tracks.map(t => {
-      const isPlaying = playingTrackId === t.spotify_id
+      const isPlaying = playingTrackId === t.service_id
       const isTrackPlaying = playingTrackName && t.name === playingTrackName
 
       function handleTrackKeyDown(e) {
         if (e.key === 'ArrowDown') {
           e.preventDefault()
-          navigateRow && navigateRow(`row-track-${t.spotify_id}`, 'down')
+          navigateRow && navigateRow(`row-track-${t.service_id}`, 'down')
         } else if (e.key === 'ArrowUp') {
           e.preventDefault()
-          navigateRow && navigateRow(`row-track-${t.spotify_id}`, 'up')
+          navigateRow && navigateRow(`row-track-${t.service_id}`, 'up')
         } else if (e.key === 'ArrowLeft') {
           e.preventDefault()
           onCollapseToAlbum && onCollapseToAlbum()
         } else if (e.key === 'Enter') {
           e.preventDefault()
-          onPlayTrack && onPlayTrack(`spotify:track:${t.spotify_id}`)
+          onPlayTrack && onPlayTrack(`spotify:track:${t.service_id}`)
         } else if (e.key === 'Escape') {
           e.currentTarget.blur()
         }
@@ -307,11 +307,11 @@ function TrackList({ tracks, loading, onPlayTrack, playingTrackId, playingTrackN
       return (
         <tr
           key={t.track_number}
-          id={`row-track-${t.spotify_id}`}
+          id={`row-track-${t.service_id}`}
           className={`track-row text-sm border-b border-border transition-colors duration-100 hover:bg-hover focus:outline-none focus:bg-selected focus:shadow-[inset_3px_0_0_var(--color-accent)]${isTrackPlaying ? ' now-playing bg-now-playing' : ''}`}
           tabIndex={0}
           onKeyDown={handleTrackKeyDown}
-          onClick={() => onPlayTrack && onPlayTrack(`spotify:track:${t.spotify_id}`)}
+          onClick={() => onPlayTrack && onPlayTrack(`spotify:track:${t.service_id}`)}
         >
           {hasHandleColumn && <td></td>}
           <td></td>
@@ -337,7 +337,7 @@ function TrackList({ tracks, loading, onPlayTrack, playingTrackId, playingTrackN
 }
 
 function SortableAlbumRow({ album, ...rest }) {
-  const { attributes, listeners, setNodeRef, transform, transition } = useSortable({ id: album.spotify_id })
+  const { attributes, listeners, setNodeRef, transform, transition } = useSortable({ id: album.service_id })
   const style = { transform: CSS.Transform.toString(transform), transition }
   return (
     <DesktopAlbumRow
@@ -351,7 +351,7 @@ function SortableAlbumRow({ album, ...rest }) {
 }
 
 function SortableMobileCard({ album, ...rest }) {
-  const { attributes, listeners, setNodeRef, transform, transition } = useSortable({ id: album.spotify_id })
+  const { attributes, listeners, setNodeRef, transform, transition } = useSortable({ id: album.service_id })
   const style = { transform: CSS.Transform.toString(transform), transition }
   return (
     <MobileAlbumCard
@@ -409,18 +409,18 @@ export default function AlbumTable({
     }
   }
 
-  const handleExpand = useCallback(async (spotifyId) => {
+  const handleExpand = useCallback(async (albumId) => {
     setExpanded(prev => {
-      if (prev[spotifyId]) {
+      if (prev[albumId]) {
         const next = { ...prev }
-        delete next[spotifyId]
+        delete next[albumId]
         return next
       }
-      return { ...prev, [spotifyId]: { tracks: [], loading: true } }
+      return { ...prev, [albumId]: { tracks: [], loading: true } }
     })
-    if (expandedRef.current[spotifyId]) return
-    const tracks = await onFetchTracks(spotifyId)
-    setExpanded(prev => prev[spotifyId] ? { ...prev, [spotifyId]: { tracks, loading: false } } : prev)
+    if (expandedRef.current[albumId]) return
+    const tracks = await onFetchTracks(albumId)
+    setExpanded(prev => prev[albumId] ? { ...prev, [albumId]: { tracks, loading: false } } : prev)
   }, [onFetchTracks])
 
   const sorted = useMemo(
@@ -428,7 +428,7 @@ export default function AlbumTable({
     [albums, sortKey, sortDir, reorderable],
   )
 
-  const sortableIds = useMemo(() => sorted.map(a => a.spotify_id), [sorted])
+  const sortableIds = useMemo(() => sorted.map(a => a.service_id), [sorted])
 
   const navigateRow = useCallback((currentId, direction) => {
     const navList = buildNavList(sorted, expandedRef.current)
@@ -449,9 +449,9 @@ export default function AlbumTable({
   }
 
   function renderMobileCard(album) {
-    const isExpanded = !!expanded[album.spotify_id]
-    const isPlaying = playingId === album.spotify_id
-    const exp = expanded[album.spotify_id]
+    const isExpanded = !!expanded[album.service_id]
+    const isPlaying = playingId === album.service_id
+    const exp = expanded[album.service_id]
     const commonProps = {
       album,
       isExpanded,
@@ -461,31 +461,31 @@ export default function AlbumTable({
       onPlay,
       onPlayTrack,
       collections,
-      albumCollectionIds: (albumCollectionMap && albumCollectionMap[album.spotify_id]) || EMPTY_ARRAY,
+      albumCollectionIds: (albumCollectionMap && albumCollectionMap[album.service_id]) || EMPTY_ARRAY,
       onToggleCollection,
       onCreateCollection,
       onExpand: handleExpand,
       selectable,
-      isSelected: selectable && selectedIds?.has(album.spotify_id),
+      isSelected: selectable && selectedIds?.has(album.service_id),
       onToggleSelect,
       onArtistClick,
     }
 
     if (reorderable) {
-      return <SortableMobileCard key={album.spotify_id} {...commonProps} />
+      return <SortableMobileCard key={album.service_id} {...commonProps} />
     }
-    return <MobileAlbumCard key={album.spotify_id} {...commonProps} />
+    return <MobileAlbumCard key={album.service_id} {...commonProps} />
   }
 
   function renderDesktopRow(album) {
-    const isExpanded = !!expanded[album.spotify_id]
-    const isPlaying = playingId === album.spotify_id
-    const albumCollectionIds = (albumCollectionMap && albumCollectionMap[album.spotify_id]) || EMPTY_ARRAY
+    const isExpanded = !!expanded[album.service_id]
+    const isPlaying = playingId === album.service_id
+    const albumCollectionIds = (albumCollectionMap && albumCollectionMap[album.service_id]) || EMPTY_ARRAY
     const commonProps = {
       album,
       isExpanded,
       isPlaying,
-      expandedEntry: expanded[album.spotify_id],
+      expandedEntry: expanded[album.service_id],
       playingTrackId,
       playingTrackName,
       onPlay,
@@ -497,15 +497,15 @@ export default function AlbumTable({
       onToggleCollection,
       onCreateCollection,
       selectable,
-      isSelected: selectable && selectedIds?.has(album.spotify_id),
+      isSelected: selectable && selectedIds?.has(album.service_id),
       onToggleSelect,
       onArtistClick,
     }
 
     if (reorderable) {
-      return <SortableAlbumRow key={album.spotify_id} {...commonProps} />
+      return <SortableAlbumRow key={album.service_id} {...commonProps} />
     }
-    return <DesktopAlbumRow key={album.spotify_id} {...commonProps} />
+    return <DesktopAlbumRow key={album.service_id} {...commonProps} />
   }
 
   if (isMobile) {

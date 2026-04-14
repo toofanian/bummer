@@ -129,8 +129,8 @@ function VolumeSlider({ value, onChange }) {
  *   onTogglePane        — () => void
  *   albumImageUrl       — string | null
  *   message             — { code: string, text: string } | null
- *   nowPlayingSpotifyId — string | null
- *   onFocusAlbum        — (spotifyId: string) => void
+ *   nowPlayingServiceId — string | null
+ *   onFocusAlbum        — (albumId: string) => void
  *   onFetchDevices      — () => Promise<Device[]>
  *   onDeviceSelected    — (deviceId: string) => void
  *   onOpenDevicePicker  — () => void   called when "Connect a device" is clicked
@@ -147,7 +147,7 @@ export default function PlaybackBar({
   onTogglePane,
   albumImageUrl,
   message,
-  nowPlayingSpotifyId,
+  nowPlayingServiceId,
   onFocusAlbum,
   onFetchDevices,
   onDeviceSelected,
@@ -193,12 +193,12 @@ export default function PlaybackBar({
       {/* LEFT ZONE: album art + track info */}
       <div data-testid="playback-left" className="flex items-center gap-2.5 min-w-0 overflow-hidden">
         <div
-          className={`flex items-center gap-2.5 min-w-0 border border-border rounded-lg p-1.5 transition-colors duration-150 ${track && nowPlayingSpotifyId ? 'cursor-pointer hover:bg-hover' : ''}`}
-          onClick={track && nowPlayingSpotifyId ? () => onFocusAlbum(nowPlayingSpotifyId) : undefined}
-          role={track && nowPlayingSpotifyId ? 'button' : undefined}
-          aria-label={track && nowPlayingSpotifyId ? 'Go to now playing album' : undefined}
-          tabIndex={track && nowPlayingSpotifyId ? 0 : undefined}
-          onKeyDown={track && nowPlayingSpotifyId ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onFocusAlbum(nowPlayingSpotifyId) } } : undefined}
+          className={`flex items-center gap-2.5 min-w-0 border border-border rounded-lg p-1.5 transition-colors duration-150 ${track && nowPlayingServiceId ? 'cursor-pointer hover:bg-hover' : ''}`}
+          onClick={track && nowPlayingServiceId ? () => onFocusAlbum(nowPlayingServiceId) : undefined}
+          role={track && nowPlayingServiceId ? 'button' : undefined}
+          aria-label={track && nowPlayingServiceId ? 'Go to now playing album' : undefined}
+          tabIndex={track && nowPlayingServiceId ? 0 : undefined}
+          onKeyDown={track && nowPlayingServiceId ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onFocusAlbum(nowPlayingServiceId) } } : undefined}
         >
           {albumImageUrl ? (
             <img

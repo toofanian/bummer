@@ -29,7 +29,7 @@ export default function App() {
   const [albums, setAlbums] = useState([])
   const [collections, setCollections] = useState([])
   const [collectionAlbums, setCollectionAlbums] = useState([])
-  // albumCollectionMap: { [spotify_id]: string[] } — IDs of collections the album belongs to
+  // albumCollectionMap: { [service_id]: string[] } — IDs of collections the album belongs to
   const [albumCollectionMap, setAlbumCollectionMap] = useState({})
   const [loading, setLoading] = useState(true)
   const [loadingMessage, setLoadingMessage] = useState('Syncing your Spotify library... this may take a moment')
@@ -64,7 +64,7 @@ export default function App() {
   sessionRef.current = session
   const { state: playback, play, playTrack, pause, previousTrack, nextTrack, setVolume, fetchDevices, fetchQueue, seek, transferPlayback } = usePlayback(session)
   const [pendingPlayIntent, setPendingPlayIntent] = useState(null)
-  // Shape: null | { type: 'album'|'track', contextUri?, trackUri?, spotifyId? }
+  // Shape: null | { type: 'album'|'track', contextUri?, trackUri?, albumId? }
   const [devicePickerOpen, setDevicePickerOpen] = useState(false)
   const [pickerRestrictedDevice, setPickerRestrictedDevice] = useState(false)
   // Picker is shown when: devicePickerOpen OR pendingPlayIntent !== null
@@ -86,22 +86,22 @@ export default function App() {
     return artists.size
   }, [albums])
   const nowPlayingAlbum = useMemo(() => {
-    const trackAlbumSpotifyId = playback.track?.album_spotify_id
-    if (trackAlbumSpotifyId) {
-      return albums.find(a => a.spotify_id === trackAlbumSpotifyId)
+    const trackAlbumServiceId = playback.track?.album_service_id
+    if (trackAlbumServiceId) {
+      return albums.find(a => a.service_id === trackAlbumServiceId)
     }
-    // Fallback (older backend responses without album_spotify_id)
+    // Fallback (older backend responses without album_service_id)
     return albums.find(a => a.name === playback.track?.album)
-  }, [albums, playback.track?.album_spotify_id, playback.track?.album])
-  const nowPlayingSpotifyId = nowPlayingAlbum?.spotify_id ?? null
+  }, [albums, playback.track?.album_service_id, playback.track?.album])
+  const nowPlayingServiceId = nowPlayingAlbum?.service_id ?? null
   const nowPlayingImageUrl = nowPlayingAlbum?.image_url ?? null
 
   // Restore playingId from Spotify playback state on reload
   useEffect(() => {
-    if (playingId === null && nowPlayingSpotifyId && playback.is_playing) {
-      setPlayingId(nowPlayingSpotifyId)
+    if (playingId === null && nowPlayingServiceId && playback.is_playing) {
+      setPlayingId(nowPlayingServiceId)
     }
-  }, [nowPlayingSpotifyId, playback.is_playing, playingId])
+  }, [nowPlayingServiceId, playback.is_playing, playingId])
 
   const loadData = useCallback(() => {
     setError(null)
@@ -156,8 +156,8 @@ export default function App() {
               results.forEach((data, i) => {
                 const colId = collectionsData[i].id
                 ;(data.albums ?? []).forEach(album => {
-                  if (!map[album.spotify_id]) map[album.spotify_id] = []
-                  map[album.spotify_id].push(colId)
+                  if (!map[album.service_id]) map[album.service_id] = []
+                  map[album.service_id].push(colId)
                 })
               })
               setAlbumCollectionMap(map)
@@ -168,11 +168,7 @@ export default function App() {
       .finally(() => { setLoading(false); setSyncing(false) })
   }, [])
 
-  // Re-run when session becomes available (null → object transition)
   const hasSession = !!session
-  useEffect(() => {
-    if (hasSession) loadData()
-  }, [loadData, hasSession])
 
   // Fire-and-forget: ensure a library snapshot exists for today once the user
   // is authenticated (indicated by albums being loaded and no loading state).
@@ -234,8 +230,8 @@ export default function App() {
     const prevAlbumCollectionMap = albumCollectionMap
     setAlbumCollectionMap(prev => {
       const next = {}
-      for (const [spotifyId, colIds] of Object.entries(prev)) {
-        next[spotifyId] = colIds.filter(cid => cid !== id)
+      for (const [albumId, colIds] of Object.entries(prev)) {
+        next[albumId] = colIds.filter(cid => cid !== id)
       }
       return next
     })
@@ -260,9 +256,9 @@ export default function App() {
       setAlbumCollectionMap(prev => {
         const next = { ...prev }
         data.albums.forEach(album => {
-          if (!next[album.spotify_id]) next[album.spotify_id] = []
-          if (!next[album.spotify_id].includes(collectionId)) {
-            next[album.spotify_id] = [...next[album.spotify_id], collectionId]
+          if (!next[album.service_id]) next[album.service_id] = []
+          if (!next[album.service_id].includes(collectionId)) {
+            next[album.service_id] = [...next[album.service_id], collectionId]
           }
         })
         return next
@@ -278,8 +274,8 @@ export default function App() {
     setView(collection)
   }
 
-  const handleFetchTracks = useCallback(async (spotifyId) => {
-    const res = await apiFetch(`/library/albums/${spotifyId}/tracks`, {}, sessionRef.current)
+  const handleFetchTracks = useCallback(async (albumId) => {
+    const res = await apiFetch(`/library/albums/${albumId}/tracks`, {}, sessionRef.current)
     const data = await res.json()
     return data.tracks
   }, [])
@@ -289,19 +285,36 @@ export default function App() {
   const isPlayingRef = useRef(playback.is_playing)
   isPlayingRef.current = playback.is_playing
 
-  const handlePlay = useCallback(async (spotifyId) => {
-    if (playingIdRef.current === spotifyId && isPlayingRef.current) {
+  const serviceType = localStorage.getItem('music_service_type') || 'spotify'
+
+  const handlePlay = useCallback(async (albumId) => {
+    // Apple Music: deep-link to the native app instead of controlling playback
+    if (serviceType === 'apple_music') {
+      const album = albums.find(a => a.service_id === albumId) ||
+                    collectionAlbums.find(a => a.service_id === albumId)
+      const url = album?.catalog_url || `https://music.apple.com/album/${albumId}`
+      window.open(url, '_blank')
+      // Log the play intent for history/recommendations
+      apiFetch('/home/history/log', {
+        method: 'POST',
+        body: JSON.stringify({ album_id: albumId }),
+      }, sessionRef.current).catch(() => {})
+      return null
+    }
+
+    // Spotify: existing playback control via backend
+    if (playingIdRef.current === albumId && isPlayingRef.current) {
       await pause()
       return null
     } else {
-      const contextUri = `spotify:album:${spotifyId}`
+      const contextUri = `spotify:album:${albumId}`
       const prevPlayingId = playingIdRef.current
-      setPlayingId(spotifyId) // optimistic
+      setPlayingId(albumId) // optimistic
       const err = await play(contextUri)
       if (err) {
         setPlayingId(prevPlayingId) // revert
         if (err === 'no_device') {
-          setPendingPlayIntent({ type: 'album', contextUri, spotifyId })
+          setPendingPlayIntent({ type: 'album', contextUri, albumId })
           setDevicePickerOpen(true)
         } else if (err === 'restricted_device') {
           setPlaybackMessage({ code: 'RESTRICTED', text: 'This device restricts API playback. Start playing in Spotify first, then control it here.' })
@@ -311,19 +324,19 @@ export default function App() {
       if (!err) {
         apiFetch('/home/history/log', {
           method: 'POST',
-          body: JSON.stringify({ album_id: spotifyId }),
+          body: JSON.stringify({ album_id: albumId }),
         }, sessionRef.current).catch(() => {})
       }
       return err
     }
-  }, [play, pause])
+  }, [play, pause, serviceType, albums, collectionAlbums])
 
   const handlePlayRef = useRef(handlePlay)
   handlePlayRef.current = handlePlay
 
   async function handlePlayCollection() {
     if (!isInCollection || !collectionAlbums.length) return
-    const albumIds = collectionAlbums.map(a => a.spotify_id)
+    const albumIds = collectionAlbums.map(a => a.service_id)
     setCollectionPlayback({ collectionId: view.id, albumIds, currentIndex: 0 })
     await handlePlay(albumIds[0])
   }
@@ -337,7 +350,7 @@ export default function App() {
     let err
     if (intent.type === 'album') {
       const prevPlayingId = playingIdRef.current
-      setPlayingId(intent.spotifyId)
+      setPlayingId(intent.albumId)
       err = await play(intent.contextUri)
       if (err) {
         setPlayingId(prevPlayingId)
@@ -378,16 +391,16 @@ export default function App() {
     setTargetArtist(artistName)
   }
 
-  function handleFocusAlbum(spotifyId) {
+  function handleFocusAlbum(albumId) {
     if (view !== 'library') {
       setView('library')
       setTimeout(() => {
-        const el = document.getElementById(`row-album-${spotifyId}`)
+        const el = document.getElementById(`row-album-${albumId}`)
         el?.focus()
         el?.scrollIntoView({ block: 'center' })
       }, 0)
     } else {
-      const el = document.getElementById(`row-album-${spotifyId}`)
+      const el = document.getElementById(`row-album-${albumId}`)
       el?.focus()
       el?.scrollIntoView({ block: 'center' })
     }
@@ -398,29 +411,29 @@ export default function App() {
    * add=true  → add album to collection
    * add=false → remove album from collection
    */
-  const handleToggleCollection = useCallback(async (spotifyId, collectionId, add) => {
+  const handleToggleCollection = useCallback(async (albumId, collectionId, add) => {
     if (add) {
       await apiFetch(`/collections/${collectionId}/albums`, {
         method: 'POST',
-        body: JSON.stringify({ spotify_id: spotifyId }),
+        body: JSON.stringify({ service_id: albumId }),
       }, sessionRef.current)
       setAlbumCollectionMap(prev => {
-        const existing = prev[spotifyId] || []
+        const existing = prev[albumId] || []
         if (existing.includes(collectionId)) return prev
-        return { ...prev, [spotifyId]: [...existing, collectionId] }
+        return { ...prev, [albumId]: [...existing, collectionId] }
       })
     } else {
-      await apiFetch(`/collections/${collectionId}/albums/${spotifyId}`, { method: 'DELETE' }, sessionRef.current)
+      await apiFetch(`/collections/${collectionId}/albums/${albumId}`, { method: 'DELETE' }, sessionRef.current)
       setAlbumCollectionMap(prev => ({
         ...prev,
-        [spotifyId]: (prev[spotifyId] || []).filter(id => id !== collectionId),
+        [albumId]: (prev[albumId] || []).filter(id => id !== collectionId),
       }))
     }
   }, [])
 
   async function handleReorderCollectionAlbums(albumIds) {
     // Optimistic reorder: rearrange collectionAlbums to match the new order
-    const albumMap = Object.fromEntries(collectionAlbums.map(a => [a.spotify_id, a]))
+    const albumMap = Object.fromEntries(collectionAlbums.map(a => [a.service_id, a]))
     setCollectionAlbums(albumIds.map(id => albumMap[id]).filter(Boolean))
 
     try {
@@ -447,11 +460,11 @@ export default function App() {
     ))
   }
 
-  function handleToggleSelect(spotifyId) {
+  function handleToggleSelect(albumId) {
     setSelectedAlbumIds(prev => {
       const next = new Set(prev)
-      if (next.has(spotifyId)) next.delete(spotifyId)
-      else next.add(spotifyId)
+      if (next.has(albumId)) next.delete(albumId)
+      else next.add(albumId)
       return next
     })
   }
@@ -464,7 +477,7 @@ export default function App() {
     const ids = [...selectedAlbumIds]
     await apiFetch(`/collections/${collectionId}/albums/bulk`, {
       method: 'POST',
-      body: JSON.stringify({ spotify_ids: ids }),
+      body: JSON.stringify({ service_ids: ids }),
     }, sessionRef.current)
     // Update albumCollectionMap
     setAlbumCollectionMap(prev => {
@@ -490,14 +503,14 @@ export default function App() {
     if (!cp) return
 
     const currentAlbumId = cp.albumIds[cp.currentIndex]
-    const currentAlbum = albums.find(a => a.spotify_id === currentAlbumId) ||
-                         collectionAlbums.find(a => a.spotify_id === currentAlbumId)
+    const currentAlbum = albums.find(a => a.service_id === currentAlbumId) ||
+                         collectionAlbums.find(a => a.service_id === currentAlbumId)
     if (!currentAlbum) return
 
-    const playbackAlbumSpotifyId = playback.track?.album_spotify_id
+    const playbackAlbumServiceId = playback.track?.album_service_id
     const playbackAlbumName = playback.track?.album
-    const isCurrentAlbumPlaying = playbackAlbumSpotifyId
-      ? playbackAlbumSpotifyId === currentAlbum.spotify_id
+    const isCurrentAlbumPlaying = playbackAlbumServiceId
+      ? playbackAlbumServiceId === currentAlbum.service_id
       : playbackAlbumName === currentAlbum.name
 
     if (!isCurrentAlbumPlaying && playingIdRef.current === currentAlbumId) {
@@ -509,7 +522,7 @@ export default function App() {
         setCollectionPlayback(null)
       }
     }
-  }, [playback.track?.album_spotify_id, playback.track?.album, playback.is_playing])
+  }, [playback.track?.album_service_id, playback.track?.album, playback.is_playing])
 
   // Clear collection playback if we navigate to a different collection
   useEffect(() => {
@@ -528,6 +541,18 @@ export default function App() {
     if (hasLocalClientId) return 'ready'
     return 'checking'
   })
+
+  // Transition from 'idle' once session arrives
+  useEffect(() => {
+    if (onboardingCheckState !== 'idle' || !session) return
+    if (isSpotifyCallback) {
+      setOnboardingCheckState('needs_onboarding')
+    } else if (hasLocalClientId) {
+      setOnboardingCheckState('ready')
+    } else {
+      setOnboardingCheckState('checking')
+    }
+  }, [onboardingCheckState, session, isSpotifyCallback, hasLocalClientId])
 
   useEffect(() => {
     if (onboardingCheckState !== 'checking' || !session) return
@@ -558,6 +583,11 @@ export default function App() {
     })()
     return () => { cancelled = true }
   }, [onboardingCheckState, session, spotifyAuth])
+
+  // Re-run when session becomes available AND onboarding is complete
+  useEffect(() => {
+    if (hasSession && onboardingCheckState === 'ready') loadData()
+  }, [loadData, hasSession, onboardingCheckState])
 
   if (authLoading) {
     return (
@@ -690,7 +720,7 @@ export default function App() {
                   const q = search.toLowerCase()
                   if (c.name.toLowerCase().includes(q)) return true
                   return albums.some(a =>
-                    (albumCollectionMap[a.spotify_id] || []).includes(c.id) &&
+                    (albumCollectionMap[a.service_id] || []).includes(c.id) &&
                     (a.name.toLowerCase().includes(q) ||
                      a.artists.some(artist => artist.toLowerCase().includes(q)))
                   )
@@ -755,7 +785,7 @@ export default function App() {
           onSetVolume={setVolume}
           onFetchTracks={handleFetchTracks}
           onPlayTrack={handlePlayTrack}
-          albumSpotifyId={nowPlayingSpotifyId}
+          albumServiceId={nowPlayingServiceId}
           albumImageUrl={nowPlayingImageUrl}
           onFetchDevices={fetchDevices}
           onTransferPlayback={transferPlayback}
@@ -918,7 +948,7 @@ export default function App() {
                 const q = search.toLowerCase()
                 if (c.name.toLowerCase().includes(q)) return true
                 return albums.some(a =>
-                  (albumCollectionMap[a.spotify_id] || []).includes(c.id) &&
+                  (albumCollectionMap[a.service_id] || []).includes(c.id) &&
                   (a.name.toLowerCase().includes(q) ||
                    a.artists.some(artist => artist.toLowerCase().includes(q)))
                 )
@@ -975,7 +1005,7 @@ export default function App() {
         open={paneOpen}
         onClose={() => setPaneOpen(false)}
         onFetchTracks={handleFetchTracks}
-        albumSpotifyId={nowPlayingSpotifyId}
+        albumServiceId={nowPlayingServiceId}
         albumImageUrl={nowPlayingImageUrl}
         onPlayTrack={handlePlayTrack}
         onFetchQueue={fetchQueue}
@@ -1003,7 +1033,7 @@ export default function App() {
         }}
         albumImageUrl={nowPlayingImageUrl}
         message={playbackMessage}
-        nowPlayingSpotifyId={nowPlayingSpotifyId}
+        nowPlayingServiceId={nowPlayingServiceId}
         onFocusAlbum={handleFocusAlbum}
         onFetchDevices={fetchDevices}
         onTransferPlayback={transferPlayback}

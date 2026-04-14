@@ -210,7 +210,7 @@ def test_delete_account_removes_user_data():
         call_args[0][0] for call_args in mock_db.table.call_args_list
     ]
     for t in [
-        "spotify_tokens",
+        "music_tokens",
         "album_metadata",
         "collection_albums",
         "collections",

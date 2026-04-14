@@ -30,6 +30,7 @@ export default function SettingsMenu({ onLogout, session }) {
         const data = await res.json().catch(() => ({}))
         throw new Error(data.detail ?? 'Failed to delete account')
       }
+      localStorage.clear()
       await supabase.auth.signOut()
       window.location.assign('/')
     } catch (err) {

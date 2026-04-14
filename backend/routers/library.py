@@ -57,7 +57,7 @@ def _normalize_album(item: dict) -> dict:
     images = album.get("images", [])
     largest_image = max(images, key=lambda i: i.get("height") or 0, default=None)
     return {
-        "spotify_id": album["id"],
+        "service_id": album["id"],
         "name": album["name"],
         "artists": [a["name"] for a in album.get("artists", [])],
         "release_date": album.get("release_date"),
@@ -128,19 +128,19 @@ def _format_duration(ms: int) -> str:
     return f"{minutes}:{seconds:02d}"
 
 
-@router.get("/albums/{spotify_id}/tracks")
-def get_album_tracks(spotify_id: str, sp: spotipy.Spotify = Depends(get_user_spotify)):
+@router.get("/albums/{album_id}/tracks")
+def get_album_tracks(album_id: str, sp: spotipy.Spotify = Depends(get_user_spotify)):
     all_tracks = []
-    result = sp.album_tracks(spotify_id, limit=50)
+    result = sp.album_tracks(album_id, limit=50)
     while True:
         all_tracks.extend(result["items"])
         if not result["next"]:
             break
-        result = sp.album_tracks(spotify_id, limit=50, offset=len(all_tracks))
+        result = sp.album_tracks(album_id, limit=50, offset=len(all_tracks))
     return {
         "tracks": [
             {
-                "spotify_id": t["id"],
+                "service_id": t["id"],
                 "track_number": t["track_number"],
                 "name": t["name"],
                 "duration": _format_duration(t["duration_ms"]),

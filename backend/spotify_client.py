@@ -17,7 +17,7 @@ SCOPES = [
 
 
 def get_spotify_for_user(user_id: str, db: Client) -> spotipy.Spotify:
-    result = db.table("spotify_tokens").select("*").eq("user_id", user_id).execute()
+    result = db.table("music_tokens").select("*").eq("user_id", user_id).execute()
     if not result.data:
         raise HTTPException(
             status_code=401,
@@ -54,7 +54,7 @@ def _refresh_token(user_id: str, token_data: dict, db: Client) -> dict:
     }
     if "refresh_token" in new_tokens:
         updated["refresh_token"] = new_tokens["refresh_token"]
-    db.table("spotify_tokens").update(updated).eq("user_id", user_id).execute()
+    db.table("music_tokens").update(updated).eq("user_id", user_id).execute()
     return {**token_data, **updated}
 
 

@@ -8,7 +8,7 @@ from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from slowapi.util import get_remote_address
 
-from routers import auth, digest, home, library, metadata, playback
+from routers import apple_music_auth, auth, digest, home, library, metadata, playback
 
 load_dotenv()
 
@@ -47,6 +47,7 @@ app.add_middleware(
 )
 
 app.include_router(auth.router)
+app.include_router(apple_music_auth.router)
 app.include_router(home.router)
 app.include_router(library.router)
 app.include_router(metadata.router)

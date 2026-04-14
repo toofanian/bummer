@@ -53,25 +53,25 @@ function VinylRecord({ isPlaying, albumImageUrl, size = 180 }) {
  *   state           — playback state: { is_playing, track, device }
  *   open            — boolean  whether the pane is visible
  *   onClose         — () => void
- *   onFetchTracks   — (spotifyId: string) => Promise<Track[]>
- *   albumSpotifyId  — string | null  spotify_id of the currently playing album
+ *   onFetchTracks   — (albumId: string) => Promise<Track[]>
+ *   albumServiceId  — string | null  service_id of the currently playing album
  *   albumImageUrl   — string | undefined  album art URL for the vinyl label
  */
-export default function NowPlayingPane({ state, open, onClose, onFetchTracks, albumSpotifyId, albumImageUrl, onPlayTrack, onFetchQueue }) {
+export default function NowPlayingPane({ state, open, onClose, onFetchTracks, albumServiceId, albumImageUrl, onPlayTrack, onFetchQueue }) {
   const [tracks, setTracks] = useState([])
   const [tracksLoading, setTracksLoading] = useState(false)
   const [queue, setQueue] = useState([])
   const queueIntervalRef = useRef(null)
 
   useEffect(() => {
-    if (!albumSpotifyId) {
+    if (!albumServiceId) {
       setTracks([])
       return
     }
 
     let cancelled = false
     setTracksLoading(true)
-    const promise = onFetchTracks(albumSpotifyId)
+    const promise = onFetchTracks(albumServiceId)
     // Guard against an onFetchTracks that doesn't return a promise (e.g. bare vi.fn())
     if (!promise || typeof promise.then !== 'function') {
       setTracksLoading(false)
@@ -85,7 +85,7 @@ export default function NowPlayingPane({ state, open, onClose, onFetchTracks, al
     })
 
     return () => { cancelled = true }
-  }, [albumSpotifyId])  // eslint-disable-line react-hooks/exhaustive-deps
+  }, [albumServiceId])  // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (!open || !state.track || !onFetchQueue) {
@@ -160,7 +160,7 @@ export default function NowPlayingPane({ state, open, onClose, onFetchTracks, al
       {/* Track list */}
       {track && (
         <div className="flex-1 overflow-y-auto py-2">
-          {albumSpotifyId === null ? (
+          {albumServiceId === null ? (
             <div className="p-4 text-sm text-text-dim italic">Track list unavailable</div>
           ) : tracksLoading ? (
             <div className="p-4 text-sm text-text-dim">Loading tracks…</div>
@@ -174,7 +174,7 @@ export default function NowPlayingPane({ state, open, onClose, onFetchTracks, al
                   data-active={isActive ? 'true' : undefined}
                   className="now-playing-track-row flex items-center gap-2.5 py-[7px] px-4 transition-colors duration-150"
                   style={{ cursor: clickable ? 'pointer' : 'default' }}
-                  onClick={onPlayTrack ? () => onPlayTrack(`spotify:track:${t.spotify_id}`) : undefined}
+                  onClick={onPlayTrack ? () => onPlayTrack(`spotify:track:${t.service_id}`) : undefined}
                 >
                   <span className="text-xs text-text-dim min-w-[18px] text-right flex-shrink-0">{t.track_number}</span>
                   <span className={`text-sm flex-1 truncate ${isActive ? 'text-text font-semibold' : 'text-text-dim font-normal'}`}>{t.name}</span>
