@@ -1,0 +1,32 @@
+# Secrets
+backend/.env
+backend/.spotify_cache
+
+# Python
+backend/.venv/
+__pycache__/
+*.pyc
+
+# Node
+frontend/node_modules/
+frontend/dist/
+frontend/.env
+frontend/.env.local
+
+# Playwright
+frontend/e2e/screenshots/
+frontend/test-results/
+
+# Vercel
+.vercel
+.env.tmp.*
+
+# AI tooling
+.claude/
+CLAUDE.md
+.superpowers/
+
+# Internal strategy/planning
+MULTI_USER_STRATEGY.md
+docs/specs/
+docs/plans/
