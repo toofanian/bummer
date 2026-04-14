@@ -31,14 +31,14 @@ def _resolve_album_metadata(
     album_ids: list[str], album_cache: list[dict], sp: spotipy.Spotify
 ):
     """Resolve metadata for album IDs. Uses cache first, then Spotify API fallback."""
-    lookup = {a["spotify_id"]: a for a in album_cache}
+    lookup = {a["service_id"]: a for a in album_cache}
     resolved = []
     for aid in album_ids:
         if aid in lookup:
             a = lookup[aid]
             resolved.append(
                 {
-                    "spotify_id": aid,
+                    "service_id": aid,
                     "name": a["name"],
                     "artists": a["artists"],
                     "image_url": a.get("image_url"),
@@ -51,7 +51,7 @@ def _resolve_album_metadata(
                 largest = max(images, key=lambda i: i.get("height", 0), default=None)
                 resolved.append(
                     {
-                        "spotify_id": aid,
+                        "service_id": aid,
                         "name": album["name"],
                         "artists": [a["name"] for a in album.get("artists", [])],
                         "image_url": largest["url"] if largest else None,
@@ -60,7 +60,7 @@ def _resolve_album_metadata(
             except Exception:
                 resolved.append(
                     {
-                        "spotify_id": aid,
+                        "service_id": aid,
                         "name": None,
                         "artists": None,
                         "image_url": None,
@@ -109,7 +109,7 @@ def get_digest(
 
     all_ids = set(added_ids) | set(removed_ids) | set(listened_ids)
     metadata = _resolve_album_metadata(list(all_ids), album_cache, sp)
-    meta_lookup = {m["spotify_id"]: m for m in metadata}
+    meta_lookup = {m["service_id"]: m for m in metadata}
 
     def enrich(ids):
         return [meta_lookup[aid] for aid in ids if aid in meta_lookup]
@@ -153,7 +153,7 @@ def create_snapshot(
 
     created = 0
     for row in users_with_cache.data:
-        album_ids = [a["spotify_id"] for a in row["albums"]]
+        album_ids = [a["service_id"] for a in row["albums"]]
         total = len(album_ids)
         db.table("library_snapshots").upsert(
             {
@@ -198,7 +198,7 @@ def ensure_snapshot(
             detail="Library cache is empty. Open the app to sync your library first.",
         )
 
-    album_ids = [a["spotify_id"] for a in album_cache]
+    album_ids = [a["service_id"] for a in album_cache]
     total = len(album_ids)
 
     db.table("library_snapshots").upsert(

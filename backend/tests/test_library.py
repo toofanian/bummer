@@ -267,9 +267,153 @@ def test_dedupe_preserves_order_for_unique_ids():
     assert _dedupe_albums_by_service_id(albums) == albums
 
 
-def test_sync_offset_zero_empty_cache_fetches_and_writes():
-    """Cold start: offset=0 fetches one Spotify page and writes it to cache."""
-    db = mock_db_empty()
+def _make_keyed_db(cache_rows: dict[str, dict] = None):
+    """Return a mock Supabase client that stores rows keyed by cache id.
+
+    `cache_rows` maps cache_key -> row dict.  Supports select/eq reads and
+    upsert writes so tests can inspect what was written to each key.
+    """
+    if cache_rows is None:
+        cache_rows = {}
+    store = dict(cache_rows)
+    upsert_log: list[dict] = []
+    delete_log: list[str] = []
+
+    db = MagicMock()
+
+    def _make_table_chain(table_name):
+        table_mock = MagicMock()
+
+        # --- SELECT path ---
+        def _eq(col, val):
+            eq_mock = MagicMock()
+            row = store.get(val)
+            eq_mock.execute.return_value = MagicMock(data=[row] if row else [])
+            return eq_mock
+
+        table_mock.select.return_value.eq = _eq
+
+        # --- UPSERT path ---
+        def _upsert(payload):
+            upsert_log.append(payload)
+            store[payload["id"]] = payload
+            upsert_mock = MagicMock()
+            upsert_mock.execute.return_value = MagicMock(data=[])
+            return upsert_mock
+
+        table_mock.upsert = _upsert
+
+        # --- DELETE path ---
+        def _delete():
+            del_chain = MagicMock()
+
+            def _del_eq(col, val):
+                delete_log.append(val)
+                if val in store:
+                    del store[val]
+                del_eq_mock = MagicMock()
+                del_eq_mock.execute.return_value = MagicMock(data=[])
+                return del_eq_mock
+
+            del_chain.eq = _del_eq
+            return del_chain
+
+        table_mock.delete = _delete
+
+        return table_mock
+
+    db.table = lambda name: _make_table_chain(name)
+    db._store = store
+    db._upsert_log = upsert_log
+    db._delete_log = delete_log
+    return db
+
+
+def test_sync_offset_zero_writes_to_staging_not_main():
+    """offset=0 with done=false writes to staging key only; main is untouched."""
+    db = _make_keyed_db()
+    override_db(db)
+    sp = make_spotify_mock(
+        [
+            {
+                "items": [SAVED_ALBUM] * 50,
+                "total": 120,
+                "next": "https://api.spotify.com/v1/me/albums?offset=50",
+            },
+        ]
+    )
+    override_spotify(sp)
+
+    response = client.post("/library/sync", json={"offset": 0})
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["done"] is False
+
+    staging_key = f"{FAKE_USER_ID}:staging"
+    # Staging row was written
+    assert staging_key in db._store
+    assert len(db._store[staging_key]["albums"]) == 50
+    # Main row was NOT written
+    assert FAKE_USER_ID not in db._store
+
+    clear_overrides()
+
+
+def test_sync_offset_nonzero_appends_to_staging():
+    """offset>0 reads staging, appends new page, writes back to staging."""
+    staging_key = f"{FAKE_USER_ID}:staging"
+    existing_staging = {
+        "id": staging_key,
+        "user_id": FAKE_USER_ID,
+        "albums": [
+            {
+                "service_id": "old1",
+                "name": "Old Album",
+                "artists": ["X"],
+                "release_date": "2020",
+                "total_tracks": 10,
+                "image_url": None,
+                "added_at": "2021-01-01T00:00:00Z",
+            }
+        ],
+        "total": 1,
+        "synced_at": "2026-01-01T00:00:00Z",
+    }
+    db = _make_keyed_db({staging_key: existing_staging})
+    override_db(db)
+    sp = make_spotify_mock(
+        [
+            {
+                "items": [SAVED_ALBUM],
+                "total": 2,
+                "next": "https://api.spotify.com/v1/me/albums?offset=100",
+            },
+        ]
+    )
+    override_spotify(sp)
+
+    response = client.post("/library/sync", json={"offset": 50})
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["synced_this_page"] == 1
+    assert data["total_in_cache"] == 2
+    assert data["done"] is False
+
+    # Staging updated with both albums
+    staging_ids = [a["service_id"] for a in db._store[staging_key]["albums"]]
+    assert "old1" in staging_ids
+    assert "abc123" in staging_ids
+    # Main still not written
+    assert FAKE_USER_ID not in db._store
+
+    clear_overrides()
+
+
+def test_sync_done_copies_staging_to_main_and_deletes_staging():
+    """When done=true, staging content is promoted to main and staging is deleted."""
+    db = _make_keyed_db()
     override_db(db)
     sp = make_spotify_mock(
         [
@@ -286,28 +430,25 @@ def test_sync_offset_zero_empty_cache_fetches_and_writes():
 
     assert response.status_code == 200
     data = response.json()
-    assert data["synced_this_page"] == 1
-    assert data["total_in_cache"] == 1
-    assert data["spotify_total"] == 1
-    assert data["next_offset"] == 1
     assert data["done"] is True
+    assert data["total_in_cache"] == 1
 
-    # Verify Spotify was called with correct args
-    sp.current_user_saved_albums.assert_called_once_with(limit=50, offset=0)
-
-    # Verify cache was written
-    db.table.assert_any_call("library_cache")
-    db.table.return_value.upsert.assert_called()
+    staging_key = f"{FAKE_USER_ID}:staging"
+    # Main row was written
+    assert FAKE_USER_ID in db._store
+    assert db._store[FAKE_USER_ID]["albums"][0]["service_id"] == "abc123"
+    # Staging row was deleted
+    assert staging_key not in db._store
 
     clear_overrides()
 
 
-def test_sync_offset_nonzero_appends_to_existing_cache():
-    """offset>0 merges the new page into whatever's already in cache."""
-    existing = [
+def test_sync_interrupted_leaves_main_intact():
+    """If sync is interrupted (no done=true), main cache is preserved."""
+    main_albums = [
         {
-            "service_id": "old1",
-            "name": "Old Album",
+            "service_id": "preserved",
+            "name": "Should Survive",
             "artists": ["X"],
             "release_date": "2020",
             "total_tracks": 10,
@@ -315,45 +456,59 @@ def test_sync_offset_nonzero_appends_to_existing_cache():
             "added_at": "2021-01-01T00:00:00Z",
         }
     ]
-    db = mock_db_with_cache(existing, 1)
+    main_row = {
+        "id": FAKE_USER_ID,
+        "user_id": FAKE_USER_ID,
+        "albums": main_albums,
+        "total": 1,
+        "synced_at": "2026-01-01T00:00:00Z",
+    }
+    db = _make_keyed_db({FAKE_USER_ID: main_row})
     override_db(db)
     sp = make_spotify_mock(
         [
-            {"items": [SAVED_ALBUM], "total": 2, "next": None},
+            {
+                "items": [SAVED_ALBUM] * 50,
+                "total": 120,
+                "next": "https://api.spotify.com/v1/me/albums?offset=50",
+            },
         ]
     )
     override_spotify(sp)
 
-    response = client.post("/library/sync", json={"offset": 50})
-
+    # Sync first page (not done)
+    response = client.post("/library/sync", json={"offset": 0})
     assert response.status_code == 200
-    data = response.json()
-    assert data["synced_this_page"] == 1
-    assert data["total_in_cache"] == 2
-    assert data["next_offset"] == 51
+    assert response.json()["done"] is False
 
-    upsert_call = db.table.return_value.upsert.call_args[0][0]
-    service_ids = [a["service_id"] for a in upsert_call["albums"]]
-    assert "old1" in service_ids
-    assert "abc123" in service_ids
+    # Main cache is still the old data
+    assert db._store[FAKE_USER_ID]["albums"] == main_albums
+    assert db._store[FAKE_USER_ID]["albums"][0]["service_id"] == "preserved"
 
     clear_overrides()
 
 
 def test_sync_offset_nonzero_dedupes_by_service_id():
     """Retried page or racing tabs produce duplicate items; dedupe keeps one."""
-    existing = [
-        {
-            "service_id": "abc123",  # same ID as SAVED_ALBUM
-            "name": "Stale name",
-            "artists": ["X"],
-            "release_date": "2020",
-            "total_tracks": 10,
-            "image_url": None,
-            "added_at": "2021-01-01T00:00:00Z",
-        }
-    ]
-    db = mock_db_with_cache(existing, 1)
+    staging_key = f"{FAKE_USER_ID}:staging"
+    existing_staging = {
+        "id": staging_key,
+        "user_id": FAKE_USER_ID,
+        "albums": [
+            {
+                "service_id": "abc123",  # same ID as SAVED_ALBUM
+                "name": "Stale name",
+                "artists": ["X"],
+                "release_date": "2020",
+                "total_tracks": 10,
+                "image_url": None,
+                "added_at": "2021-01-01T00:00:00Z",
+            }
+        ],
+        "total": 1,
+        "synced_at": "2026-01-01T00:00:00Z",
+    }
+    db = _make_keyed_db({staging_key: existing_staging})
     override_db(db)
     sp = make_spotify_mock(
         [
@@ -368,28 +523,34 @@ def test_sync_offset_nonzero_dedupes_by_service_id():
     data = response.json()
     assert data["total_in_cache"] == 1  # deduped, not 2
 
-    upsert_call = db.table.return_value.upsert.call_args[0][0]
-    assert len(upsert_call["albums"]) == 1
-    # Last-wins: the new album data should be present
-    assert upsert_call["albums"][0]["name"] == "Dummy Album"
+    # Main row should have the deduped result (done=true)
+    assert len(db._store[FAKE_USER_ID]["albums"]) == 1
+    assert db._store[FAKE_USER_ID]["albums"][0]["name"] == "Dummy Album"
 
     clear_overrides()
 
 
 def test_sync_offset_zero_clears_existing_cache():
-    """A fresh sync (offset=0) must wipe stale data before writing the new first page."""
-    stale = [
-        {
-            "service_id": "deleted_album",
-            "name": "User deleted this",
-            "artists": ["X"],
-            "release_date": "2020",
-            "total_tracks": 10,
-            "image_url": None,
-            "added_at": "2021-01-01T00:00:00Z",
-        }
-    ]
-    db = mock_db_with_cache(stale, 1)
+    """A fresh sync (offset=0) must wipe stale staging data before writing the new first page."""
+    staging_key = f"{FAKE_USER_ID}:staging"
+    stale_staging = {
+        "id": staging_key,
+        "user_id": FAKE_USER_ID,
+        "albums": [
+            {
+                "service_id": "deleted_album",
+                "name": "User deleted this",
+                "artists": ["X"],
+                "release_date": "2020",
+                "total_tracks": 10,
+                "image_url": None,
+                "added_at": "2021-01-01T00:00:00Z",
+            }
+        ],
+        "total": 1,
+        "synced_at": "2026-01-01T00:00:00Z",
+    }
+    db = _make_keyed_db({staging_key: stale_staging})
     override_db(db)
     sp = make_spotify_mock(
         [
@@ -404,8 +565,8 @@ def test_sync_offset_zero_clears_existing_cache():
     data = response.json()
     assert data["total_in_cache"] == 1
 
-    upsert_call = db.table.return_value.upsert.call_args[0][0]
-    service_ids = [a["service_id"] for a in upsert_call["albums"]]
+    # Main row has only the new album (done=true promoted staging)
+    service_ids = [a["service_id"] for a in db._store[FAKE_USER_ID]["albums"]]
     assert "deleted_album" not in service_ids
     assert "abc123" in service_ids
 
@@ -414,7 +575,7 @@ def test_sync_offset_zero_clears_existing_cache():
 
 def test_sync_returns_done_false_when_more_pages_remain():
     """Spotify has a `next` URL -> done is False and next_offset points to page 2."""
-    db = mock_db_empty()
+    db = _make_keyed_db()
     override_db(db)
     sp = make_spotify_mock(
         [
@@ -456,7 +617,7 @@ def test_sync_returns_401_when_not_authenticated():
 
 def test_sync_rejects_negative_offset():
     """Negative offset is a client bug -- reject with 400."""
-    db = mock_db_empty()
+    db = _make_keyed_db()
     override_db(db)
     sp = make_spotify_mock([{"items": [], "total": 0, "next": None}])
     override_spotify(sp)
@@ -470,7 +631,7 @@ def test_sync_rejects_negative_offset():
 
 def test_sync_rejects_non_multiple_of_50_offset():
     """Offset must be a multiple of 50 (Spotify's page size)."""
-    db = mock_db_empty()
+    db = _make_keyed_db()
     override_db(db)
     sp = make_spotify_mock([{"items": [], "total": 0, "next": None}])
     override_spotify(sp)
@@ -483,8 +644,8 @@ def test_sync_rejects_non_multiple_of_50_offset():
 
 
 def test_sync_updates_last_synced_timestamp():
-    """Every successful sync writes synced_at = now() to the cache row."""
-    db = mock_db_empty()
+    """Completed sync writes synced_at = now() to the main cache row."""
+    db = _make_keyed_db()
     override_db(db)
     sp = make_spotify_mock([{"items": [SAVED_ALBUM], "total": 1, "next": None}])
     override_spotify(sp)
@@ -492,17 +653,17 @@ def test_sync_updates_last_synced_timestamp():
     response = client.post("/library/sync", json={"offset": 0})
 
     assert response.status_code == 200
-    upsert_call = db.table.return_value.upsert.call_args[0][0]
-    assert "synced_at" in upsert_call
-    # _save_supabase_cache passes the literal string "now()" to let Postgres resolve it
-    assert upsert_call["synced_at"] == "now()"
+    # Main row should have synced_at (done=true promotes staging to main)
+    main_row = db._store[FAKE_USER_ID]
+    assert "synced_at" in main_row
+    assert main_row["synced_at"] == "now()"
 
     clear_overrides()
 
 
 def test_sync_propagates_spotify_errors():
     """If Spotify raises, the endpoint returns a 5xx response to the client."""
-    db = mock_db_empty()
+    db = _make_keyed_db()
     override_db(db)
     sp = MagicMock()
     sp.current_user_saved_albums.side_effect = Exception("Spotify API down")
@@ -520,7 +681,7 @@ def test_sync_propagates_spotify_errors():
 
 def test_sync_handles_empty_library():
     """A user with zero saved albums gets done=True immediately."""
-    db = mock_db_empty()
+    db = _make_keyed_db()
     override_db(db)
     sp = make_spotify_mock(
         [

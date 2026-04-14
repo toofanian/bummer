@@ -39,18 +39,25 @@ def _get_supabase_cache(db: Client, user_id: str = None):
     return None
 
 
-def _save_supabase_cache(db: Client, albums: list, total: int, user_id: str = None):
+def _save_supabase_cache(
+    db: Client, albums: list, total: int, user_id: str = None, cache_key: str = None
+):
     """Upsert the album list into Supabase library_cache."""
-    cache_key = user_id or "albums"
+    key = cache_key or user_id or "albums"
     db.table("library_cache").upsert(
         {
-            "id": cache_key,
+            "id": key,
             "user_id": user_id,
             "albums": albums,
             "total": total,
             "synced_at": "now()",
         }
     ).execute()
+
+
+def _delete_supabase_cache(db: Client, cache_key: str):
+    """Delete a library_cache row by its id."""
+    db.table("library_cache").delete().eq("id", cache_key).execute()
 
 
 def _normalize_album(item: dict) -> dict:
@@ -104,6 +111,7 @@ def sync_one_page(
         )
 
     user_id = user["user_id"]
+    staging_key = f"{user_id}:staging"
 
     # Fetch one page from Spotify
     result = sp.current_user_saved_albums(limit=50, offset=body.offset)
@@ -111,16 +119,20 @@ def sync_one_page(
     spotify_total = result["total"]
     done = result["next"] is None
 
-    # Compute merged cache: offset=0 clears, offset>0 appends and dedupes
+    # Write to staging cache — main cache is never touched until sync completes
     if body.offset == 0:
         merged = new_albums
     else:
-        existing_row = _get_supabase_cache(db, user_id=user_id)
-        existing_albums = existing_row["albums"] if existing_row else []
-        merged = _dedupe_albums_by_service_id(existing_albums + new_albums)
+        staging_row = _get_supabase_cache(db, user_id=staging_key)
+        staging_albums = staging_row["albums"] if staging_row else []
+        merged = _dedupe_albums_by_service_id(staging_albums + new_albums)
 
-    # Persist
-    _save_supabase_cache(db, merged, len(merged), user_id)
+    _save_supabase_cache(db, merged, len(merged), user_id, cache_key=staging_key)
+
+    # On completion, promote staging to main and delete staging row
+    if done:
+        _save_supabase_cache(db, merged, len(merged), user_id, cache_key=user_id)
+        _delete_supabase_cache(db, staging_key)
 
     return {
         "synced_this_page": len(new_albums),

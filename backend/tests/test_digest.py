@@ -50,13 +50,13 @@ def test_snapshot_creates_row():
                 "user_id": FAKE_USER_ID,
                 "albums": [
                     {
-                        "spotify_id": "a1",
+                        "service_id": "a1",
                         "name": "Album1",
                         "artists": ["X"],
                         "image_url": None,
                     },
                     {
-                        "spotify_id": "a2",
+                        "service_id": "a2",
                         "name": "Album2",
                         "artists": ["Y"],
                         "image_url": None,
@@ -128,19 +128,19 @@ def test_snapshot_rejects_missing_secret():
 
 ALBUM_CACHE = [
     {
-        "spotify_id": "a1",
+        "service_id": "a1",
         "name": "Album One",
         "artists": ["Artist A"],
         "image_url": "https://img/1.jpg",
     },
     {
-        "spotify_id": "a2",
+        "service_id": "a2",
         "name": "Album Two",
         "artists": ["Artist B"],
         "image_url": "https://img/2.jpg",
     },
     {
-        "spotify_id": "a3",
+        "service_id": "a3",
         "name": "Album Three",
         "artists": ["Artist C"],
         "image_url": "https://img/3.jpg",
@@ -189,8 +189,8 @@ def test_digest_returns_added_and_removed():
         res = client.get("/digest", params={"start": "2026-03-01", "end": "2026-03-08"})
         assert res.status_code == 200
         data = res.json()
-        added_ids = [a["spotify_id"] for a in data["added"]]
-        removed_ids = [a["spotify_id"] for a in data["removed"]]
+        added_ids = [a["service_id"] for a in data["added"]]
+        removed_ids = [a["service_id"] for a in data["removed"]]
         assert "a3" in added_ids
         assert "a2" in removed_ids
         assert "a1" not in added_ids
@@ -233,7 +233,7 @@ def test_digest_returns_listened_with_play_counts():
         data = res.json()
         listened = data["listened"]
         assert len(listened) == 1
-        assert listened[0]["spotify_id"] == "a1"
+        assert listened[0]["service_id"] == "a1"
         assert listened[0]["play_count"] == 3
     finally:
         clear_overrides()
@@ -281,8 +281,8 @@ def test_ensure_snapshot_creates_when_none_exists(mock_date, mock_cache):
     mock_date.today.return_value = date(2026, 3, 15)
     mock_date.side_effect = lambda *a, **kw: date(*a, **kw)
     mock_cache.return_value = [
-        {"spotify_id": "a1", "name": "Album1", "artists": ["X"], "image_url": None},
-        {"spotify_id": "a2", "name": "Album2", "artists": ["Y"], "image_url": None},
+        {"service_id": "a1", "name": "Album1", "artists": ["X"], "image_url": None},
+        {"service_id": "a2", "name": "Album2", "artists": ["Y"], "image_url": None},
     ]
     db = MagicMock()
     # No existing snapshot for today
