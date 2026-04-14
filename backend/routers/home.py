@@ -31,8 +31,58 @@ def log_play(
     return Response(status_code=204)
 
 
+@router.post("/history/sync")
+def sync_history(
+    db: Client = Depends(get_authed_db),
+    sp: spotipy.Spotify = Depends(get_user_spotify),
+    user: dict = Depends(get_current_user),
+):
+    results = sp.current_user_recently_played(limit=50)
+    items = results.get("items", [])
+    if not items:
+        return {"synced": 0}
+
+    # Parse played_at timestamps and find time range
+    parsed = []
+    for item in items:
+        album_id = item["track"]["album"]["id"]
+        played_at = item["played_at"]
+        parsed.append({"album_id": album_id, "played_at": played_at})
+
+    timestamps = [p["played_at"] for p in parsed]
+    min_ts = min(timestamps)
+    max_ts = max(timestamps)
+
+    # Fetch existing rows in this time range to avoid duplicates
+    existing_rows = (
+        db.table("play_history")
+        .select("album_id, played_at")
+        .eq("user_id", user["user_id"])
+        .gte("played_at", min_ts)
+        .lte("played_at", max_ts)
+        .execute()
+    ).data
+    existing_pairs = {(r["album_id"], r["played_at"]) for r in existing_rows}
+
+    new_rows = [
+        {
+            "album_id": p["album_id"],
+            "user_id": user["user_id"],
+            "played_at": p["played_at"],
+            "source": "spotify_sync",
+        }
+        for p in parsed
+        if (p["album_id"], p["played_at"]) not in existing_pairs
+    ]
+
+    if new_rows:
+        db.table("play_history").insert(new_rows).execute()
+
+    return {"synced": len(new_rows)}
+
+
 def _build_album_lookup(album_cache):
-    return {a["spotify_id"]: a for a in album_cache}
+    return {a["service_id"]: a for a in album_cache}
 
 
 def _dedup_album_ids(rows):
@@ -96,7 +146,7 @@ def get_home(
     ).data
     recently_played_ids = {r["album_id"] for r in all_history}
     rediscover_candidates = [
-        a for a in album_cache if a["spotify_id"] not in recently_played_ids
+        a for a in album_cache if a["service_id"] not in recently_played_ids
     ]
     rediscover = random.sample(
         rediscover_candidates, min(20, len(rediscover_candidates))
@@ -127,7 +177,7 @@ def get_home(
     recommended = [
         a
         for a in album_cache
-        if a["spotify_id"] not in played_in_30
+        if a["service_id"] not in played_in_30
         and any(artist in top_artists for artist in a.get("artists", []))
     ][:20]
 

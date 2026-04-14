@@ -85,7 +85,7 @@ def mock_db_with_play_history(rows):
 
 ALBUM_CACHE = [
     {
-        "spotify_id": "album1",
+        "service_id": "album1",
         "name": "Album One",
         "artists": ["Artist A"],
         "image_url": "https://img/1.jpg",
@@ -93,7 +93,7 @@ ALBUM_CACHE = [
         "added_at": "2024-01-15T00:00:00Z",
     },
     {
-        "spotify_id": "album2",
+        "service_id": "album2",
         "name": "Album Two",
         "artists": ["Artist B"],
         "image_url": "https://img/2.jpg",
@@ -101,7 +101,7 @@ ALBUM_CACHE = [
         "added_at": "2024-03-01T00:00:00Z",
     },
     {
-        "spotify_id": "album3",
+        "service_id": "album3",
         "name": "Album Three",
         "artists": ["Artist A"],
         "image_url": "https://img/3.jpg",
@@ -125,7 +125,7 @@ def test_home_returns_today_albums(mock_cache):
         res = client.get("/home", params={"tz": "UTC"})
         assert res.status_code == 200
         data = res.json()
-        today_ids = [a["spotify_id"] for a in data["today"]]
+        today_ids = [a["service_id"] for a in data["today"]]
         assert today_ids == ["album1", "album2"]
     finally:
         clear_overrides()
@@ -157,7 +157,7 @@ def test_home_rediscover_returns_unplayed_albums(mock_cache):
     try:
         res = client.get("/home", params={"tz": "UTC"})
         data = res.json()
-        rediscover_ids = [a["spotify_id"] for a in data["rediscover"]]
+        rediscover_ids = [a["service_id"] for a in data["rediscover"]]
         assert set(rediscover_ids).issubset({"album1", "album2", "album3"})
         assert len(rediscover_ids) <= 20
     finally:
@@ -176,7 +176,7 @@ def test_home_rediscover_excludes_recently_played(mock_cache):
     try:
         res = client.get("/home", params={"tz": "UTC"})
         data = res.json()
-        rediscover_ids = [a["spotify_id"] for a in data["rediscover"]]
+        rediscover_ids = [a["service_id"] for a in data["rediscover"]]
         assert "album1" not in rediscover_ids
     finally:
         clear_overrides()
@@ -196,7 +196,7 @@ def test_home_recommended_by_frequent_artists(mock_cache):
     try:
         res = client.get("/home", params={"tz": "UTC"})
         data = res.json()
-        rec_ids = [a["spotify_id"] for a in data["recommended"]]
+        rec_ids = [a["service_id"] for a in data["recommended"]]
         assert "album3" in rec_ids  # by Artist A but not recently played
         assert "album1" not in rec_ids  # was just played
     finally:
@@ -212,8 +212,122 @@ def test_home_returns_recently_added(mock_cache):
         assert res.status_code == 200
         data = res.json()
         assert "recently_added" in data
-        ids = [a["spotify_id"] for a in data["recently_added"]]
+        ids = [a["service_id"] for a in data["recently_added"]]
         # Should be sorted by added_at descending
         assert ids == ["album2", "album1", "album3"]
+    finally:
+        clear_overrides()
+
+
+def test_sync_history_inserts_new_rows():
+    db = MagicMock()
+    # Mock the select query for existing rows (returns empty — no duplicates)
+    db.table.return_value.select.return_value.eq.return_value.gte.return_value.lte.return_value.execute.return_value = MagicMock(
+        data=[]
+    )
+    db.table.return_value.insert.return_value.execute.return_value = MagicMock(data=[])
+
+    sp = MagicMock()
+    sp.current_user_recently_played.return_value = {
+        "items": [
+            {
+                "track": {"album": {"id": "albumX"}},
+                "played_at": "2024-06-01T10:00:00.000Z",
+            },
+            {
+                "track": {"album": {"id": "albumY"}},
+                "played_at": "2024-06-01T11:00:00.000Z",
+            },
+        ]
+    }
+
+    setup_overrides(db=db, sp=sp)
+    try:
+        res = client.post("/home/history/sync")
+        assert res.status_code == 200
+        data = res.json()
+        assert data["synced"] == 2
+        db.table.return_value.insert.assert_called_once()
+        inserted = db.table.return_value.insert.call_args[0][0]
+        assert len(inserted) == 2
+        assert inserted[0]["source"] == "spotify_sync"
+        assert inserted[0]["album_id"] == "albumX"
+        assert inserted[1]["album_id"] == "albumY"
+    finally:
+        clear_overrides()
+
+
+def test_sync_history_skips_duplicates():
+    db = MagicMock()
+    # Existing row matches one of the items
+    db.table.return_value.select.return_value.eq.return_value.gte.return_value.lte.return_value.execute.return_value = MagicMock(
+        data=[{"album_id": "albumX", "played_at": "2024-06-01T10:00:00.000Z"}]
+    )
+    db.table.return_value.insert.return_value.execute.return_value = MagicMock(data=[])
+
+    sp = MagicMock()
+    sp.current_user_recently_played.return_value = {
+        "items": [
+            {
+                "track": {"album": {"id": "albumX"}},
+                "played_at": "2024-06-01T10:00:00.000Z",
+            },
+            {
+                "track": {"album": {"id": "albumY"}},
+                "played_at": "2024-06-01T11:00:00.000Z",
+            },
+        ]
+    }
+
+    setup_overrides(db=db, sp=sp)
+    try:
+        res = client.post("/home/history/sync")
+        assert res.status_code == 200
+        data = res.json()
+        assert data["synced"] == 1
+        inserted = db.table.return_value.insert.call_args[0][0]
+        assert len(inserted) == 1
+        assert inserted[0]["album_id"] == "albumY"
+    finally:
+        clear_overrides()
+
+
+def test_sync_history_empty_spotify_response():
+    db = MagicMock()
+    sp = MagicMock()
+    sp.current_user_recently_played.return_value = {"items": []}
+
+    setup_overrides(db=db, sp=sp)
+    try:
+        res = client.post("/home/history/sync")
+        assert res.status_code == 200
+        assert res.json() == {"synced": 0}
+    finally:
+        clear_overrides()
+
+
+def test_sync_history_all_duplicates_no_insert():
+    db = MagicMock()
+    db.table.return_value.select.return_value.eq.return_value.gte.return_value.lte.return_value.execute.return_value = MagicMock(
+        data=[{"album_id": "albumX", "played_at": "2024-06-01T10:00:00.000Z"}]
+    )
+
+    sp = MagicMock()
+    sp.current_user_recently_played.return_value = {
+        "items": [
+            {
+                "track": {"album": {"id": "albumX"}},
+                "played_at": "2024-06-01T10:00:00.000Z",
+            },
+        ]
+    }
+
+    setup_overrides(db=db, sp=sp)
+    try:
+        res = client.post("/home/history/sync")
+        assert res.status_code == 200
+        assert res.json() == {"synced": 0}
+        # insert should NOT be called when all rows are duplicates
+        db.table.return_value.insert.assert_not_called()
     finally:
         clear_overrides()
