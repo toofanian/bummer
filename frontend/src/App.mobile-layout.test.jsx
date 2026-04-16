@@ -21,12 +21,15 @@ beforeEach(() => {
   // Ensure tests don't hit onboarding gate
   localStorage.setItem('spotify_client_id', 'test-client-id')
   global.fetch = vi.fn().mockImplementation((url, options) => {
-    if (url.includes('/library/sync') && options?.method === 'POST') {
+    if (url.includes('/library/sync-complete') && options?.method === 'POST') {
+      return Promise.resolve({ ok: true, json: () => Promise.resolve({ ok: true }) })
+    }
+    if (url.includes('/library/sync') && !url.includes('/sync-complete') && options?.method === 'POST') {
       return Promise.resolve({
         ok: true,
         json: () => Promise.resolve({
+          albums: [],
           synced_this_page: 0,
-          total_in_cache: 0,
           spotify_total: 0,
           next_offset: 0,
           done: true,

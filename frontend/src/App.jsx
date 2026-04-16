@@ -106,9 +106,8 @@ export default function App() {
 
   const loadData = useCallback(async () => {
     setError(null)
-    setCollections([])
-    setCollectionAlbums([])
-    setAlbumCollectionMap({})
+    // Don't clear collections/albumCollectionMap — keep existing data visible
+    // during background operations. Only replace when new data arrives.
 
     // 1. Optimistic localStorage render
     const cached = (() => {
@@ -128,6 +127,37 @@ export default function App() {
       setLoadingMessage('Syncing your library...')
     }
 
+    // Start collections fetch immediately (parallel with sync)
+    const collectionsPromise = (async () => {
+      try {
+        const collectionsRaw = await apiFetch('/collections', {}, sessionRef.current).then(r => r.json())
+        const collectionsData = Array.isArray(collectionsRaw) ? collectionsRaw : []
+        setCollections(collectionsData)
+        // Eagerly fetch all collection memberships so albumCollectionMap is
+        // populated on first render rather than lazily as the user navigates.
+        // Individual collection album fetches are non-fatal — a failure yields
+        // an empty albums list for that collection rather than crashing the app.
+        const results = await Promise.all(
+          collectionsData.map(col =>
+            apiFetch(`/collections/${col.id}/albums`, {}, sessionRef.current)
+              .then(r => r.json())
+              .catch(() => ({ albums: [] }))  // silent fallback
+          )
+        )
+        const map = {}
+        results.forEach((data, i) => {
+          const colId = collectionsData[i].id
+          ;(data.albums ?? []).forEach(album => {
+            if (!map[album.service_id]) map[album.service_id] = []
+            map[album.service_id].push(colId)
+          })
+        })
+        setAlbumCollectionMap(map)
+      } catch {
+        // Collections fetch failed — keep any existing state
+      }
+    })()
+
     try {
       // 2. Fetch current Supabase cache state (fast, bounded)
       const cacheResp = await apiFetch('/library/albums', {}, sessionRef.current).then(r => r.json())
@@ -144,9 +174,11 @@ export default function App() {
         } catch { /* storage full or unavailable */ }
       }
 
-      // 3. Drive the sync loop — skip in preview (no real Spotify tokens) unless real Spotify is enabled.
+      // 3. Drive the sync loop — skip in preview unless real Spotify enabled.
+      // Accumulate pages in memory, don't update display mid-loop.
       if (!IS_PREVIEW || previewRealSpotify) {
         setSyncing(true)
+        let accumulated = []
         let offset = 0
         let progress = null
         do {
@@ -154,53 +186,39 @@ export default function App() {
             method: 'POST',
             body: JSON.stringify({ offset }),
           }, sessionRef.current).then(r => r.json())
+          accumulated = accumulated.concat(resp.albums)
           progress = resp
           if (isColdStart) {
             setLoadingMessage(
-              `Syncing ${progress.total_in_cache} of ${progress.spotify_total} albums...`
+              `Syncing ${accumulated.length} of ${progress.spotify_total} albums...`
             )
           }
           offset = progress.next_offset
         } while (!progress.done)
 
-        // 4. Refetch the complete library
-        const finalResp = await apiFetch('/library/albums', {}, sessionRef.current).then(r => r.json())
-        setAlbums(finalResp.albums ?? [])
-        try {
-          localStorage.setItem(CACHE_KEY, JSON.stringify({
-            albums: finalResp.albums ?? [],
-            total: (finalResp.albums ?? []).length,
-            cachedAt: new Date().toISOString(),
-          }))
-        } catch { /* storage full or unavailable */ }
+        // 4. Atomic commit — single write with all accumulated albums
+        await apiFetch('/library/sync-complete', {
+          method: 'POST',
+          body: JSON.stringify({ albums: accumulated }),
+        }, sessionRef.current)
+
+        // Now update display — only replace if sync returned data
+        if (accumulated.length > 0) {
+          setAlbums(accumulated)
+          try {
+            localStorage.setItem(CACHE_KEY, JSON.stringify({
+              albums: accumulated,
+              total: accumulated.length,
+              cachedAt: new Date().toISOString(),
+            }))
+          } catch { /* storage full or unavailable */ }
+        }
       }
       setSyncing(false)
 
-      // 5. Continue to collections fetch
+      // Await collections (already started in parallel)
       setLoadingMessage('Loading collections...')
-      const collectionsRaw = await apiFetch('/collections', {}, sessionRef.current).then(r => r.json())
-      const collectionsData = Array.isArray(collectionsRaw) ? collectionsRaw : []
-      setCollections(collectionsData)
-      // Eagerly fetch all collection memberships so albumCollectionMap is
-      // populated on first render rather than lazily as the user navigates.
-      // Individual collection album fetches are non-fatal — a failure yields
-      // an empty albums list for that collection rather than crashing the app.
-      const results = await Promise.all(
-        collectionsData.map(col =>
-          apiFetch(`/collections/${col.id}/albums`, {}, sessionRef.current)
-            .then(r => r.json())
-            .catch(() => ({ albums: [] }))  // silent fallback
-        )
-      )
-      const map = {}
-      results.forEach((data, i) => {
-        const colId = collectionsData[i].id
-        ;(data.albums ?? []).forEach(album => {
-          if (!map[album.service_id]) map[album.service_id] = []
-          map[album.service_id].push(colId)
-        })
-      })
-      setAlbumCollectionMap(map)
+      await collectionsPromise
     } catch (err) {
       // If we had cached data, keep it visible and swallow the error — a
       // failed background sync shouldn't wipe a warm UI. On cold start the
