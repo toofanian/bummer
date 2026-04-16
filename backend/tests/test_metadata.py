@@ -686,3 +686,27 @@ def test_remove_album_from_collection_returns_401_when_not_authenticated():
     assert response.status_code == 401
 
     app.dependency_overrides.clear()
+
+
+# --- list_collections without Spotify ---
+
+
+def test_list_collections_works_without_spotify_token():
+    """list_collections should not depend on Spotify — it only reads from DB."""
+    db = mock_db(execute_data=[COLLECTION])
+    override_db(db)
+    # Do NOT override get_user_spotify — let it fail if called
+
+    def raise_401():
+        raise HTTPException(status_code=401, detail="Not authenticated with Spotify")
+
+    app.dependency_overrides[get_user_spotify] = raise_401
+
+    response = client.get("/collections")
+
+    assert response.status_code == 200
+    data = response.json()
+    assert len(data) == 1
+    assert data[0]["name"] == "Road trip"
+
+    clear_overrides()

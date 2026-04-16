@@ -101,7 +101,8 @@ def clear_tier(
 
 @router.get("/collections")
 def list_collections(
-    db=Depends(get_authed_db), sp: spotipy.Spotify = Depends(get_user_spotify)
+    db=Depends(get_authed_db),
+    user: dict = Depends(get_current_user),
 ):
     result = db.table("collections").select("*, collection_albums(count)").execute()
     rows = []
