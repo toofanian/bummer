@@ -11,15 +11,21 @@ vi.stubGlobal('localStorage', (() => {
   }
 })())
 
+const mockInitiateLogin = vi.fn()
 vi.mock('../hooks/useSpotifyAuth', () => ({
   useSpotifyAuth: () => ({
-    initiateLogin: vi.fn(),
+    initiateLogin: mockInitiateLogin,
     handleCallback: vi.fn().mockResolvedValue({
       access_token: 'acc', refresh_token: 'ref', expires_in: 3600,
     }),
     accessToken: null,
     logout: vi.fn(),
   }),
+}))
+
+let mockIsPreview = false
+vi.mock('../previewMode', () => ({
+  get IS_PREVIEW() { return mockIsPreview },
 }))
 
 vi.stubGlobal('fetch', vi.fn())
@@ -159,6 +165,62 @@ describe('OnboardingWizard', () => {
       render(<OnboardingWizard session={fakeSession} onComplete={vi.fn()} />)
       fireEvent.click(screen.getByRole('button', { name: /back/i }))
       expect(screen.getByText(/choose your music service/i)).toBeInTheDocument()
+    })
+  })
+
+  describe('proxy callback (preview mode)', () => {
+    it('calls onComplete without token exchange when proxy_success=true', async () => {
+      window.history.replaceState({}, '', '/?proxy_success=true')
+      localStorage.setItem('music_service_type', 'spotify')
+      const onComplete = vi.fn()
+      render(<OnboardingWizard session={fakeSession} onComplete={onComplete} />)
+      await waitFor(() => expect(onComplete).toHaveBeenCalled())
+      // Should NOT call fetch for token exchange
+      expect(fetch).not.toHaveBeenCalled()
+      window.history.replaceState({}, '', '/')
+    })
+
+    it('still does normal PKCE exchange when code= is present (not proxy)', async () => {
+      window.history.replaceState({}, '', '/auth/spotify/callback?code=abc')
+      localStorage.setItem('spotify_client_id', 'cid')
+      fetch.mockResolvedValueOnce({ ok: true, json: async () => ({}) })
+      const onComplete = vi.fn()
+      render(<OnboardingWizard session={fakeSession} onComplete={onComplete} />)
+      await waitFor(() => expect(onComplete).toHaveBeenCalled())
+      // Should call fetch for token storage
+      expect(fetch).toHaveBeenCalledWith(
+        expect.stringContaining('/auth/spotify-token'),
+        expect.objectContaining({ method: 'POST' }),
+      )
+      window.history.replaceState({}, '', '/')
+    })
+  })
+
+  describe('preview mode UI', () => {
+    beforeEach(() => {
+      mockIsPreview = true
+    })
+
+    afterEach(() => {
+      mockIsPreview = false
+    })
+
+    it('shows proxy redirect URI note when IS_PREVIEW is true', () => {
+      localStorage.setItem('music_service_type', 'spotify')
+      render(<OnboardingWizard session={fakeSession} onComplete={vi.fn()} />)
+      expect(screen.getByText(/callback-proxy/i)).toBeInTheDocument()
+    })
+
+    it('passes supabase token to initiateLogin on preview', async () => {
+      localStorage.setItem('music_service_type', 'spotify')
+      render(<OnboardingWizard session={fakeSession} onComplete={vi.fn()} />)
+      fireEvent.change(screen.getByPlaceholderText(/client id/i), {
+        target: { value: 'my-client-id' }
+      })
+      fireEvent.click(screen.getByRole('button', { name: /connect spotify/i }))
+      await waitFor(() => {
+        expect(mockInitiateLogin).toHaveBeenCalledWith('supabase-jwt')
+      })
     })
   })
 })

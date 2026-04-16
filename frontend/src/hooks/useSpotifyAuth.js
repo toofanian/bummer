@@ -1,4 +1,5 @@
 import { useState, useCallback } from 'react'
+import { IS_PREVIEW } from '../previewMode'
 
 const SCOPES = [
   'user-library-read',
@@ -8,6 +9,7 @@ const SCOPES = [
 ].join(' ')
 
 const REDIRECT_URI = import.meta.env.VITE_SPOTIFY_REDIRECT_URI ?? 'http://localhost:5173/auth/spotify/callback'
+const PROD_ORIGIN = import.meta.env.VITE_PROD_ORIGIN ?? 'https://thedeathofshuffle.com'
 
 function base64URLEncode(buffer) {
   const bytes = new Uint8Array(buffer)
@@ -75,9 +77,22 @@ function storeTokens({ access_token, refresh_token, expires_in }) {
 export function useSpotifyAuth() {
   const [accessToken, setAccessToken] = useState(() => getStoredToken())
 
-  const initiateLogin = useCallback(async () => {
+  const initiateLogin = useCallback(async (supabaseToken) => {
     const clientId = localStorage.getItem('spotify_client_id')
     if (!clientId) throw new Error('No Spotify client_id set')
+
+    if (IS_PREVIEW && supabaseToken) {
+      // Preview mode: route OAuth through prod's proxy endpoint
+      const params = new URLSearchParams({
+        origin: window.location.origin,
+        client_id: clientId,
+        supabase_token: supabaseToken,
+      })
+      window.location.assign(`${PROD_ORIGIN}/api/auth/preview-login?${params}`)
+      return
+    }
+
+    // Prod mode: direct PKCE flow
     const verifier = generateCodeVerifier()
     const challenge = await generateCodeChallenge(verifier)
     localStorage.setItem('spotify_pkce_verifier', verifier)

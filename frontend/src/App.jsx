@@ -144,8 +144,8 @@ export default function App() {
         } catch { /* storage full or unavailable */ }
       }
 
-      // 3. Drive the sync loop — skip in preview (no real Spotify tokens).
-      if (!IS_PREVIEW) {
+      // 3. Drive the sync loop — skip in preview (no real Spotify tokens) unless real Spotify is enabled.
+      if (!IS_PREVIEW || previewRealSpotify) {
         setSyncing(true)
         let offset = 0
         let progress = null
@@ -582,9 +582,10 @@ export default function App() {
   // Auth gate
   const isSpotifyCallback = window.location.pathname === '/auth/spotify/callback'
   const hasLocalClientId = !!localStorage.getItem('spotify_client_id')
+  const previewRealSpotify = IS_PREVIEW && import.meta.env.VITE_PREVIEW_REAL_SPOTIFY === 'true'
   // Onboarding check state: 'idle' | 'checking' | 'needs_onboarding' | 'reconnecting' | 'ready'
   const [onboardingCheckState, setOnboardingCheckState] = useState(() => {
-    if (IS_PREVIEW) return 'ready' // Preview deploys skip onboarding entirely
+    if (IS_PREVIEW && !previewRealSpotify) return 'ready' // Preview deploys skip onboarding (unless real Spotify is enabled)
     if (!session) return 'idle'
     if (isSpotifyCallback) return 'needs_onboarding' // OnboardingWizard handles callback
     if (hasLocalClientId) return 'ready'
@@ -593,7 +594,7 @@ export default function App() {
 
   // Transition from 'idle' once session arrives
   useEffect(() => {
-    if (IS_PREVIEW) return
+    if (IS_PREVIEW && !previewRealSpotify) return
     if (onboardingCheckState !== 'idle' || !session) return
     if (isSpotifyCallback) {
       setOnboardingCheckState('needs_onboarding')
@@ -605,7 +606,7 @@ export default function App() {
   }, [onboardingCheckState, session, isSpotifyCallback, hasLocalClientId])
 
   useEffect(() => {
-    if (IS_PREVIEW) return
+    if (IS_PREVIEW && !previewRealSpotify) return
     if (onboardingCheckState !== 'checking' || !session) return
     let cancelled = false
     ;(async () => {

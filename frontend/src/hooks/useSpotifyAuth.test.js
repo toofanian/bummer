@@ -22,6 +22,11 @@ vi.stubGlobal('localStorage', (() => {
 
 vi.stubGlobal('fetch', vi.fn())
 
+let mockIsPreview = false
+vi.mock('../previewMode', () => ({
+  get IS_PREVIEW() { return mockIsPreview },
+}))
+
 import { useSpotifyAuth } from './useSpotifyAuth'
 
 describe('useSpotifyAuth', () => {
@@ -87,5 +92,73 @@ describe('useSpotifyAuth', () => {
     expect(localStorage.getItem('spotify_access_token')).toBeNull()
     expect(localStorage.getItem('spotify_refresh_token')).toBeNull()
     expect(localStorage.getItem('spotify_expires_in')).toBeNull()
+  })
+
+  describe('preview proxy login', () => {
+    beforeEach(() => {
+      mockIsPreview = true
+    })
+
+    afterEach(() => {
+      mockIsPreview = false
+    })
+
+    it('redirects to prod proxy URL when IS_PREVIEW is true', async () => {
+      const assignMock = vi.fn()
+      Object.defineProperty(window, 'location', {
+        value: { assign: assignMock, origin: 'https://preview-123.vercel.app' },
+        writable: true,
+      })
+      localStorage.setItem('spotify_client_id', 'my-client-id')
+
+      const { result } = renderHook(() => useSpotifyAuth())
+      await act(async () => {
+        await result.current.initiateLogin('supabase-jwt-token')
+      })
+
+      expect(assignMock).toHaveBeenCalledTimes(1)
+      const url = assignMock.mock.calls[0][0]
+      expect(url).toContain('/api/auth/preview-login')
+      expect(url).toContain('origin=')
+      expect(url).toContain('client_id=my-client-id')
+      expect(url).toContain('supabase_token=supabase-jwt-token')
+      // Should NOT set a PKCE verifier (prod proxy handles it)
+      expect(localStorage.getItem('spotify_pkce_verifier')).toBeNull()
+    })
+
+    it('uses VITE_PROD_ORIGIN for the proxy base URL', async () => {
+      const assignMock = vi.fn()
+      Object.defineProperty(window, 'location', {
+        value: { assign: assignMock, origin: 'https://preview-123.vercel.app' },
+        writable: true,
+      })
+      localStorage.setItem('spotify_client_id', 'cid')
+
+      // The proxy URL should start with the prod origin
+      const { result } = renderHook(() => useSpotifyAuth())
+      await act(async () => {
+        await result.current.initiateLogin('tok')
+      })
+
+      const url = assignMock.mock.calls[0][0]
+      // Should use the VITE_PROD_ORIGIN env var (or fallback)
+      expect(url).toMatch(/^https?:\/\//)
+      expect(url).toContain('/api/auth/preview-login')
+    })
+  })
+
+  it('initiateLogin does direct PKCE on prod (not preview)', async () => {
+    // Ensure IS_PREVIEW is false (default)
+    mockIsPreview = false
+
+    const assignMock = vi.fn()
+    Object.defineProperty(window, 'location', { value: { assign: assignMock }, writable: true })
+    localStorage.setItem('spotify_client_id', 'my-client-id')
+
+    const { result } = renderHook(() => useSpotifyAuth())
+    await act(async () => { await result.current.initiateLogin() })
+
+    expect(assignMock).toHaveBeenCalledWith(expect.stringContaining('accounts.spotify.com/authorize'))
+    expect(localStorage.getItem('spotify_pkce_verifier')).toBeTruthy()
   })
 })

@@ -1,8 +1,11 @@
 import { useState, useEffect } from 'react'
 import { useSpotifyAuth } from '../hooks/useSpotifyAuth'
+import { IS_PREVIEW } from '../previewMode'
 
 const API = import.meta.env.VITE_API_URL ?? 'http://127.0.0.1:8000'
 const REDIRECT_URI = import.meta.env.VITE_SPOTIFY_REDIRECT_URI ?? 'http://localhost:5173/auth/spotify/callback'
+const PROD_ORIGIN = import.meta.env.VITE_PROD_ORIGIN ?? 'https://thedeathofshuffle.com'
+const PROXY_REDIRECT_URI = `${PROD_ORIGIN}/api/auth/callback-proxy`
 
 function ServiceSelector({ onSelect }) {
   return (
@@ -70,7 +73,7 @@ function SpotifySetup({ session, onComplete }) {
   const [clientId, setClientId] = useState('')
   const [loading, setLoading] = useState(() => {
     const params = new URLSearchParams(window.location.search)
-    return !!params.get('code')
+    return !!params.get('code') || params.get('proxy_success') === 'true'
   })
   const [error, setError] = useState('')
   const [copyStatus, setCopyStatus] = useState('')
@@ -87,6 +90,14 @@ function SpotifySetup({ session, onComplete }) {
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search)
+
+    // Preview proxy callback: prod already stored tokens, just clean up and complete
+    if (params.get('proxy_success') === 'true') {
+      window.history.replaceState({}, '', '/')
+      onComplete()
+      return
+    }
+
     const code = params.get('code')
     if (!code) return
 
@@ -135,7 +146,7 @@ function SpotifySetup({ session, onComplete }) {
     localStorage.setItem('music_service_type', 'spotify')
     setLoading(true)
     try {
-      await initiateLogin()
+      await initiateLogin(session?.access_token)
     } catch (err) {
       setError(err.message)
       setLoading(false)
@@ -194,6 +205,11 @@ function SpotifySetup({ session, onComplete }) {
           </div>
           {copyStatus && (
             <p className="mt-1 text-xs text-gray-500">{copyStatus}</p>
+          )}
+          {IS_PREVIEW && (
+            <p className="mt-2 text-xs text-yellow-400">
+              For preview testing, also add: <code className="bg-gray-900 px-1 rounded">{PROXY_REDIRECT_URI}</code>
+            </p>
           )}
         </li>
         <li>Check <span className="text-white">Web API</span> and <span className="text-white">Web Playback SDK</span> under APIs used.</li>
