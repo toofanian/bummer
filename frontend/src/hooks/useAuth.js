@@ -18,12 +18,15 @@ const PREVIEW_SESSION = {
   },
 }
 
+const previewRealSpotify = IS_PREVIEW && import.meta.env.VITE_PREVIEW_REAL_SPOTIFY === 'true'
+const usePreviewBypass = IS_PREVIEW && !previewRealSpotify
+
 export function useAuth() {
-  const [session, setSession] = useState(IS_PREVIEW ? PREVIEW_SESSION : null)
-  const [loading, setLoading] = useState(!IS_PREVIEW)
+  const [session, setSession] = useState(usePreviewBypass ? PREVIEW_SESSION : null)
+  const [loading, setLoading] = useState(!usePreviewBypass)
 
   useEffect(() => {
-    if (IS_PREVIEW) return
+    if (usePreviewBypass) return
 
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session)
@@ -41,7 +44,7 @@ export function useAuth() {
   }, [])
 
   async function logout() {
-    if (IS_PREVIEW) return
+    if (usePreviewBypass) return
     await supabase.auth.signOut()
   }
 

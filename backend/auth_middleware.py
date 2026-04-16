@@ -28,14 +28,19 @@ _preview_session: dict | None = None
 
 
 def _is_preview_env() -> bool:
-    """True iff we are running on a Vercel preview deploy.
+    """True iff we are running on a Vercel preview deploy with auth bypass active.
 
     Relies solely on the Vercel-injected VERCEL_ENV system variable,
     which Vercel sets to 'production' / 'preview' / 'development'
     based on deploy type. Cannot be overridden from the project env
     var UI for the production scope.
+
+    When PREVIEW_REAL_AUTH=true, the bypass is disabled so preview
+    deploys use real Supabase/Spotify authentication.
     """
-    return os.getenv("VERCEL_ENV") == "preview"
+    if os.getenv("VERCEL_ENV") != "preview":
+        return False
+    return os.getenv("PREVIEW_REAL_AUTH") != "true"
 
 
 def _get_preview_session() -> dict:

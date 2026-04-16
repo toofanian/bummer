@@ -1,8 +1,11 @@
 import { useState, useEffect } from 'react'
 import { useSpotifyAuth } from '../hooks/useSpotifyAuth'
+import { IS_PREVIEW } from '../previewMode'
 
 const API = import.meta.env.VITE_API_URL ?? 'http://127.0.0.1:8000'
 const REDIRECT_URI = import.meta.env.VITE_SPOTIFY_REDIRECT_URI ?? 'http://localhost:5173/auth/spotify/callback'
+const PROD_ORIGIN = import.meta.env.VITE_PROD_ORIGIN ?? 'https://thedeathofshuffle.com'
+const PROXY_REDIRECT_URI = `${PROD_ORIGIN}/api/auth/callback-proxy`
 
 function ServiceSelector({ onSelect }) {
   return (
@@ -70,7 +73,7 @@ function SpotifySetup({ session, onComplete }) {
   const [clientId, setClientId] = useState('')
   const [loading, setLoading] = useState(() => {
     const params = new URLSearchParams(window.location.search)
-    return !!params.get('code')
+    return !!params.get('code') || params.get('proxy_success') === 'true'
   })
   const [error, setError] = useState('')
   const [copyStatus, setCopyStatus] = useState('')
@@ -85,8 +88,35 @@ function SpotifySetup({ session, onComplete }) {
     setTimeout(() => setCopyStatus(''), 2000)
   }
 
+  // Pre-fill client ID from server if user has connected Spotify before
+  useEffect(() => {
+    if (!session) return
+    let cancelled = false
+    ;(async () => {
+      try {
+        const res = await fetch(`${API}/auth/spotify-status`, {
+          headers: { Authorization: `Bearer ${session.access_token}` },
+        })
+        if (!res.ok || cancelled) return
+        const data = await res.json()
+        if (data.client_id && !cancelled) {
+          setClientId(data.client_id)
+        }
+      } catch { /* ignore — user can type it manually */ }
+    })()
+    return () => { cancelled = true }
+  }, [session])
+
   useEffect(() => {
     const params = new URLSearchParams(window.location.search)
+
+    // Preview proxy callback: prod already stored tokens, just clean up and complete
+    if (params.get('proxy_success') === 'true') {
+      window.history.replaceState({}, '', '/')
+      onComplete()
+      return
+    }
+
     const code = params.get('code')
     if (!code) return
 
@@ -135,7 +165,7 @@ function SpotifySetup({ session, onComplete }) {
     localStorage.setItem('music_service_type', 'spotify')
     setLoading(true)
     try {
-      await initiateLogin()
+      await initiateLogin(session?.access_token)
     } catch (err) {
       setError(err.message)
       setLoading(false)
