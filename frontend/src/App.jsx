@@ -608,6 +608,12 @@ export default function App() {
   useEffect(() => {
     if (IS_PREVIEW && !previewRealSpotify) return
     if (onboardingCheckState !== 'checking' || !session) return
+    // On preview with real Spotify, skip credential check — force fresh onboarding
+    // (the preview user's seeded music_tokens row has fake credentials)
+    if (previewRealSpotify) {
+      setOnboardingCheckState('needs_onboarding')
+      return
+    }
     let cancelled = false
     ;(async () => {
       try {
