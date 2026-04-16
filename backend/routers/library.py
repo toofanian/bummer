@@ -1,3 +1,5 @@
+from typing import Any
+
 import spotipy
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
@@ -11,6 +13,10 @@ router = APIRouter(prefix="/library", tags=["library"])
 
 class SyncRequest(BaseModel):
     offset: int
+
+
+class SyncCompleteRequest(BaseModel):
+    albums: list[dict[str, Any]]
 
 
 def _dedupe_albums_by_service_id(albums: list[dict]) -> list[dict]:
@@ -39,25 +45,18 @@ def _get_supabase_cache(db: Client, user_id: str = None):
     return None
 
 
-def _save_supabase_cache(
-    db: Client, albums: list, total: int, user_id: str = None, cache_key: str = None
-):
+def _save_supabase_cache(db: Client, albums: list, total: int, user_id: str = None):
     """Upsert the album list into Supabase library_cache."""
-    key = cache_key or user_id or "albums"
+    cache_key = user_id or "albums"
     db.table("library_cache").upsert(
         {
-            "id": key,
+            "id": cache_key,
             "user_id": user_id,
             "albums": albums,
             "total": total,
             "synced_at": "now()",
         }
     ).execute()
-
-
-def _delete_supabase_cache(db: Client, cache_key: str):
-    """Delete a library_cache row by its id."""
-    db.table("library_cache").delete().eq("id", cache_key).execute()
 
 
 def _normalize_album(item: dict) -> dict:
@@ -101,7 +100,6 @@ def get_albums(
 def sync_one_page(
     body: SyncRequest,
     sp: spotipy.Spotify = Depends(get_user_spotify),
-    db: Client = Depends(get_authed_db),
     user: dict = Depends(get_current_user),
 ):
     if body.offset < 0 or body.offset % 50 != 0:
@@ -110,37 +108,30 @@ def sync_one_page(
             detail="offset must be a non-negative multiple of 50",
         )
 
-    user_id = user["user_id"]
-    staging_key = f"{user_id}:staging"
-
     # Fetch one page from Spotify
     result = sp.current_user_saved_albums(limit=50, offset=body.offset)
     new_albums = [_normalize_album(item) for item in result["items"]]
     spotify_total = result["total"]
     done = result["next"] is None
 
-    # Write to staging cache — main cache is never touched until sync completes
-    if body.offset == 0:
-        merged = new_albums
-    else:
-        staging_row = _get_supabase_cache(db, user_id=staging_key)
-        staging_albums = staging_row["albums"] if staging_row else []
-        merged = _dedupe_albums_by_service_id(staging_albums + new_albums)
-
-    _save_supabase_cache(db, merged, len(merged), user_id, cache_key=staging_key)
-
-    # On completion, promote staging to main and delete staging row
-    if done:
-        _save_supabase_cache(db, merged, len(merged), user_id, cache_key=user_id)
-        _delete_supabase_cache(db, staging_key)
-
     return {
+        "albums": new_albums,
         "synced_this_page": len(new_albums),
-        "total_in_cache": len(merged),
         "spotify_total": spotify_total,
         "next_offset": body.offset + len(new_albums),
         "done": done,
     }
+
+
+@router.post("/sync-complete")
+def sync_complete(
+    body: SyncCompleteRequest,
+    db: Client = Depends(get_authed_db),
+    user: dict = Depends(get_current_user),
+):
+    user_id = user["user_id"]
+    _save_supabase_cache(db, body.albums, len(body.albums), user_id)
+    return {"total": len(body.albums)}
 
 
 def _format_duration(ms: int) -> str:

@@ -60,8 +60,8 @@ const HOME_OK = { today: [], this_week: [], rediscover: [], recommended: [] }
 // Default /library/sync response — empty library, done immediately.
 // Individual tests can override with their own sync page sequences.
 const SYNC_DONE = {
+  albums: [],
   synced_this_page: 0,
-  total_in_cache: 0,
   spotify_total: 0,
   next_offset: 0,
   done: true,
@@ -70,10 +70,14 @@ const SYNC_DONE = {
 function setupSuccessfulFetch() {
   // library/albums → empty
   // library/sync → done immediately
+  // library/sync-complete → ok
   // collections → empty list
   // home → empty sections
   global.fetch = vi.fn().mockImplementation((url, options) => {
-    if (url.includes('/library/sync') && options?.method === 'POST') {
+    if (url.includes('/library/sync-complete') && options?.method === 'POST') {
+      return Promise.resolve({ ok: true, json: () => Promise.resolve({ ok: true }) })
+    }
+    if (url.includes('/library/sync') && !url.includes('/sync-complete') && options?.method === 'POST') {
       return Promise.resolve({ ok: true, json: () => Promise.resolve(SYNC_DONE) })
     }
     if (url.includes('/library/albums') && !url.includes('/tracks')) {
@@ -104,7 +108,7 @@ describe('App — onboarding auth gate', () => {
     // verify its observable side effects.
     let statusCalled = false
     global.fetch = vi.fn().mockImplementation((url, options) => {
-      if (url.includes('/library/sync') && options?.method === 'POST') {
+      if (url.includes('/library/sync') && !url.includes('/sync-complete') && options?.method === 'POST') {
         return Promise.resolve({ ok: true, json: () => Promise.resolve(SYNC_DONE) })
       }
       if (url.includes('/auth/spotify-status')) {
@@ -152,7 +156,7 @@ describe('App — onboarding auth gate', () => {
 
   it('shows OnboardingWizard when backend reports no credentials', async () => {
     global.fetch = vi.fn().mockImplementation((url, options) => {
-      if (url.includes('/library/sync') && options?.method === 'POST') {
+      if (url.includes('/library/sync') && !url.includes('/sync-complete') && options?.method === 'POST') {
         return Promise.resolve({ ok: true, json: () => Promise.resolve(SYNC_DONE) })
       }
       if (url.includes('/auth/spotify-status')) {
@@ -182,7 +186,7 @@ describe('App — onboarding auth gate', () => {
 
   it('falls back to OnboardingWizard when spotify-status fetch fails', async () => {
     global.fetch = vi.fn().mockImplementation((url, options) => {
-      if (url.includes('/library/sync') && options?.method === 'POST') {
+      if (url.includes('/library/sync') && !url.includes('/sync-complete') && options?.method === 'POST') {
         return Promise.resolve({ ok: true, json: () => Promise.resolve(SYNC_DONE) })
       }
       if (url.includes('/auth/spotify-status')) {
@@ -216,7 +220,7 @@ describe('App — loading progress messages', () => {
     const libraryPromise = new Promise(res => { resolveLibrary = res })
 
     global.fetch = vi.fn().mockImplementation((url, options) => {
-      if (url.includes('/library/sync') && options?.method === 'POST') {
+      if (url.includes('/library/sync') && !url.includes('/sync-complete') && options?.method === 'POST') {
         return Promise.resolve({ ok: true, json: () => Promise.resolve(SYNC_DONE) })
       }
       if (url.includes('/library/albums') && !url.includes('/tracks')) {
@@ -249,7 +253,7 @@ describe('App — loading progress messages', () => {
     const collectionsPromise = new Promise(res => { resolveCollections = res })
 
     global.fetch = vi.fn().mockImplementation((url, options) => {
-      if (url.includes('/library/sync') && options?.method === 'POST') {
+      if (url.includes('/library/sync') && !url.includes('/sync-complete') && options?.method === 'POST') {
         return Promise.resolve({ ok: true, json: () => Promise.resolve(SYNC_DONE) })
       }
 
@@ -301,7 +305,7 @@ describe('App — load failure handling', () => {
     // Track whether library/albums has been called yet — first time fails, after that succeeds
     let libraryCalled = false
     global.fetch = vi.fn().mockImplementation((url, options) => {
-      if (url.includes('/library/sync') && options?.method === 'POST') {
+      if (url.includes('/library/sync') && !url.includes('/sync-complete') && options?.method === 'POST') {
         return Promise.resolve({ ok: true, json: () => Promise.resolve(SYNC_DONE) })
       }
       // playback/state polls from usePlayback — always resolve quietly
@@ -350,7 +354,7 @@ describe('App — load failure handling', () => {
     ]
 
     global.fetch = vi.fn().mockImplementation((url, options) => {
-      if (url.includes('/library/sync') && options?.method === 'POST') {
+      if (url.includes('/library/sync') && !url.includes('/sync-complete') && options?.method === 'POST') {
         return Promise.resolve({ ok: true, json: () => Promise.resolve(SYNC_DONE) })
       }
 
@@ -416,7 +420,7 @@ describe('App — localStorage cache + syncing pulse', () => {
   it('renders albums immediately from localStorage cache without showing loading screen', async () => {
     seedLocalStorageCache()
     global.fetch = vi.fn().mockImplementation((url, options) => {
-      if (url.includes('/library/sync') && options?.method === 'POST') {
+      if (url.includes('/library/sync') && !url.includes('/sync-complete') && options?.method === 'POST') {
         return Promise.resolve({ ok: true, json: () => Promise.resolve(SYNC_DONE) })
       }
 
@@ -447,7 +451,7 @@ describe('App — localStorage cache + syncing pulse', () => {
     let resolveSync
     global.fetch = vi.fn().mockImplementation((url, options) => {
       // Gate the sync endpoint: keep syncing=true until the test releases it.
-      if (url.includes('/library/sync') && options?.method === 'POST') {
+      if (url.includes('/library/sync') && !url.includes('/sync-complete') && options?.method === 'POST') {
         return new Promise(resolve => { resolveSync = resolve })
       }
       if (url.includes('/library/albums') && !url.includes('/tracks')) {
@@ -485,7 +489,7 @@ describe('App — localStorage cache + syncing pulse', () => {
   it('stops pulsing Library label after background fetch completes', async () => {
     seedLocalStorageCache()
     global.fetch = vi.fn().mockImplementation((url, options) => {
-      if (url.includes('/library/sync') && options?.method === 'POST') {
+      if (url.includes('/library/sync') && !url.includes('/sync-complete') && options?.method === 'POST') {
         return Promise.resolve({ ok: true, json: () => Promise.resolve(SYNC_DONE) })
       }
 
@@ -522,7 +526,7 @@ describe('App — localStorage cache + syncing pulse', () => {
 
     seedLocalStorageCache()
     global.fetch = vi.fn().mockImplementation((url, options) => {
-      if (url.includes('/library/sync') && options?.method === 'POST') {
+      if (url.includes('/library/sync') && !url.includes('/sync-complete') && options?.method === 'POST') {
         return Promise.resolve({ ok: true, json: () => Promise.resolve(SYNC_DONE) })
       }
 
@@ -567,7 +571,7 @@ describe('App — localStorage cache + syncing pulse', () => {
 
     seedLocalStorageCache()
     global.fetch = vi.fn().mockImplementation((url, options) => {
-      if (url.includes('/library/sync') && options?.method === 'POST') {
+      if (url.includes('/library/sync') && !url.includes('/sync-complete') && options?.method === 'POST') {
         return Promise.resolve({ ok: true, json: () => Promise.resolve(SYNC_DONE) })
       }
 
@@ -655,7 +659,7 @@ describe('App — localStorage cache + syncing pulse', () => {
     ]
     seedLocalStorageCache(albumsWithArtists)
     global.fetch = vi.fn().mockImplementation((url, options) => {
-      if (url.includes('/library/sync') && options?.method === 'POST') {
+      if (url.includes('/library/sync') && !url.includes('/sync-complete') && options?.method === 'POST') {
         return Promise.resolve({ ok: true, json: () => Promise.resolve(SYNC_DONE) })
       }
 
@@ -688,7 +692,7 @@ describe('App — localStorage cache + syncing pulse', () => {
 
     seedLocalStorageCache()
     global.fetch = vi.fn().mockImplementation((url, options) => {
-      if (url.includes('/library/sync') && options?.method === 'POST') {
+      if (url.includes('/library/sync') && !url.includes('/sync-complete') && options?.method === 'POST') {
         return Promise.resolve({ ok: true, json: () => Promise.resolve(SYNC_DONE) })
       }
 
@@ -725,7 +729,7 @@ describe('App — localStorage cache + syncing pulse', () => {
     ]
     seedLocalStorageCache(albumsWithArtists)
     global.fetch = vi.fn().mockImplementation((url, options) => {
-      if (url.includes('/library/sync') && options?.method === 'POST') {
+      if (url.includes('/library/sync') && !url.includes('/sync-complete') && options?.method === 'POST') {
         return Promise.resolve({ ok: true, json: () => Promise.resolve(SYNC_DONE) })
       }
 
@@ -767,7 +771,7 @@ describe('App — localStorage cache + syncing pulse', () => {
       { service_id: 'new123', name: 'New Album', artists: ['New Artist'], image_url: null, release_date: '2025', total_tracks: 8, added_at: '2025-01-01T00:00:00Z' }
     ]
     global.fetch = vi.fn().mockImplementation((url, options) => {
-      if (url.includes('/library/sync') && options?.method === 'POST') {
+      if (url.includes('/library/sync') && !url.includes('/sync-complete') && options?.method === 'POST') {
         return Promise.resolve({ ok: true, json: () => Promise.resolve(SYNC_DONE) })
       }
 
@@ -809,7 +813,7 @@ describe('App — localStorage cache + syncing pulse', () => {
     localStorage.setItem('library_view', 'artists')
 
     global.fetch = vi.fn().mockImplementation((url, options) => {
-      if (url.includes('/library/sync') && options?.method === 'POST') {
+      if (url.includes('/library/sync') && !url.includes('/sync-complete') && options?.method === 'POST') {
         return Promise.resolve({ ok: true, json: () => Promise.resolve(SYNC_DONE) })
       }
 
@@ -844,7 +848,7 @@ describe('App — localStorage cache + syncing pulse', () => {
     seedLocalStorageCache(albumsWithArtists)
 
     global.fetch = vi.fn().mockImplementation((url, options) => {
-      if (url.includes('/library/sync') && options?.method === 'POST') {
+      if (url.includes('/library/sync') && !url.includes('/sync-complete') && options?.method === 'POST') {
         return Promise.resolve({ ok: true, json: () => Promise.resolve(SYNC_DONE) })
       }
 
@@ -892,7 +896,7 @@ describe('App — playback state persistence on reload', () => {
 
   function setupFetchWithPlayback(playbackState, albums = PLAYING_ALBUMS) {
     global.fetch = vi.fn().mockImplementation((url, options) => {
-      if (url.includes('/library/sync') && options?.method === 'POST') {
+      if (url.includes('/library/sync') && !url.includes('/sync-complete') && options?.method === 'POST') {
         return Promise.resolve({ ok: true, json: () => Promise.resolve(SYNC_DONE) })
       }
       if (url.includes('/playback/state')) {
@@ -1059,16 +1063,21 @@ describe('App — library sync loop', () => {
       added_at: '2021-01-01T00:00:00Z',
     }
 
-    let albumsCallCount = 0
     global.fetch = vi.fn().mockImplementation((url, options) => {
-      if (url.includes('/library/sync') && options?.method === 'POST') {
+      if (url.includes('/library/sync-complete') && options?.method === 'POST') {
+        return Promise.resolve({ ok: true, json: () => Promise.resolve({ ok: true }) })
+      }
+      if (url.includes('/library/sync') && !url.includes('/sync-complete') && options?.method === 'POST') {
         const body = JSON.parse(options.body)
         if (body.offset === 0) {
           return Promise.resolve({
             ok: true,
             json: () => Promise.resolve({
+              albums: Array.from({ length: 50 }, (_, i) => ({
+                service_id: `page1-${i}`, name: `Album ${i}`, artists: ['A'], image_url: null,
+                release_date: '2020', total_tracks: 10, added_at: '2021-01-01T00:00:00Z',
+              })),
               synced_this_page: 50,
-              total_in_cache: 50,
               spotify_total: 51,
               next_offset: 50,
               done: false,
@@ -1078,8 +1087,8 @@ describe('App — library sync loop', () => {
         return Promise.resolve({
           ok: true,
           json: () => Promise.resolve({
+            albums: [SYNCED_ALBUM],
             synced_this_page: 1,
-            total_in_cache: 51,
             spotify_total: 51,
             next_offset: 51,
             done: true,
@@ -1087,16 +1096,9 @@ describe('App — library sync loop', () => {
         })
       }
       if (url.includes('/library/albums') && !url.includes('/tracks')) {
-        albumsCallCount += 1
-        if (albumsCallCount === 1) {
-          return Promise.resolve({
-            ok: true,
-            json: () => Promise.resolve({ albums: [], total: 0, last_synced: null }),
-          })
-        }
         return Promise.resolve({
           ok: true,
-          json: () => Promise.resolve({ albums: [SYNCED_ALBUM], total: 1, last_synced: '2026-04-10T00:00:00Z' }),
+          json: () => Promise.resolve({ albums: [], total: 0, last_synced: null }),
         })
       }
       if (url.includes('/collections')) {
@@ -1116,15 +1118,15 @@ describe('App — library sync loop', () => {
 
     // Verify /library/sync was called exactly twice (two pages)
     const syncCalls = global.fetch.mock.calls.filter(
-      c => c[0].includes('/library/sync') && c[1]?.method === 'POST'
+      c => c[0].includes('/library/sync') && !c[0].includes('/sync-complete') && c[1]?.method === 'POST'
     )
     expect(syncCalls.length).toBe(2)
 
-    // Verify /library/albums was called twice (initial + refetch after sync)
-    const albumsCalls = global.fetch.mock.calls.filter(
-      c => c[0].includes('/library/albums') && !c[0].includes('/tracks')
+    // Verify /library/sync-complete was called once with all accumulated albums
+    const syncCompleteCalls = global.fetch.mock.calls.filter(
+      c => c[0].includes('/library/sync-complete') && c[1]?.method === 'POST'
     )
-    expect(albumsCalls.length).toBe(2)
+    expect(syncCompleteCalls.length).toBe(1)
   })
 
   // ----------------------------------------------------------------
@@ -1144,12 +1146,15 @@ describe('App — library sync loop', () => {
     seedLocalStorageCache([CACHED_ALBUM])
 
     global.fetch = vi.fn().mockImplementation((url, options) => {
-      if (url.includes('/library/sync') && options?.method === 'POST') {
+      if (url.includes('/library/sync-complete') && options?.method === 'POST') {
+        return Promise.resolve({ ok: true, json: () => Promise.resolve({ ok: true }) })
+      }
+      if (url.includes('/library/sync') && !url.includes('/sync-complete') && options?.method === 'POST') {
         return Promise.resolve({
           ok: true,
           json: () => Promise.resolve({
+            albums: [CACHED_ALBUM],
             synced_this_page: 1,
-            total_in_cache: 1,
             spotify_total: 1,
             next_offset: 1,
             done: true,
@@ -1187,7 +1192,7 @@ describe('App — library sync loop', () => {
     // Sync was still called in the background
     await waitFor(() => {
       const syncCalls = global.fetch.mock.calls.filter(
-        c => c[0].includes('/library/sync') && c[1]?.method === 'POST'
+        c => c[0].includes('/library/sync') && !c[0].includes('/sync-complete') && c[1]?.method === 'POST'
       )
       expect(syncCalls.length).toBeGreaterThanOrEqual(1)
     })
@@ -1212,7 +1217,7 @@ describe('App — library sync loop', () => {
     seedLocalStorageCache([CACHED_ALBUM])
 
     global.fetch = vi.fn().mockImplementation((url, options) => {
-      if (url.includes('/library/sync') && options?.method === 'POST') {
+      if (url.includes('/library/sync') && !url.includes('/sync-complete') && options?.method === 'POST') {
         // Sync fails
         return Promise.reject(new Error('Network error'))
       }
@@ -1241,6 +1246,253 @@ describe('App — library sync loop', () => {
     // the sync error.
     await userEvent.click(await screen.findByRole('button', { name: /^library$/i }))
     expect(await screen.findByText('Still Here')).toBeInTheDocument()
+
+    clearLocalStorageCache()
+  })
+})
+
+describe('App — sync/loading bug fixes', () => {
+  const ALBUM_A = { service_id: 'a1', name: 'Album A', artists: ['Art1'], image_url: null, release_date: '2020', total_tracks: 10, added_at: '2021-01-01T00:00:00Z' }
+  const ALBUM_B = { service_id: 'b2', name: 'Album B', artists: ['Art2'], image_url: null, release_date: '2021', total_tracks: 8, added_at: '2022-01-01T00:00:00Z' }
+  const ALBUM_C = { service_id: 'c3', name: 'Album C', artists: ['Art3'], image_url: null, release_date: '2022', total_tracks: 12, added_at: '2023-01-01T00:00:00Z' }
+
+  // 1. Albums not cleared during sync — old data stays visible while sync pages accumulate
+  it('does not clear albums during multi-page sync', async () => {
+    // Seed cache so we have a warm start with existing albums
+    seedLocalStorageCache([ALBUM_A])
+
+    let syncPage1Resolve
+    const syncPage1Promise = new Promise(res => { syncPage1Resolve = res })
+
+    global.fetch = vi.fn().mockImplementation((url, options) => {
+      // Sync page 1: returns ALBUM_B, not done yet — blocks until released
+      if (url.includes('/library/sync') && !url.includes('/sync-complete') && options?.method === 'POST') {
+        const body = JSON.parse(options.body)
+        if (body.offset === 0) {
+          return syncPage1Promise
+        }
+        // Page 2: returns ALBUM_C, done
+        return Promise.resolve({ ok: true, json: () => Promise.resolve({
+          albums: [ALBUM_C],
+          done: true,
+          next_offset: 2,
+          spotify_total: 3,
+          synced_this_page: 1,
+        })})
+      }
+      if (url.includes('/library/sync-complete') && options?.method === 'POST') {
+        return Promise.resolve({ ok: true, json: () => Promise.resolve({ ok: true }) })
+      }
+      if (url.includes('/library/albums') && !url.includes('/tracks')) {
+        return Promise.resolve({ ok: true, json: () => Promise.resolve({ albums: [ALBUM_A], total: 1, last_synced: null }) })
+      }
+      if (url.includes('/collections')) {
+        return Promise.resolve({ ok: true, json: () => Promise.resolve(COLLECTIONS_OK) })
+      }
+      if (url.includes('/home')) {
+        return Promise.resolve({ ok: true, json: () => Promise.resolve(HOME_OK) })
+      }
+      return Promise.resolve({ ok: true, json: () => Promise.resolve({}) })
+    })
+
+    render(<App />)
+
+    // Switch to Library to see albums
+    await userEvent.click(await screen.findByRole('button', { name: /^library( syncing)?$/i }))
+
+    // Album A from cache should be visible
+    expect(await screen.findByText('Album A')).toBeInTheDocument()
+
+    // Release sync page 1 — albums should NOT be wiped during sync
+    syncPage1Resolve({ ok: true, json: () => Promise.resolve({
+      albums: [ALBUM_A, ALBUM_B],
+      done: false,
+      next_offset: 1,
+      spotify_total: 3,
+      synced_this_page: 2,
+    })})
+
+    // Album A must remain visible while sync is in progress (not wiped)
+    // Wait a tick for the sync to process
+    await waitFor(() => {
+      expect(screen.getByText('Album A')).toBeInTheDocument()
+    })
+
+    // After full sync completes, all albums should show
+    await waitFor(() => {
+      expect(screen.getByText('Album A')).toBeInTheDocument()
+    })
+
+    clearLocalStorageCache()
+  })
+
+  // 2. Collections fetched before sync completes
+  it('fetches collections in parallel with sync, not after', async () => {
+    seedLocalStorageCache([ALBUM_A])
+
+    const fetchOrder = []
+    let syncResolve
+    const syncPromise = new Promise(res => { syncResolve = res })
+
+    global.fetch = vi.fn().mockImplementation((url, options) => {
+      if (url.includes('/library/sync-complete') && options?.method === 'POST') {
+        fetchOrder.push('sync-complete')
+        return Promise.resolve({ ok: true, json: () => Promise.resolve({ ok: true }) })
+      }
+      if (url.includes('/library/sync') && !url.includes('/sync-complete') && options?.method === 'POST') {
+        fetchOrder.push('sync')
+        return syncPromise
+      }
+      if (url.includes('/collections') && !url.includes('/albums')) {
+        fetchOrder.push('collections')
+        return Promise.resolve({ ok: true, json: () => Promise.resolve([
+          { id: 'col-1', name: 'Test Collection', album_count: 0, updated_at: '2025-01-01T00:00:00Z' },
+        ]) })
+      }
+      if (url.includes('/collections/col-1/albums')) {
+        return Promise.resolve({ ok: true, json: () => Promise.resolve({ albums: [] }) })
+      }
+      if (url.includes('/library/albums') && !url.includes('/tracks')) {
+        return Promise.resolve({ ok: true, json: () => Promise.resolve({ albums: [ALBUM_A], total: 1, last_synced: null }) })
+      }
+      if (url.includes('/home')) {
+        return Promise.resolve({ ok: true, json: () => Promise.resolve(HOME_OK) })
+      }
+      return Promise.resolve({ ok: true, json: () => Promise.resolve({}) })
+    })
+
+    render(<App />)
+
+    // Collections should be fetched even while sync is still pending
+    await waitFor(() => {
+      expect(fetchOrder).toContain('collections')
+    })
+
+    // Sync is still pending — verify collections were requested before sync finished
+    expect(fetchOrder.indexOf('collections')).toBeLessThanOrEqual(fetchOrder.indexOf('sync'))
+
+    // Now complete the sync
+    syncResolve({ ok: true, json: () => Promise.resolve({
+      albums: [ALBUM_A],
+      done: true,
+      next_offset: 1,
+      spotify_total: 1,
+      synced_this_page: 1,
+    })})
+
+    // Wait for everything to settle
+    await waitFor(() => {
+      expect(fetchOrder).toContain('sync-complete')
+    })
+
+    clearLocalStorageCache()
+  })
+
+  // 3. sync-complete called with accumulated albums
+  it('calls sync-complete with all accumulated albums from sync pages', async () => {
+    seedLocalStorageCache([ALBUM_A])
+
+    let syncCompleteBody = null
+
+    global.fetch = vi.fn().mockImplementation((url, options) => {
+      if (url.includes('/library/sync-complete') && options?.method === 'POST') {
+        syncCompleteBody = JSON.parse(options.body)
+        return Promise.resolve({ ok: true, json: () => Promise.resolve({ ok: true }) })
+      }
+      if (url.includes('/library/sync') && !url.includes('/sync-complete') && options?.method === 'POST') {
+        const body = JSON.parse(options.body)
+        if (body.offset === 0) {
+          return Promise.resolve({ ok: true, json: () => Promise.resolve({
+            albums: [ALBUM_A, ALBUM_B],
+            done: false,
+            next_offset: 2,
+            spotify_total: 3,
+            synced_this_page: 2,
+          })})
+        }
+        // Page 2
+        return Promise.resolve({ ok: true, json: () => Promise.resolve({
+          albums: [ALBUM_C],
+          done: true,
+          next_offset: 3,
+          spotify_total: 3,
+          synced_this_page: 1,
+        })})
+      }
+      if (url.includes('/library/albums') && !url.includes('/tracks')) {
+        return Promise.resolve({ ok: true, json: () => Promise.resolve({ albums: [ALBUM_A], total: 1, last_synced: null }) })
+      }
+      if (url.includes('/collections')) {
+        return Promise.resolve({ ok: true, json: () => Promise.resolve(COLLECTIONS_OK) })
+      }
+      if (url.includes('/home')) {
+        return Promise.resolve({ ok: true, json: () => Promise.resolve(HOME_OK) })
+      }
+      return Promise.resolve({ ok: true, json: () => Promise.resolve({}) })
+    })
+
+    render(<App />)
+
+    // Wait for sync-complete to be called
+    await waitFor(() => {
+      expect(syncCompleteBody).not.toBeNull()
+    })
+
+    // Verify it received all 3 albums from both pages
+    expect(syncCompleteBody.albums).toHaveLength(3)
+    expect(syncCompleteBody.albums.map(a => a.service_id)).toEqual(['a1', 'b2', 'c3'])
+
+    clearLocalStorageCache()
+  })
+
+  // 4. Existing state preserved on loadData — collections/albumCollectionMap not cleared
+  it('does not clear collections state at start of loadData', async () => {
+    seedLocalStorageCache([ALBUM_A])
+
+    const collectionsData = [
+      { id: 'col-1', name: 'My Collection', album_count: 1, updated_at: '2025-01-01T00:00:00Z' },
+    ]
+
+    global.fetch = vi.fn().mockImplementation((url, options) => {
+      if (url.includes('/library/sync') && !url.includes('/sync-complete') && options?.method === 'POST') {
+        return Promise.resolve({ ok: true, json: () => Promise.resolve({
+          albums: [ALBUM_A],
+          done: true,
+          next_offset: 1,
+          spotify_total: 1,
+          synced_this_page: 1,
+        })})
+      }
+      if (url.includes('/library/sync-complete') && options?.method === 'POST') {
+        return Promise.resolve({ ok: true, json: () => Promise.resolve({ ok: true }) })
+      }
+      if (url.includes('/collections/col-1/albums')) {
+        return Promise.resolve({ ok: true, json: () => Promise.resolve({ albums: [ALBUM_A] }) })
+      }
+      if (url.includes('/collections')) {
+        return Promise.resolve({ ok: true, json: () => Promise.resolve(collectionsData) })
+      }
+      if (url.includes('/library/albums') && !url.includes('/tracks')) {
+        return Promise.resolve({ ok: true, json: () => Promise.resolve({ albums: [ALBUM_A], total: 1, last_synced: null }) })
+      }
+      if (url.includes('/home')) {
+        return Promise.resolve({ ok: true, json: () => Promise.resolve(HOME_OK) })
+      }
+      return Promise.resolve({ ok: true, json: () => Promise.resolve({}) })
+    })
+
+    render(<App />)
+
+    // Wait for initial load to complete — collections should be populated
+    await waitFor(() => {
+      const calls = global.fetch.mock.calls
+      const syncCompleteCalls = calls.filter(([u]) => u.includes('/library/sync-complete'))
+      expect(syncCompleteCalls.length).toBeGreaterThanOrEqual(1)
+    })
+
+    // Navigate to Collections tab — our collection should be visible
+    await userEvent.click(await screen.findByRole('button', { name: /collections/i }))
+    expect(await screen.findByText('My Collection')).toBeInTheDocument()
 
     clearLocalStorageCache()
   })
