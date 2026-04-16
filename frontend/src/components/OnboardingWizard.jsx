@@ -70,7 +70,7 @@ function AppleMusicSetup({ onBack }) {
 
 function SpotifySetup({ session, onComplete }) {
   const { initiateLogin, handleCallback, accessToken } = useSpotifyAuth()
-  const [clientId, setClientId] = useState(() => import.meta.env.VITE_SPOTIFY_CLIENT_ID ?? '')
+  const [clientId, setClientId] = useState('')
   const [loading, setLoading] = useState(() => {
     const params = new URLSearchParams(window.location.search)
     return !!params.get('code') || params.get('proxy_success') === 'true'
@@ -87,6 +87,25 @@ function SpotifySetup({ session, onComplete }) {
     }
     setTimeout(() => setCopyStatus(''), 2000)
   }
+
+  // Pre-fill client ID from server if user has connected Spotify before
+  useEffect(() => {
+    if (!session) return
+    let cancelled = false
+    ;(async () => {
+      try {
+        const res = await fetch(`${API}/auth/spotify-status`, {
+          headers: { Authorization: `Bearer ${session.access_token}` },
+        })
+        if (!res.ok || cancelled) return
+        const data = await res.json()
+        if (data.client_id && !cancelled) {
+          setClientId(data.client_id)
+        }
+      } catch { /* ignore — user can type it manually */ }
+    })()
+    return () => { cancelled = true }
+  }, [session])
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search)

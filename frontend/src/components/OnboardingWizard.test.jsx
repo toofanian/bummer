@@ -39,6 +39,14 @@ describe('OnboardingWizard', () => {
     localStorage.clear()
     vi.clearAllMocks()
     window.history.replaceState({}, '', '/')
+    // Default fetch mock: handle /auth/spotify-status (client ID pre-fill)
+    // and any other fetches. Tests that need specific fetch behavior override this.
+    fetch.mockImplementation((url) => {
+      if (typeof url === 'string' && url.includes('/auth/spotify-status')) {
+        return Promise.resolve({ ok: true, json: () => Promise.resolve({ has_credentials: false, client_id: null }) })
+      }
+      return Promise.resolve({ ok: true, json: () => Promise.resolve({}) })
+    })
   })
 
   describe('service selector', () => {
@@ -144,7 +152,12 @@ describe('OnboardingWizard', () => {
     it('shows error when token storage fails after OAuth callback', async () => {
       window.history.replaceState({}, '', '/auth/spotify/callback?code=abc')
       localStorage.setItem('spotify_client_id', 'cid')
-      fetch.mockResolvedValueOnce({ ok: false, json: async () => ({ detail: 'Server error' }) })
+      fetch.mockImplementation((url) => {
+        if (typeof url === 'string' && url.includes('/auth/spotify-status')) {
+          return Promise.resolve({ ok: true, json: () => Promise.resolve({ has_credentials: false, client_id: null }) })
+        }
+        return Promise.resolve({ ok: false, json: () => Promise.resolve({ detail: 'Server error' }) })
+      })
       const onComplete = vi.fn()
       render(<OnboardingWizard session={fakeSession} onComplete={onComplete} />)
       await waitFor(() => expect(screen.getByText(/server error/i)).toBeInTheDocument())
@@ -175,8 +188,9 @@ describe('OnboardingWizard', () => {
       const onComplete = vi.fn()
       render(<OnboardingWizard session={fakeSession} onComplete={onComplete} />)
       await waitFor(() => expect(onComplete).toHaveBeenCalled())
-      // Should NOT call fetch for token exchange
-      expect(fetch).not.toHaveBeenCalled()
+      // Should NOT call fetch for token exchange (spotify-status pre-fill is ok)
+      const tokenCalls = fetch.mock.calls.filter(([url]) => typeof url === 'string' && url.includes('/auth/spotify-token'))
+      expect(tokenCalls).toHaveLength(0)
       window.history.replaceState({}, '', '/')
     })
 
