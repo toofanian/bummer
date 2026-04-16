@@ -205,10 +205,10 @@ describe('OnboardingWizard', () => {
       mockIsPreview = false
     })
 
-    it('shows proxy redirect URI note when IS_PREVIEW is true', () => {
+    it('does not show proxy redirect URI note in UI', () => {
       localStorage.setItem('music_service_type', 'spotify')
       render(<OnboardingWizard session={fakeSession} onComplete={vi.fn()} />)
-      expect(screen.getByText(/callback-proxy/i)).toBeInTheDocument()
+      expect(screen.queryByText(/callback-proxy/i)).not.toBeInTheDocument()
     })
 
     it('passes supabase token to initiateLogin on preview', async () => {

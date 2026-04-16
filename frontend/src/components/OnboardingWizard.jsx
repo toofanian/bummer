@@ -70,7 +70,7 @@ function AppleMusicSetup({ onBack }) {
 
 function SpotifySetup({ session, onComplete }) {
   const { initiateLogin, handleCallback, accessToken } = useSpotifyAuth()
-  const [clientId, setClientId] = useState('')
+  const [clientId, setClientId] = useState(() => import.meta.env.VITE_SPOTIFY_CLIENT_ID ?? '')
   const [loading, setLoading] = useState(() => {
     const params = new URLSearchParams(window.location.search)
     return !!params.get('code') || params.get('proxy_success') === 'true'
@@ -205,11 +205,6 @@ function SpotifySetup({ session, onComplete }) {
           </div>
           {copyStatus && (
             <p className="mt-1 text-xs text-gray-500">{copyStatus}</p>
-          )}
-          {IS_PREVIEW && (
-            <p className="mt-2 text-xs text-yellow-400">
-              For preview testing, also add: <code className="bg-gray-900 px-1 rounded">{PROXY_REDIRECT_URI}</code>
-            </p>
           )}
         </li>
         <li>Check <span className="text-white">Web API</span> and <span className="text-white">Web Playback SDK</span> under APIs used.</li>
