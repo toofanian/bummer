@@ -927,7 +927,7 @@ export default function App() {
   // Desktop layout
   return (
     <div className="app flex flex-col h-dvh" style={(paneOpen || digestOpen) && !isMobile ? { paddingRight: digestOpen ? '340px' : '300px' } : {}}>
-      <header className="h-14 bg-surface border-b border-border flex items-center px-5 gap-6">
+      {view !== 'settings' && <header className="h-14 bg-surface border-b border-border flex items-center px-5 gap-6">
         <h1>Bummer<span style={{ fontSize: '10px', fontWeight: 400, opacity: 0.35, letterSpacing: '0.05em' }}>{__APP_VERSION__}</span></h1>
         <nav className="flex gap-1">
           <button
@@ -992,7 +992,7 @@ export default function App() {
             <circle cx="12" cy="12" r="3" />
           </svg>
         </button>
-      </header>
+      </header>}
 
       <div className="flex-1 overflow-hidden flex flex-col">
         {view === 'home' && (
