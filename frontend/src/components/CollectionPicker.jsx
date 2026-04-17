@@ -5,7 +5,6 @@ export default function CollectionPicker({
   albumIds,
   collections,
   albumCollectionMap,
-  onToggle,
   onBulkAdd,
   onCreate,
   onClose,
@@ -16,7 +15,6 @@ export default function CollectionPicker({
   const listRef = useRef(null)
   const isFirstRender = useRef(true)
   const isMobile = useIsMobile()
-  const isBulk = albumIds.length > 1
 
   const filtered = useMemo(() => {
     if (!search.trim()) return collections
@@ -35,19 +33,11 @@ export default function CollectionPicker({
   const totalRows = filtered.length + (showCreate ? 1 : 0)
 
   function isChecked(collectionId) {
-    if (isBulk) {
-      return albumIds.every(id => (albumCollectionMap[id] || []).includes(collectionId))
-    }
-    return (albumCollectionMap[albumIds[0]] || []).includes(collectionId)
+    return albumIds.every(id => (albumCollectionMap[id] || []).includes(collectionId))
   }
 
   function handleRowClick(collection) {
-    if (isBulk) {
-      onBulkAdd(collection.id)
-    } else {
-      const checked = isChecked(collection.id)
-      onToggle(albumIds[0], collection.id, !checked)
-    }
+    onBulkAdd(collection.id)
   }
 
   function handleCreate() {

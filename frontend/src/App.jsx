@@ -242,11 +242,6 @@ export default function App() {
     }
   }, [loading, albums.length])
 
-  // Clear selection when leaving library view
-  useEffect(() => {
-    if (view !== 'library') setSelectedAlbumIds(new Set())
-  }, [view])
-
   // Escape key clears selection
   useEffect(() => {
     function handleKeyDown(e) {
@@ -527,9 +522,6 @@ export default function App() {
     setSelectedAlbumIds(new Set())
   }
 
-  function handleOpenPicker(albumIds) {
-    setPickerAlbumIds(albumIds)
-  }
   function handleClosePicker() {
     setPickerAlbumIds(null)
   }
@@ -721,8 +713,6 @@ export default function App() {
                   onPlayTrack={handlePlayTrack}
                   playingId={playback.is_playing ? playingId : null}
                   playingTrackName={playback.track?.name ?? null}
-                  onOpenPicker={handleOpenPicker}
-                  selectable
                   selectedIds={selectedAlbumIds}
                   onToggleSelect={handleToggleSelect}
                   onArtistClick={handleArtistClick}
@@ -736,7 +726,8 @@ export default function App() {
                   onPlayTrack={handlePlayTrack}
                   playingId={playback.is_playing ? playingId : null}
                   playingTrackName={playback.track?.name ?? null}
-                  onOpenPicker={handleOpenPicker}
+                  selectedIds={selectedAlbumIds}
+                  onToggleSelect={handleToggleSelect}
                   targetArtist={targetArtist}
                   onClearTargetArtist={() => setTargetArtist(null)}
                 />
@@ -782,7 +773,8 @@ export default function App() {
                   onPlayTrack={handlePlayTrack}
                   playingId={playback.is_playing ? playingId : null}
                   playingTrackName={playback.track?.name ?? null}
-                  onOpenPicker={handleOpenPicker}
+                  selectedIds={selectedAlbumIds}
+                  onToggleSelect={handleToggleSelect}
                   reorderable
                   onReorder={handleReorderCollectionAlbums}
                   onArtistClick={handleArtistClick}
@@ -795,7 +787,7 @@ export default function App() {
         {selectedAlbumIds.size > 0 && (
           <BulkAddBar
             selectedCount={selectedAlbumIds.size}
-            onOpenPicker={() => handleOpenPicker([...selectedAlbumIds])}
+            onOpenPicker={() => setPickerAlbumIds([...selectedAlbumIds])}
             onClear={handleClearSelection}
           />
         )}
@@ -805,7 +797,6 @@ export default function App() {
             albumIds={pickerAlbumIds}
             collections={collections}
             albumCollectionMap={albumCollectionMap}
-            onToggle={handleToggleCollection}
             onBulkAdd={(collectionId) => {
               handleBulkAdd(collectionId)
               setPickerAlbumIds(null)
@@ -953,8 +944,6 @@ export default function App() {
                 onPlayTrack={handlePlayTrack}
                 playingId={playback.is_playing ? playingId : null}
                 playingTrackName={playback.track?.name ?? null}
-                onOpenPicker={handleOpenPicker}
-                selectable
                 selectedIds={selectedAlbumIds}
                 onToggleSelect={handleToggleSelect}
                 onArtistClick={handleArtistClick}
@@ -968,7 +957,8 @@ export default function App() {
                 onPlayTrack={handlePlayTrack}
                 playingId={playback.is_playing ? playingId : null}
                 playingTrackName={playback.track?.name ?? null}
-                onOpenPicker={handleOpenPicker}
+                selectedIds={selectedAlbumIds}
+                onToggleSelect={handleToggleSelect}
                 targetArtist={targetArtist}
                 onClearTargetArtist={() => setTargetArtist(null)}
               />
@@ -1014,7 +1004,8 @@ export default function App() {
                 onPlayTrack={handlePlayTrack}
                 playingId={playback.is_playing ? playingId : null}
                 playingTrackName={playback.track?.name ?? null}
-                onOpenPicker={handleOpenPicker}
+                selectedIds={selectedAlbumIds}
+                onToggleSelect={handleToggleSelect}
                 reorderable
                 onReorder={handleReorderCollectionAlbums}
                 onArtistClick={handleArtistClick}
@@ -1026,7 +1017,7 @@ export default function App() {
       {selectedAlbumIds.size > 0 && (
         <BulkAddBar
           selectedCount={selectedAlbumIds.size}
-          onOpenPicker={() => handleOpenPicker([...selectedAlbumIds])}
+          onOpenPicker={() => setPickerAlbumIds([...selectedAlbumIds])}
           onClear={handleClearSelection}
         />
       )}
@@ -1035,7 +1026,6 @@ export default function App() {
           albumIds={pickerAlbumIds}
           collections={collections}
           albumCollectionMap={albumCollectionMap}
-          onToggle={handleToggleCollection}
           onBulkAdd={(collectionId) => {
             handleBulkAdd(collectionId)
             setPickerAlbumIds(null)

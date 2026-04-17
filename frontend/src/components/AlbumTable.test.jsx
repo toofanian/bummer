@@ -655,31 +655,47 @@ describe('AlbumTable mobile card list', () => {
     expect(card).toHaveClass('now-playing')
   })
 
-  it('renders collection button for each card when onOpenPicker is provided', () => {
-    const onOpenPicker = vi.fn()
+  it('renders + button for each card when onToggleSelect is provided', () => {
+    const onToggleSelect = vi.fn()
     render(
       <AlbumTable
         albums={ALBUMS}
         loading={false}
-        onOpenPicker={onOpenPicker}
+        onToggleSelect={onToggleSelect}
+        selectedIds={new Set()}
       />
     )
     const buttons = screen.getAllByRole('button', { name: /collection/i })
     expect(buttons).toHaveLength(ALBUMS.length)
   })
 
-  it('calls onOpenPicker with album id when collection button is tapped on mobile', () => {
-    const onOpenPicker = vi.fn()
+  it('+ button calls onToggleSelect with album id when tapped on mobile', () => {
+    const onToggleSelect = vi.fn()
     render(
       <AlbumTable
         albums={ALBUMS}
         loading={false}
-        onOpenPicker={onOpenPicker}
+        onToggleSelect={onToggleSelect}
+        selectedIds={new Set()}
       />
     )
     const buttons = screen.getAllByRole('button', { name: /collection/i })
     fireEvent.click(buttons[0])
-    expect(onOpenPicker).toHaveBeenCalledWith(['id1'])
+    expect(onToggleSelect).toHaveBeenCalledWith('id1')
+  })
+
+  it('+ button shows checkmark when album is selected on mobile', () => {
+    render(
+      <AlbumTable
+        albums={ALBUMS}
+        loading={false}
+        onToggleSelect={() => {}}
+        selectedIds={new Set(['id1'])}
+      />
+    )
+    const buttons = screen.getAllByRole('button', { name: /collection/i })
+    expect(buttons[0].textContent).toBe('✓')
+    expect(buttons[1].textContent).toBe('+')
   })
 
   it('shows equalizer overlay on album art when playing on mobile', () => {
@@ -765,126 +781,87 @@ describe('AlbumTable reorderable drag handles (mobile)', () => {
   })
 })
 
-describe('AlbumTable selection overlay (desktop)', () => {
+describe('AlbumTable selection via + button (desktop)', () => {
   afterEach(() => useIsMobile.mockReturnValue(false))
 
-  it('calls onToggleSelect when album art is clicked in selectable mode', async () => {
+  it('renders + button for each album when onToggleSelect is provided', () => {
+    render(
+      <AlbumTable
+        albums={ALBUMS}
+        selectedIds={new Set()}
+        onToggleSelect={() => {}}
+      />
+    )
+    const buttons = screen.getAllByRole('button', { name: /collection/i })
+    expect(buttons).toHaveLength(ALBUMS.length)
+  })
+
+  it('+ button calls onToggleSelect with album id', async () => {
     const onToggleSelect = vi.fn()
     render(
       <AlbumTable
         albums={ALBUMS}
-        selectable
         selectedIds={new Set()}
         onToggleSelect={onToggleSelect}
       />
     )
-    // The art cell is the 2nd td (index 1) in each album row (after expand column)
-    const rows = screen.getAllByRole('row').slice(1)
-    const artCell = rows[0].querySelectorAll('td')[1]
-    await userEvent.click(artCell)
+    const buttons = screen.getAllByRole('button', { name: /collection/i })
+    await userEvent.click(buttons[0])
     expect(onToggleSelect).toHaveBeenCalledWith('id1')
   })
 
-  it('shows checkmark overlay on selected albums', () => {
+  it('+ button shows checkmark when album is selected', () => {
     render(
       <AlbumTable
         albums={ALBUMS}
-        selectable
         selectedIds={new Set(['id1'])}
         onToggleSelect={() => {}}
       />
     )
-    expect(screen.getByTestId('select-check-id1')).toBeInTheDocument()
+    const buttons = screen.getAllByRole('button', { name: /collection/i })
+    expect(buttons[0].textContent).toBe('✓')
+    expect(buttons[1].textContent).toBe('+')
   })
 
-  it('does not show checkmark on unselected albums', () => {
+  it('does not render + button when onToggleSelect is not provided', () => {
     render(
       <AlbumTable
         albums={ALBUMS}
-        selectable
-        selectedIds={new Set(['id1'])}
-        onToggleSelect={() => {}}
+        selectedIds={new Set()}
       />
     )
-    expect(screen.queryByTestId('select-check-id2')).not.toBeInTheDocument()
-  })
-
-  it('no selection behavior when selectable is false', async () => {
-    const onToggleSelect = vi.fn()
-    render(
-      <AlbumTable
-        albums={ALBUMS}
-        selectable={false}
-        selectedIds={new Set(['id1'])}
-        onToggleSelect={onToggleSelect}
-      />
-    )
-    // No checkmark should appear
-    expect(screen.queryByTestId('select-check-id1')).not.toBeInTheDocument()
-    // Clicking art cell should not call onToggleSelect
-    const rows = screen.getAllByRole('row').slice(1)
-    const artCell = rows[0].querySelectorAll('td')[1]
-    await userEvent.click(artCell)
-    expect(onToggleSelect).not.toHaveBeenCalled()
+    expect(screen.queryByRole('button', { name: /collection/i })).not.toBeInTheDocument()
   })
 })
 
-describe('AlbumTable selection overlay (mobile)', () => {
+describe('AlbumTable selection via + button (mobile)', () => {
   beforeEach(() => useIsMobile.mockReturnValue(true))
   afterEach(() => useIsMobile.mockReturnValue(false))
 
-  it('calls onToggleSelect when album art is clicked in selectable mode', () => {
+  it('album art click does not trigger selection', () => {
     const onToggleSelect = vi.fn()
     render(
       <AlbumTable
         albums={ALBUMS}
-        selectable
         selectedIds={new Set()}
         onToggleSelect={onToggleSelect}
       />
     )
     const card = document.querySelector('[data-testid="album-card-id1"]')
-    // The art wrapper is the div with the img
     const artWrapper = card.querySelector('img').parentElement
     fireEvent.click(artWrapper)
-    expect(onToggleSelect).toHaveBeenCalledWith('id1')
+    // onToggleSelect should NOT be called from art click (only from + button)
+    expect(onToggleSelect).not.toHaveBeenCalled()
   })
 
-  it('shows checkmark overlay on selected albums', () => {
+  it('does not render + button when onToggleSelect is not provided', () => {
     render(
       <AlbumTable
         albums={ALBUMS}
-        selectable
-        selectedIds={new Set(['id1'])}
-        onToggleSelect={() => {}}
+        selectedIds={new Set()}
       />
     )
-    expect(screen.getByTestId('select-check-id1')).toBeInTheDocument()
-  })
-
-  it('does not show checkmark on unselected albums', () => {
-    render(
-      <AlbumTable
-        albums={ALBUMS}
-        selectable
-        selectedIds={new Set(['id1'])}
-        onToggleSelect={() => {}}
-      />
-    )
-    expect(screen.queryByTestId('select-check-id2')).not.toBeInTheDocument()
-  })
-
-  it('no selection behavior when selectable is false on mobile', () => {
-    const onToggleSelect = vi.fn()
-    render(
-      <AlbumTable
-        albums={ALBUMS}
-        selectable={false}
-        selectedIds={new Set(['id1'])}
-        onToggleSelect={onToggleSelect}
-      />
-    )
-    expect(screen.queryByTestId('select-check-id1')).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /collection/i })).not.toBeInTheDocument()
   })
 })
 

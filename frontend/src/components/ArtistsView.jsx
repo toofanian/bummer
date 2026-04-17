@@ -50,7 +50,8 @@ export default function ArtistsView({
   onPlayTrack,
   playingId,
   playingTrackName,
-  onOpenPicker,
+  selectedIds,
+  onToggleSelect,
   targetArtist = null,
   onClearTargetArtist,
 }) {
@@ -92,7 +93,8 @@ export default function ArtistsView({
             onPlayTrack={onPlayTrack}
             playingId={playingId}
             playingTrackName={playingTrackName}
-            onOpenPicker={onOpenPicker}
+            selectedIds={selectedIds}
+            onToggleSelect={onToggleSelect}
           />
         </div>
       </div>

@@ -15,7 +15,6 @@ const defaultProps = {
   albumIds: ['album-1'],
   collections: COLLECTIONS,
   albumCollectionMap: { 'album-1': ['col-1'] },
-  onToggle: vi.fn(),
   onBulkAdd: vi.fn(),
   onCreate: vi.fn(),
   onClose: vi.fn(),
@@ -24,7 +23,6 @@ const defaultProps = {
 function renderPicker(overrides = {}) {
   const props = { ...defaultProps, ...overrides }
   // Reset mocks
-  props.onToggle = overrides.onToggle || vi.fn()
   props.onBulkAdd = overrides.onBulkAdd || vi.fn()
   props.onCreate = overrides.onCreate || vi.fn()
   props.onClose = overrides.onClose || vi.fn()
@@ -97,25 +95,16 @@ describe('CollectionPicker', () => {
     expect(screen.queryByText(/create "road trip"/i)).not.toBeInTheDocument()
   })
 
-  // --- Single album toggle ---
+  // --- Bulk add (always) ---
 
-  it('calls onToggle to add when unchecked collection row is clicked', async () => {
+  it('calls onBulkAdd when a collection row is clicked (single album)', async () => {
     const { props } = renderPicker()
     const rows = screen.getAllByRole('option')
-    await userEvent.click(rows[1]) // "90s classics" — not checked
-    expect(props.onToggle).toHaveBeenCalledWith('album-1', 'col-2', true)
+    await userEvent.click(rows[1]) // "90s classics"
+    expect(props.onBulkAdd).toHaveBeenCalledWith('col-2')
   })
 
-  it('calls onToggle to remove when checked collection row is clicked', async () => {
-    const { props } = renderPicker()
-    const rows = screen.getAllByRole('option')
-    await userEvent.click(rows[0]) // "Road trip" — checked
-    expect(props.onToggle).toHaveBeenCalledWith('album-1', 'col-1', false)
-  })
-
-  // --- Bulk mode ---
-
-  it('calls onBulkAdd when a collection row is clicked in bulk mode', async () => {
+  it('calls onBulkAdd when a collection row is clicked (multiple albums)', async () => {
     const { props } = renderPicker({ albumIds: ['album-1', 'album-2'] })
     const rows = screen.getAllByRole('option')
     await userEvent.click(rows[1])
@@ -148,12 +137,12 @@ describe('CollectionPicker', () => {
     expect(rows[0]).toHaveAttribute('data-highlighted', 'true')
   })
 
-  it('arrow down then Enter toggles the highlighted collection', async () => {
+  it('arrow down then Enter calls onBulkAdd for the highlighted collection', async () => {
     const { props } = renderPicker()
     await userEvent.keyboard('{ArrowDown}')
     await userEvent.keyboard('{Enter}')
-    // First row is "Road trip" which is checked — should remove
-    expect(props.onToggle).toHaveBeenCalledWith('album-1', 'col-1', false)
+    // First row is "Road trip"
+    expect(props.onBulkAdd).toHaveBeenCalledWith('col-1')
   })
 
   it('arrow down wraps to first item after last', async () => {
