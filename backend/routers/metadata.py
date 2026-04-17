@@ -247,8 +247,15 @@ def bulk_add_albums_to_collection(
         }
         for i, sid in enumerate(body.service_ids)
     ]
-    db.table("collection_albums").insert(rows).execute()
-    return {"added": len(rows)}
+    db.table("collection_albums").upsert(rows, on_conflict="collection_id,service_id").execute()
+    # Return actual count so frontend can use authoritative number
+    count = (
+        db.table("collection_albums")
+        .select("service_id", count="exact")
+        .eq("collection_id", collection_id)
+        .execute()
+    )
+    return {"added": len(rows), "album_count": count.count}
 
 
 @router.delete("/collections/{collection_id}/albums/{album_id}")

@@ -526,26 +526,34 @@ export default function App() {
 
   async function handleBulkAdd(collectionId) {
     const ids = [...selectedAlbumIds]
-    await apiFetch(`/collections/${collectionId}/albums/bulk`, {
-      method: 'POST',
-      body: JSON.stringify({ service_ids: ids }),
-    }, sessionRef.current)
-    // Update albumCollectionMap
-    setAlbumCollectionMap(prev => {
-      const next = { ...prev }
-      ids.forEach(id => {
-        if (!next[id]) next[id] = []
-        if (!next[id].includes(collectionId)) {
-          next[id] = [...next[id], collectionId]
-        }
+    try {
+      const res = await apiFetch(`/collections/${collectionId}/albums/bulk`, {
+        method: 'POST',
+        body: JSON.stringify({ service_ids: ids }),
+      }, sessionRef.current)
+      if (!res.ok) throw new Error('Failed to bulk add albums')
+      const data = await res.json()
+      // Update albumCollectionMap
+      setAlbumCollectionMap(prev => {
+        const next = { ...prev }
+        ids.forEach(id => {
+          if (!next[id]) next[id] = []
+          if (!next[id].includes(collectionId)) {
+            next[id] = [...next[id], collectionId]
+          }
+        })
+        return next
       })
-      return next
-    })
-    // Update collection album count
-    setCollections(prev => prev.map(c =>
-      c.id === collectionId ? { ...c, album_count: (c.album_count || 0) + ids.length } : c
-    ))
-    setSelectedAlbumIds([])
+      // Use server-reported count if available, otherwise re-count
+      if (data.album_count != null) {
+        setCollections(prev => prev.map(c =>
+          c.id === collectionId ? { ...c, album_count: data.album_count } : c
+        ))
+      }
+      setSelectedAlbumIds([])
+    } catch (err) {
+      console.error('Bulk add failed:', err)
+    }
   }
 
   // Auth gate
