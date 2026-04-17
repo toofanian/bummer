@@ -225,7 +225,7 @@ const DesktopAlbumRow = memo(function DesktopAlbumRow({ album, isExpanded, isPla
       <td className="px-2 py-1.5 whitespace-nowrap overflow-hidden text-ellipsis align-middle text-center">
         {onToggleSelect && (
           <button
-            className={`bg-transparent border cursor-pointer w-[22px] h-[22px] rounded-full text-xs font-semibold flex items-center justify-center p-0${isSelected ? ' text-accent border-accent bg-surface-2' : collectionCount > 0 ? ' bg-surface-2 border-accent text-accent' : ' border-transparent text-text-dim'}`}
+            className={`mx-auto bg-transparent border cursor-pointer w-[22px] h-[22px] rounded-full text-xs font-semibold flex items-center justify-center p-0${isSelected ? ' text-accent border-accent bg-surface-2' : collectionCount > 0 ? ' bg-surface-2 border-accent text-accent' : ' border-transparent text-text-dim'}`}
             aria-label={isSelected ? 'Selected' : collectionCount > 0 ? `${collectionCount} collections` : 'Add to collection'}
             onClick={(e) => { e.stopPropagation(); onToggleSelect(album.service_id) }}
           >
