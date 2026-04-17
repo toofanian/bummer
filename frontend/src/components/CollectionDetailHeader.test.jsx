@@ -76,8 +76,7 @@ describe('CollectionDetailHeader', () => {
     expect(onBack).toHaveBeenCalled()
   })
 
-  it('shows play button and calls onPlay when clicked', async () => {
-    const onPlay = vi.fn()
+  it('does not show play button', () => {
     render(
       <CollectionDetailHeader
         name="Late Night"
@@ -85,24 +84,6 @@ describe('CollectionDetailHeader', () => {
         albumCount={5}
         onBack={() => {}}
         onDescriptionChange={() => {}}
-        onPlay={onPlay}
-      />
-    )
-    const playButton = screen.getByRole('button', { name: /play collection/i })
-    expect(playButton).toBeInTheDocument()
-    await userEvent.click(playButton)
-    expect(onPlay).toHaveBeenCalled()
-  })
-
-  it('does not show play button when albumCount is 0', () => {
-    render(
-      <CollectionDetailHeader
-        name="Empty Collection"
-        description={null}
-        albumCount={0}
-        onBack={() => {}}
-        onDescriptionChange={() => {}}
-        onPlay={() => {}}
       />
     )
     expect(screen.queryByRole('button', { name: /play collection/i })).not.toBeInTheDocument()

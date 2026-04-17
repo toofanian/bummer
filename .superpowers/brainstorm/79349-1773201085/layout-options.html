@@ -1,0 +1,183 @@
+<h2>Home Page Layout: Album Art Display</h2>
+<p class="subtitle">How should sections like "Today", "Rediscover", "You Might Like" display albums?</p>
+
+<div class="cards">
+  <!-- Option A: Horizontal Scroll Rows -->
+  <div class="card" data-choice="a" onclick="toggleSelect(this)">
+    <div class="card-image" style="padding: 16px; background: #1a1a2e;">
+      <!-- Section: Today -->
+      <div style="margin-bottom: 16px;">
+        <div style="font-size: 13px; font-weight: 600; color: #e0e0e0; margin-bottom: 8px;">Today</div>
+        <div style="display: flex; gap: 12px; overflow-x: auto; padding-bottom: 4px;">
+          <div style="min-width: 100px; flex-shrink: 0;">
+            <div style="width: 100px; height: 100px; background: linear-gradient(135deg, #e74c3c, #8e44ad); border-radius: 4px;"></div>
+            <div style="font-size: 10px; color: #ccc; margin-top: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">Kid A</div>
+          </div>
+          <div style="min-width: 100px; flex-shrink: 0;">
+            <div style="width: 100px; height: 100px; background: linear-gradient(135deg, #2ecc71, #3498db); border-radius: 4px;"></div>
+            <div style="font-size: 10px; color: #ccc; margin-top: 4px;">Blue Train</div>
+          </div>
+          <div style="min-width: 100px; flex-shrink: 0;">
+            <div style="width: 100px; height: 100px; background: linear-gradient(135deg, #f39c12, #e74c3c); border-radius: 4px;"></div>
+            <div style="font-size: 10px; color: #ccc; margin-top: 4px;">Rumours</div>
+          </div>
+          <div style="min-width: 100px; flex-shrink: 0;">
+            <div style="width: 100px; height: 100px; background: linear-gradient(135deg, #9b59b6, #2c3e50); border-radius: 4px;"></div>
+            <div style="font-size: 10px; color: #ccc; margin-top: 4px;">Loveless</div>
+          </div>
+          <div style="min-width: 100px; flex-shrink: 0;">
+            <div style="width: 100px; height: 100px; background: linear-gradient(135deg, #1abc9c, #2c3e50); border-radius: 4px;"></div>
+            <div style="font-size: 10px; color: #ccc; margin-top: 4px;">Vespertine</div>
+          </div>
+        </div>
+      </div>
+      <!-- Section: Rediscover -->
+      <div>
+        <div style="font-size: 13px; font-weight: 600; color: #e0e0e0; margin-bottom: 8px;">Rediscover</div>
+        <div style="display: flex; gap: 12px; overflow-x: auto; padding-bottom: 4px;">
+          <div style="min-width: 100px; flex-shrink: 0;">
+            <div style="width: 100px; height: 100px; background: linear-gradient(135deg, #34495e, #7f8c8d); border-radius: 4px;"></div>
+            <div style="font-size: 10px; color: #ccc; margin-top: 4px;">Hounds of Love</div>
+          </div>
+          <div style="min-width: 100px; flex-shrink: 0;">
+            <div style="width: 100px; height: 100px; background: linear-gradient(135deg, #c0392b, #2c3e50); border-radius: 4px;"></div>
+            <div style="font-size: 10px; color: #ccc; margin-top: 4px;">Disintegration</div>
+          </div>
+          <div style="min-width: 100px; flex-shrink: 0;">
+            <div style="width: 100px; height: 100px; background: linear-gradient(135deg, #16a085, #f39c12); border-radius: 4px;"></div>
+            <div style="font-size: 10px; color: #ccc; margin-top: 4px;">Remain in Light</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>A — Horizontal Scroll Rows</h3>
+      <p>Netflix-style. Each section scrolls independently. Compact vertically, scales to any number of albums per section.</p>
+    </div>
+  </div>
+
+  <!-- Option B: Grid -->
+  <div class="card" data-choice="b" onclick="toggleSelect(this)">
+    <div class="card-image" style="padding: 16px; background: #1a1a2e;">
+      <!-- Section: Today -->
+      <div style="margin-bottom: 16px;">
+        <div style="font-size: 13px; font-weight: 600; color: #e0e0e0; margin-bottom: 8px;">Today</div>
+        <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px;">
+          <div>
+            <div style="width: 100%; aspect-ratio: 1; background: linear-gradient(135deg, #e74c3c, #8e44ad); border-radius: 4px;"></div>
+            <div style="font-size: 10px; color: #ccc; margin-top: 4px;">Kid A</div>
+          </div>
+          <div>
+            <div style="width: 100%; aspect-ratio: 1; background: linear-gradient(135deg, #2ecc71, #3498db); border-radius: 4px;"></div>
+            <div style="font-size: 10px; color: #ccc; margin-top: 4px;">Blue Train</div>
+          </div>
+          <div>
+            <div style="width: 100%; aspect-ratio: 1; background: linear-gradient(135deg, #f39c12, #e74c3c); border-radius: 4px;"></div>
+            <div style="font-size: 10px; color: #ccc; margin-top: 4px;">Rumours</div>
+          </div>
+          <div>
+            <div style="width: 100%; aspect-ratio: 1; background: linear-gradient(135deg, #9b59b6, #2c3e50); border-radius: 4px;"></div>
+            <div style="font-size: 10px; color: #ccc; margin-top: 4px;">Loveless</div>
+          </div>
+        </div>
+      </div>
+      <!-- Section: Rediscover -->
+      <div>
+        <div style="font-size: 13px; font-weight: 600; color: #e0e0e0; margin-bottom: 8px;">Rediscover</div>
+        <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px;">
+          <div>
+            <div style="width: 100%; aspect-ratio: 1; background: linear-gradient(135deg, #34495e, #7f8c8d); border-radius: 4px;"></div>
+            <div style="font-size: 10px; color: #ccc; margin-top: 4px;">Hounds of Love</div>
+          </div>
+          <div>
+            <div style="width: 100%; aspect-ratio: 1; background: linear-gradient(135deg, #c0392b, #2c3e50); border-radius: 4px;"></div>
+            <div style="font-size: 10px; color: #ccc; margin-top: 4px;">Disintegration</div>
+          </div>
+          <div>
+            <div style="width: 100%; aspect-ratio: 1; background: linear-gradient(135deg, #16a085, #f39c12); border-radius: 4px;"></div>
+            <div style="font-size: 10px; color: #ccc; margin-top: 4px;">Remain in Light</div>
+          </div>
+          <div style="opacity: 0.15;">
+            <div style="width: 100%; aspect-ratio: 1; background: #444; border-radius: 4px;"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>B — Grid</h3>
+      <p>Everything visible at once, no horizontal scrolling. Clean and scannable. Takes more vertical space when sections have many albums.</p>
+    </div>
+  </div>
+
+  <!-- Option C: Mix -->
+  <div class="card" data-choice="c" onclick="toggleSelect(this)">
+    <div class="card-image" style="padding: 16px; background: #1a1a2e;">
+      <!-- Section: Today — GRID (primary) -->
+      <div style="margin-bottom: 16px;">
+        <div style="font-size: 13px; font-weight: 600; color: #e0e0e0; margin-bottom: 8px;">Today</div>
+        <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px;">
+          <div>
+            <div style="width: 100%; aspect-ratio: 1; background: linear-gradient(135deg, #e74c3c, #8e44ad); border-radius: 4px;"></div>
+            <div style="font-size: 10px; color: #ccc; margin-top: 4px;">Kid A</div>
+          </div>
+          <div>
+            <div style="width: 100%; aspect-ratio: 1; background: linear-gradient(135deg, #2ecc71, #3498db); border-radius: 4px;"></div>
+            <div style="font-size: 10px; color: #ccc; margin-top: 4px;">Blue Train</div>
+          </div>
+          <div>
+            <div style="width: 100%; aspect-ratio: 1; background: linear-gradient(135deg, #f39c12, #e74c3c); border-radius: 4px;"></div>
+            <div style="font-size: 10px; color: #ccc; margin-top: 4px;">Rumours</div>
+          </div>
+          <div>
+            <div style="width: 100%; aspect-ratio: 1; background: linear-gradient(135deg, #9b59b6, #2c3e50); border-radius: 4px;"></div>
+            <div style="font-size: 10px; color: #ccc; margin-top: 4px;">Loveless</div>
+          </div>
+        </div>
+      </div>
+      <!-- Section: Rediscover — HORIZONTAL SCROLL (secondary) -->
+      <div style="margin-bottom: 12px;">
+        <div style="font-size: 13px; font-weight: 600; color: #e0e0e0; margin-bottom: 8px;">Rediscover</div>
+        <div style="display: flex; gap: 10px; overflow-x: auto; padding-bottom: 4px;">
+          <div style="min-width: 80px; flex-shrink: 0;">
+            <div style="width: 80px; height: 80px; background: linear-gradient(135deg, #34495e, #7f8c8d); border-radius: 4px;"></div>
+            <div style="font-size: 9px; color: #999; margin-top: 3px;">Hounds of Love</div>
+          </div>
+          <div style="min-width: 80px; flex-shrink: 0;">
+            <div style="width: 80px; height: 80px; background: linear-gradient(135deg, #c0392b, #2c3e50); border-radius: 4px;"></div>
+            <div style="font-size: 9px; color: #999; margin-top: 3px;">Disintegration</div>
+          </div>
+          <div style="min-width: 80px; flex-shrink: 0;">
+            <div style="width: 80px; height: 80px; background: linear-gradient(135deg, #16a085, #f39c12); border-radius: 4px;"></div>
+            <div style="font-size: 9px; color: #999; margin-top: 3px;">Remain in Light</div>
+          </div>
+          <div style="min-width: 80px; flex-shrink: 0;">
+            <div style="width: 80px; height: 80px; background: linear-gradient(135deg, #e67e22, #2ecc71); border-radius: 4px;"></div>
+            <div style="font-size: 9px; color: #999; margin-top: 3px;">Souvlaki</div>
+          </div>
+        </div>
+      </div>
+      <!-- Section: You Might Like — HORIZONTAL SCROLL (secondary) -->
+      <div>
+        <div style="font-size: 13px; font-weight: 600; color: #e0e0e0; margin-bottom: 8px;">You Might Like</div>
+        <div style="display: flex; gap: 10px; overflow-x: auto; padding-bottom: 4px;">
+          <div style="min-width: 80px; flex-shrink: 0;">
+            <div style="width: 80px; height: 80px; background: linear-gradient(135deg, #8e44ad, #f1c40f); border-radius: 4px;"></div>
+            <div style="font-size: 9px; color: #999; margin-top: 3px;">New suggestion</div>
+          </div>
+          <div style="min-width: 80px; flex-shrink: 0;">
+            <div style="width: 80px; height: 80px; background: linear-gradient(135deg, #2c3e50, #3498db); border-radius: 4px;"></div>
+            <div style="font-size: 9px; color: #999; margin-top: 3px;">Another pick</div>
+          </div>
+          <div style="min-width: 80px; flex-shrink: 0;">
+            <div style="width: 80px; height: 80px; background: linear-gradient(135deg, #1abc9c, #e74c3c); border-radius: 4px;"></div>
+            <div style="font-size: 9px; color: #999; margin-top: 3px;">Try this one</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>C — Mix</h3>
+      <p>Grid for recent plays (primary content, always visible). Horizontal scroll for discovery rows (secondary, lower visual weight). Clear hierarchy.</p>
+    </div>
+  </div>
+</div>

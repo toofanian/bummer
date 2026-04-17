@@ -21,13 +21,10 @@ frontend/test-results/
 .vercel
 .env.tmp.*
 
-# AI tooling
-.claude/
-CLAUDE.md
-.superpowers/
+# AI tooling — track hookify rules, ignore settings (sandbox-blocked) and ephemeral
+.claude/settings.json
+.claude/settings.local.json
+.claude/worktrees/
 
-# Internal strategy/planning
-MULTI_USER_STRATEGY.md
-BACKLOG.md
-docs/specs/
-docs/plans/
+# Personal notes
+docs/notes/
