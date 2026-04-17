@@ -71,7 +71,8 @@ export default function App() {
   const [pickerRestrictedDevice, setPickerRestrictedDevice] = useState(false)
   // Picker is shown when: devicePickerOpen OR pendingPlayIntent !== null
   const isMobile = useIsMobile()
-  const [selectedAlbumIds, setSelectedAlbumIds] = useState(new Set())
+  const [selectedAlbumIds, setSelectedAlbumIds] = useState([])
+  const selectedAlbumIdSet = useMemo(() => new Set(selectedAlbumIds), [selectedAlbumIds])
   const [pickerAlbumIds, setPickerAlbumIds] = useState(null)
   const [targetArtist, setTargetArtist] = useState(null)
   const isInCollection = view !== 'home' && view !== 'library' && view !== 'collections'
@@ -245,13 +246,13 @@ export default function App() {
   // Escape key clears selection
   useEffect(() => {
     function handleKeyDown(e) {
-      if (e.key === 'Escape' && selectedAlbumIds.size > 0) {
-        setSelectedAlbumIds(new Set())
+      if (e.key === 'Escape' && selectedAlbumIds.length > 0) {
+        setSelectedAlbumIds([])
       }
     }
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [selectedAlbumIds.size])
+  }, [selectedAlbumIds.length])
 
   async function handleCreateCollection(name) {
     // Optimistic update: add a temporary collection immediately so the UI
@@ -510,16 +511,13 @@ export default function App() {
   }
 
   function handleToggleSelect(albumId) {
-    setSelectedAlbumIds(prev => {
-      const next = new Set(prev)
-      if (next.has(albumId)) next.delete(albumId)
-      else next.add(albumId)
-      return next
-    })
+    setSelectedAlbumIds(prev =>
+      prev.includes(albumId) ? prev.filter(id => id !== albumId) : [...prev, albumId]
+    )
   }
 
   function handleClearSelection() {
-    setSelectedAlbumIds(new Set())
+    setSelectedAlbumIds([])
   }
 
   function handleClosePicker() {
@@ -547,7 +545,7 @@ export default function App() {
     setCollections(prev => prev.map(c =>
       c.id === collectionId ? { ...c, album_count: (c.album_count || 0) + ids.length } : c
     ))
-    setSelectedAlbumIds(new Set())
+    setSelectedAlbumIds([])
   }
 
   // Auth gate
@@ -713,7 +711,7 @@ export default function App() {
                   onPlayTrack={handlePlayTrack}
                   playingId={playback.is_playing ? playingId : null}
                   playingTrackName={playback.track?.name ?? null}
-                  selectedIds={selectedAlbumIds}
+                  selectedIds={selectedAlbumIdSet}
                   onToggleSelect={handleToggleSelect}
                   onArtistClick={handleArtistClick}
                 />
@@ -726,7 +724,7 @@ export default function App() {
                   onPlayTrack={handlePlayTrack}
                   playingId={playback.is_playing ? playingId : null}
                   playingTrackName={playback.track?.name ?? null}
-                  selectedIds={selectedAlbumIds}
+                  selectedIds={selectedAlbumIdSet}
                   onToggleSelect={handleToggleSelect}
                   targetArtist={targetArtist}
                   onClearTargetArtist={() => setTargetArtist(null)}
@@ -773,7 +771,7 @@ export default function App() {
                   onPlayTrack={handlePlayTrack}
                   playingId={playback.is_playing ? playingId : null}
                   playingTrackName={playback.track?.name ?? null}
-                  selectedIds={selectedAlbumIds}
+                  selectedIds={selectedAlbumIdSet}
                   onToggleSelect={handleToggleSelect}
                   reorderable
                   onReorder={handleReorderCollectionAlbums}
@@ -784,9 +782,9 @@ export default function App() {
           )}
         </div>
 
-        {selectedAlbumIds.size > 0 && (
+        {selectedAlbumIds.length > 0 && (
           <BulkAddBar
-            selectedCount={selectedAlbumIds.size}
+            selectedAlbums={selectedAlbumIds.map(id => [...albums, ...collectionAlbums].find(a => a.service_id === id)).filter(Boolean)}
             onOpenPicker={() => setPickerAlbumIds([...selectedAlbumIds])}
             onClear={handleClearSelection}
             bottomOffset={playback.track ? 106 : 50}
@@ -945,7 +943,7 @@ export default function App() {
                 onPlayTrack={handlePlayTrack}
                 playingId={playback.is_playing ? playingId : null}
                 playingTrackName={playback.track?.name ?? null}
-                selectedIds={selectedAlbumIds}
+                selectedIds={selectedAlbumIdSet}
                 onToggleSelect={handleToggleSelect}
                 onArtistClick={handleArtistClick}
               />
@@ -958,7 +956,7 @@ export default function App() {
                 onPlayTrack={handlePlayTrack}
                 playingId={playback.is_playing ? playingId : null}
                 playingTrackName={playback.track?.name ?? null}
-                selectedIds={selectedAlbumIds}
+                selectedIds={selectedAlbumIdSet}
                 onToggleSelect={handleToggleSelect}
                 targetArtist={targetArtist}
                 onClearTargetArtist={() => setTargetArtist(null)}
@@ -1005,7 +1003,7 @@ export default function App() {
                 onPlayTrack={handlePlayTrack}
                 playingId={playback.is_playing ? playingId : null}
                 playingTrackName={playback.track?.name ?? null}
-                selectedIds={selectedAlbumIds}
+                selectedIds={selectedAlbumIdSet}
                 onToggleSelect={handleToggleSelect}
                 reorderable
                 onReorder={handleReorderCollectionAlbums}
@@ -1015,9 +1013,9 @@ export default function App() {
           </div>
         )}
       </div>
-      {selectedAlbumIds.size > 0 && (
+      {selectedAlbumIds.length > 0 && (
         <BulkAddBar
-          selectedCount={selectedAlbumIds.size}
+          selectedAlbums={selectedAlbumIds.map(id => [...albums, ...collectionAlbums].find(a => a.service_id === id)).filter(Boolean)}
           onOpenPicker={() => setPickerAlbumIds([...selectedAlbumIds])}
           onClear={handleClearSelection}
           bottomOffset={64}
