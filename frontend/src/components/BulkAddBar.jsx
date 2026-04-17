@@ -1,8 +1,8 @@
-export default function BulkAddBar({ selectedCount, onOpenPicker, onClear }) {
+export default function BulkAddBar({ selectedCount, onOpenPicker, onClear, bottomOffset = 0 }) {
   return (
     <div
-      className="fixed bottom-0 left-0 right-0 z-[300] bg-surface border-t border-border"
-      style={{ paddingBottom: 'calc(12px + env(safe-area-inset-bottom, 0px))' }}
+      className="fixed left-0 right-0 z-[300] bg-surface border-t border-border"
+      style={{ bottom: bottomOffset, paddingBottom: bottomOffset === 0 ? 'calc(12px + env(safe-area-inset-bottom, 0px))' : undefined }}
     >
       <div className="flex items-center justify-between px-4 py-3">
         <span className="text-sm text-primary font-medium">{selectedCount} selected</span>

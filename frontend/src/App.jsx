@@ -789,6 +789,7 @@ export default function App() {
             selectedCount={selectedAlbumIds.size}
             onOpenPicker={() => setPickerAlbumIds([...selectedAlbumIds])}
             onClear={handleClearSelection}
+            bottomOffset={playback.track ? 106 : 50}
           />
         )}
 
@@ -1019,6 +1020,7 @@ export default function App() {
           selectedCount={selectedAlbumIds.size}
           onOpenPicker={() => setPickerAlbumIds([...selectedAlbumIds])}
           onClear={handleClearSelection}
+          bottomOffset={64}
         />
       )}
       {pickerAlbumIds && (
