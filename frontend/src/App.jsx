@@ -72,10 +72,6 @@ export default function App() {
   const isMobile = useIsMobile()
   const [selectedAlbumIds, setSelectedAlbumIds] = useState(new Set())
   const [targetArtist, setTargetArtist] = useState(null)
-  // Collection playback: null | { collectionId: string, albumIds: string[], currentIndex: number }
-  const [collectionPlayback, setCollectionPlayback] = useState(null)
-  const collectionPlaybackRef = useRef(null)
-  collectionPlaybackRef.current = collectionPlayback
   const isInCollection = view !== 'home' && view !== 'library' && view !== 'collections'
   const artistCount = useMemo(() => {
     const artists = new Set()
@@ -397,16 +393,6 @@ export default function App() {
     }
   }, [play, pause, serviceType, albums, collectionAlbums])
 
-  const handlePlayRef = useRef(handlePlay)
-  handlePlayRef.current = handlePlay
-
-  async function handlePlayCollection() {
-    if (!isInCollection || !collectionAlbums.length) return
-    const albumIds = collectionAlbums.map(a => a.service_id)
-    setCollectionPlayback({ collectionId: view.id, albumIds, currentIndex: 0 })
-    await handlePlay(albumIds[0])
-  }
-
   const handleModalDeviceSelected = useCallback(async (deviceId) => {
     const intent = pendingPlayIntent
     if (!intent) return
@@ -562,40 +548,6 @@ export default function App() {
     ))
     setSelectedAlbumIds(new Set())
   }
-
-  // Auto-advance to next album when current album finishes in collection playback
-  useEffect(() => {
-    const cp = collectionPlaybackRef.current
-    if (!cp) return
-
-    const currentAlbumId = cp.albumIds[cp.currentIndex]
-    const currentAlbum = albums.find(a => a.service_id === currentAlbumId) ||
-                         collectionAlbums.find(a => a.service_id === currentAlbumId)
-    if (!currentAlbum) return
-
-    const playbackAlbumServiceId = playback.track?.album_service_id
-    const playbackAlbumName = playback.track?.album
-    const isCurrentAlbumPlaying = playbackAlbumServiceId
-      ? playbackAlbumServiceId === currentAlbum.service_id
-      : playbackAlbumName === currentAlbum.name
-
-    if (!isCurrentAlbumPlaying && playingIdRef.current === currentAlbumId) {
-      const nextIndex = cp.currentIndex + 1
-      if (nextIndex < cp.albumIds.length) {
-        setCollectionPlayback(prev => prev ? { ...prev, currentIndex: nextIndex } : null)
-        handlePlayRef.current(cp.albumIds[nextIndex])
-      } else {
-        setCollectionPlayback(null)
-      }
-    }
-  }, [playback.track?.album_service_id, playback.track?.album, playback.is_playing])
-
-  // Clear collection playback if we navigate to a different collection
-  useEffect(() => {
-    if (collectionPlayback && isInCollection && view.id !== collectionPlayback.collectionId) {
-      setCollectionPlayback(null)
-    }
-  }, [view])
 
   // Auth gate
   const isSpotifyCallback = window.location.pathname === '/auth/spotify/callback'
@@ -817,7 +769,6 @@ export default function App() {
                 albumCount={filterAlbums(collectionAlbums, search).length}
                 onBack={() => setView('collections')}
                 onDescriptionChange={(desc) => handleUpdateCollectionDescription(view.id, desc)}
-                onPlay={handlePlayCollection}
               />
               <div className="flex-1 overflow-y-auto">
                 <AlbumTable
@@ -1045,7 +996,6 @@ export default function App() {
               albumCount={filterAlbums(collectionAlbums, search).length}
               onBack={() => setView('collections')}
               onDescriptionChange={(desc) => handleUpdateCollectionDescription(view.id, desc)}
-              onPlay={handlePlayCollection}
             />
             <div className="flex-1 overflow-y-auto pb-16">
               <AlbumTable
