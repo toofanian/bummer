@@ -8,6 +8,7 @@ vi.mock('../hooks/useIsMobile', () => ({ useIsMobile: vi.fn().mockReturnValue(fa
 const ALBUMS = [
   {
     spotify_id: 'id1',
+    service_id: 'id1',
     name: 'Love Deluxe',
     artists: ['Sade'],
     release_date: '1992-09-14',
@@ -17,6 +18,7 @@ const ALBUMS = [
   },
   {
     spotify_id: 'id2',
+    service_id: 'id2',
     name: 'Room On Fire',
     artists: ['The Strokes'],
     release_date: '2003-10-28',
@@ -653,20 +655,31 @@ describe('AlbumTable mobile card list', () => {
     expect(card).toHaveClass('now-playing')
   })
 
-  it('renders CollectionsBubble for each card when collections prop is provided', () => {
-    const onToggle = vi.fn()
+  it('renders collection button for each card when onOpenPicker is provided', () => {
+    const onOpenPicker = vi.fn()
     render(
       <AlbumTable
         albums={ALBUMS}
         loading={false}
-        collections={COLLECTIONS}
-        albumCollectionMap={{}}
-        onToggleCollection={onToggle}
+        onOpenPicker={onOpenPicker}
       />
     )
-    // CollectionsBubble renders a button with the collection count or a "+" indicator
-    const bubbles = screen.getAllByRole('button', { name: /collection/i })
-    expect(bubbles).toHaveLength(ALBUMS.length)
+    const buttons = screen.getAllByRole('button', { name: /collection/i })
+    expect(buttons).toHaveLength(ALBUMS.length)
+  })
+
+  it('calls onOpenPicker with album id when collection button is tapped on mobile', () => {
+    const onOpenPicker = vi.fn()
+    render(
+      <AlbumTable
+        albums={ALBUMS}
+        loading={false}
+        onOpenPicker={onOpenPicker}
+      />
+    )
+    const buttons = screen.getAllByRole('button', { name: /collection/i })
+    fireEvent.click(buttons[0])
+    expect(onOpenPicker).toHaveBeenCalledWith(['id1'])
   })
 
   it('shows equalizer overlay on album art when playing on mobile', () => {

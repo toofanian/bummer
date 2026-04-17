@@ -2,7 +2,6 @@ import { useState, useMemo, useCallback, useRef, memo } from 'react'
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors } from '@dnd-kit/core'
 import { SortableContext, verticalListSortingStrategy, useSortable, arrayMove } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
-import CollectionsBubble from './CollectionsBubble'
 import { useIsMobile } from '../hooks/useIsMobile'
 
 const EMPTY_ARRAY = []
@@ -70,7 +69,7 @@ function ArtistLinks({ artists, onArtistClick }) {
   ))
 }
 
-const MobileAlbumCard = memo(function MobileAlbumCard({ album, isExpanded, isPlaying, exp, playingTrackName, onPlay, onPlayTrack, collections, albumCollectionIds, onToggleCollection, onCreateCollection, onExpand, dragHandleProps, sortableRef, sortableStyle, selectable, isSelected, onToggleSelect, onArtistClick }) {
+const MobileAlbumCard = memo(function MobileAlbumCard({ album, isExpanded, isPlaying, exp, playingTrackName, onPlay, onPlayTrack, onOpenPicker, onExpand, dragHandleProps, sortableRef, sortableStyle, selectable, isSelected, onToggleSelect, onArtistClick }) {
   return (
     <div ref={sortableRef} style={sortableStyle}>
       <div
@@ -112,13 +111,14 @@ const MobileAlbumCard = memo(function MobileAlbumCard({ album, isExpanded, isPla
           <span className="text-sm font-semibold text-text truncate">{album.name}</span>
           <span className="text-xs text-text-dim truncate"><ArtistLinks artists={album.artists} onArtistClick={onArtistClick} /></span>
         </div>
-        {collections !== undefined && (
-          <CollectionsBubble
-            albumCollectionIds={albumCollectionIds}
-            collections={collections || []}
-            onToggle={(colId, add) => onToggleCollection?.(album.service_id, colId, add)}
-            onCreate={name => onCreateCollection?.(name)}
-          />
+        {onOpenPicker && (
+          <button
+            className="bg-transparent border border-transparent text-text-dim cursor-pointer w-[22px] h-[22px] rounded-full text-xs font-semibold flex items-center justify-center p-0"
+            aria-label="Add to collection"
+            onClick={(e) => { e.stopPropagation(); onOpenPicker([album.service_id]) }}
+          >
+            +
+          </button>
         )}
         <button
           aria-label={isExpanded ? 'Collapse' : 'Expand'}
@@ -158,7 +158,7 @@ const MobileAlbumCard = memo(function MobileAlbumCard({ album, isExpanded, isPla
   )
 })
 
-const DesktopAlbumRow = memo(function DesktopAlbumRow({ album, isExpanded, isPlaying, expandedEntry, playingTrackId, playingTrackName, onPlay, onPlayTrack, onExpand, navigateRow, collections, albumCollectionIds, onToggleCollection, onCreateCollection, dragHandleProps, sortableRef, sortableStyle, selectable, isSelected, onToggleSelect, onArtistClick }) {
+const DesktopAlbumRow = memo(function DesktopAlbumRow({ album, isExpanded, isPlaying, expandedEntry, playingTrackId, playingTrackName, onPlay, onPlayTrack, onExpand, navigateRow, onOpenPicker, dragHandleProps, sortableRef, sortableStyle, selectable, isSelected, onToggleSelect, onArtistClick }) {
   function handleAlbumKeyDown(e) {
     if (e.key === 'ArrowDown') {
       e.preventDefault()
@@ -235,13 +235,14 @@ const DesktopAlbumRow = memo(function DesktopAlbumRow({ album, isExpanded, isPla
       <td className="px-2 py-1.5 whitespace-nowrap overflow-hidden text-ellipsis align-middle">{formatYear(album.release_date)}</td>
       <td className="px-2 py-1.5 whitespace-nowrap overflow-hidden text-ellipsis align-middle">{formatDateAdded(album.added_at)}</td>
       <td className="px-2 py-1.5 whitespace-nowrap overflow-hidden text-ellipsis align-middle text-center">
-        {collections !== undefined && (
-          <CollectionsBubble
-            albumCollectionIds={albumCollectionIds}
-            collections={collections || []}
-            onToggle={(colId, add) => onToggleCollection?.(album.service_id, colId, add)}
-            onCreate={name => onCreateCollection?.(name)}
-          />
+        {onOpenPicker && (
+          <button
+            className="bg-transparent border border-transparent text-text-dim cursor-pointer w-[22px] h-[22px] rounded-full text-xs font-semibold flex items-center justify-center p-0"
+            aria-label="Add to collection"
+            onClick={(e) => { e.stopPropagation(); onOpenPicker([album.service_id]) }}
+          >
+            +
+          </button>
         )}
       </td>
     </tr>,
@@ -373,10 +374,7 @@ export default function AlbumTable({
   playingId,
   playingTrackId,
   playingTrackName = null,
-  collections,
-  albumCollectionMap,
-  onToggleCollection,
-  onCreateCollection,
+  onOpenPicker,
   reorderable = false,
   onReorder,
   selectable = false,
@@ -460,10 +458,7 @@ export default function AlbumTable({
       playingTrackName,
       onPlay,
       onPlayTrack,
-      collections,
-      albumCollectionIds: (albumCollectionMap && albumCollectionMap[album.service_id]) || EMPTY_ARRAY,
-      onToggleCollection,
-      onCreateCollection,
+      onOpenPicker,
       onExpand: handleExpand,
       selectable,
       isSelected: selectable && selectedIds?.has(album.service_id),
@@ -480,7 +475,6 @@ export default function AlbumTable({
   function renderDesktopRow(album) {
     const isExpanded = !!expanded[album.service_id]
     const isPlaying = playingId === album.service_id
-    const albumCollectionIds = (albumCollectionMap && albumCollectionMap[album.service_id]) || EMPTY_ARRAY
     const commonProps = {
       album,
       isExpanded,
@@ -492,10 +486,7 @@ export default function AlbumTable({
       onPlayTrack,
       onExpand: handleExpand,
       navigateRow,
-      collections,
-      albumCollectionIds,
-      onToggleCollection,
-      onCreateCollection,
+      onOpenPicker,
       selectable,
       isSelected: selectable && selectedIds?.has(album.service_id),
       onToggleSelect,
