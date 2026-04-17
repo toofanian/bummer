@@ -50,10 +50,7 @@ export default function ArtistsView({
   onPlayTrack,
   playingId,
   playingTrackName,
-  collections,
-  albumCollectionMap,
-  onToggleCollection,
-  onCreateCollection,
+  onOpenPicker,
   targetArtist = null,
   onClearTargetArtist,
 }) {
@@ -95,10 +92,7 @@ export default function ArtistsView({
             onPlayTrack={onPlayTrack}
             playingId={playingId}
             playingTrackName={playingTrackName}
-            collections={collections}
-            albumCollectionMap={albumCollectionMap}
-            onToggleCollection={onToggleCollection}
-            onCreateCollection={onCreateCollection}
+            onOpenPicker={onOpenPicker}
           />
         </div>
       </div>
