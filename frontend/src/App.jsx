@@ -716,7 +716,7 @@ export default function App() {
   if (isMobile) {
     return (
       <div className="app flex flex-col h-dvh">
-        <header className="bg-surface border-b border-border flex items-center px-4 py-2 gap-3" style={{ paddingTop: 'env(safe-area-inset-top, 0px)' }}>
+        <header className="sticky top-0 z-[100] bg-surface border-b border-border flex items-center px-4 py-2 gap-3" style={{ paddingTop: 'env(safe-area-inset-top, 0px)' }}>
           <h1>
             {view === 'home' ? 'Home' : view === 'library' ? 'Library' : view === 'collections' ? 'Collections' : view === 'changelog' ? 'Changelog' : view === 'settings' ? 'Settings' : view?.name ?? 'Collection'}
             {' '}<span style={{ fontSize: '10px', fontWeight: 400, opacity: 0.35, letterSpacing: '0.05em' }}>{__APP_VERSION__}</span>
@@ -731,7 +731,7 @@ export default function App() {
           )}
           {(view === 'library' || view === 'collections' || isInCollection) && (
             <input
-              className="flex-1 bg-surface-2 text-text border border-border rounded px-2.5 py-1 text-sm"
+              className="flex-1 bg-surface-2 text-text border border-border rounded px-2.5 py-1 text-sm focus:ring-2 focus:ring-accent/40 focus:outline-none"
               placeholder="Search…"
               value={search}
               onChange={e => setSearch(e.target.value)}
