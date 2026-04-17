@@ -367,7 +367,6 @@ def test_changelog_returns_entries_from_consecutive_snapshots():
     ]
 
     db = MagicMock()
-    call_count = {"n": 0}
 
     def table_router(table_name):
         mock_table = MagicMock()
