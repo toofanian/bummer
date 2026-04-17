@@ -718,9 +718,9 @@ export default function App() {
   if (isMobile) {
     return (
       <div className="app flex flex-col h-dvh">
-        {view !== 'settings' && <header className="bg-surface border-b border-border flex items-center px-4 py-2 gap-3" style={{ paddingTop: 'env(safe-area-inset-top, 0px)' }}>
+        <header className="bg-surface border-b border-border flex items-center px-4 py-2 gap-3" style={{ paddingTop: 'env(safe-area-inset-top, 0px)' }}>
           <h1>
-            {view === 'home' ? 'Home' : view === 'library' ? 'Library' : view === 'collections' ? 'Collections' : view?.name ?? 'Collection'}
+            {view === 'home' ? 'Home' : view === 'library' ? 'Library' : view === 'collections' ? 'Collections' : view === 'settings' ? 'Settings' : view?.name ?? 'Collection'}
             {' '}<span style={{ fontSize: '10px', fontWeight: 400, opacity: 0.35, letterSpacing: '0.05em' }}>{__APP_VERSION__}</span>
           </h1>
           {view === 'library' && (
@@ -742,7 +742,7 @@ export default function App() {
           <button
             onClick={() => setView('settings')}
             aria-label="Settings"
-            className="bg-transparent border-none text-text-dim p-1.5 cursor-pointer hover:text-text transition-colors duration-150"
+            className={`bg-transparent border-none p-1.5 cursor-pointer transition-colors duration-150 ${view === 'settings' ? 'text-text' : 'text-text-dim hover:text-text'}`}
             title="Settings"
           >
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -750,7 +750,7 @@ export default function App() {
               <circle cx="12" cy="12" r="3" />
             </svg>
           </button>
-        </header>}
+        </header>
 
         <div data-testid="mobile-content-area" className="flex-1 overflow-hidden flex flex-col" style={{ paddingBottom: playback.track ? 'calc(106px + env(safe-area-inset-bottom, 0px))' : 'calc(50px + env(safe-area-inset-bottom, 0px))' }}>
           {view === 'home' && (
@@ -851,7 +851,7 @@ export default function App() {
           )}
 
           {view === 'settings' && (
-            <SettingsPage onLogout={handleLogout} session={session} onBack={() => setView('home')} />
+            <SettingsPage onLogout={handleLogout} session={session} />
           )}
         </div>
 
@@ -927,7 +927,7 @@ export default function App() {
   // Desktop layout
   return (
     <div className="app flex flex-col h-dvh" style={(paneOpen || digestOpen) && !isMobile ? { paddingRight: digestOpen ? '340px' : '300px' } : {}}>
-      {view !== 'settings' && <header className="h-14 bg-surface border-b border-border flex items-center px-5 gap-6">
+      <header className="h-14 bg-surface border-b border-border flex items-center px-5 gap-6">
         <h1>Bummer<span style={{ fontSize: '10px', fontWeight: 400, opacity: 0.35, letterSpacing: '0.05em' }}>{__APP_VERSION__}</span></h1>
         <nav className="flex gap-1">
           <button
@@ -984,7 +984,7 @@ export default function App() {
         <button
           onClick={() => setView('settings')}
           aria-label="Settings"
-          className="bg-transparent border-none text-text-dim p-1.5 cursor-pointer hover:text-text transition-colors duration-150"
+          className={`bg-transparent border-none p-1.5 cursor-pointer transition-colors duration-150 ${view === 'settings' ? 'text-text' : 'text-text-dim hover:text-text'}`}
           title="Settings"
         >
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -992,7 +992,7 @@ export default function App() {
             <circle cx="12" cy="12" r="3" />
           </svg>
         </button>
-      </header>}
+      </header>
 
       <div className="flex-1 overflow-hidden flex flex-col">
         {view === 'home' && (

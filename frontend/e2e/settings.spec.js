@@ -23,21 +23,20 @@ function mockAPIs(page) {
 }
 
 test.describe('Settings page', () => {
-  test('gear icon navigates to settings, back returns home', async ({ page }) => {
+  test('gear icon navigates to settings, nav tabs leave settings', async ({ page }) => {
     await mockAPIs(page)
     await page.goto('/')
     await expect(page.getByRole('button', { name: 'Settings' })).toBeVisible({ timeout: 5000 })
 
     await page.getByRole('button', { name: 'Settings' }).click()
-    await expect(page.getByRole('heading', { name: 'Settings' })).toBeVisible()
     await expect(page.getByText('Install App')).toBeVisible()
     await expect(page.getByRole('link', { name: /send feedback/i })).toBeVisible()
     await expect(page.getByRole('button', { name: /log out/i })).toBeVisible()
     await expect(page.getByRole('button', { name: /delete account/i })).toBeVisible()
 
-    // Back button returns to home
-    await page.getByRole('button', { name: 'Back', exact: true }).click()
-    await expect(page.getByRole('heading', { name: 'Settings' })).not.toBeVisible()
+    // Clicking a nav tab leaves settings
+    await page.getByRole('button', { name: 'Home' }).click()
+    await expect(page.getByText('Install App')).not.toBeVisible()
   })
 
   test('feedback links to GitHub Discussions', async ({ page }) => {
@@ -63,16 +62,16 @@ test.describe('Settings page', () => {
 test.describe('Settings page (mobile)', () => {
   test.use({ viewport: { width: 390, height: 844 } })
 
-  test('gear icon opens settings, hides mobile header', async ({ page }) => {
+  test('gear icon opens settings, header shows Settings title', async ({ page }) => {
     await mockAPIs(page)
     await page.goto('/')
     await expect(page.getByRole('button', { name: 'Settings' })).toBeVisible({ timeout: 5000 })
 
     await page.getByRole('button', { name: 'Settings' }).click()
-    await expect(page.getByRole('heading', { name: 'Settings' })).toBeVisible()
+    await expect(page.getByText('Install App')).toBeVisible()
 
-    // The mobile header bar should be hidden — only the in-page heading shows
-    const headings = await page.getByRole('heading', { name: 'Settings' }).all()
-    expect(headings).toHaveLength(1)
+    // Mobile header should show "Settings" title
+    const header = page.locator('header')
+    await expect(header).toContainText('Settings')
   })
 })
