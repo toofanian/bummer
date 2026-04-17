@@ -72,6 +72,10 @@ export default function App() {
   const isMobile = useIsMobile()
   const [selectedAlbumIds, setSelectedAlbumIds] = useState(new Set())
   const [targetArtist, setTargetArtist] = useState(null)
+  // Collection playback: null | { collectionId: string, albumIds: string[], currentIndex: number }
+  const [collectionPlayback, setCollectionPlayback] = useState(null)
+  const collectionPlaybackRef = useRef(null)
+  collectionPlaybackRef.current = collectionPlayback
   const isInCollection = view !== 'home' && view !== 'library' && view !== 'collections'
   const artistCount = useMemo(() => {
     const artists = new Set()
@@ -393,6 +397,16 @@ export default function App() {
     }
   }, [play, pause, serviceType, albums, collectionAlbums])
 
+  const handlePlayRef = useRef(handlePlay)
+  handlePlayRef.current = handlePlay
+
+  async function handlePlayCollection() {
+    if (!isInCollection || !collectionAlbums.length) return
+    const albumIds = collectionAlbums.map(a => a.service_id)
+    setCollectionPlayback({ collectionId: view.id, albumIds, currentIndex: 0 })
+    await handlePlay(albumIds[0])
+  }
+
   const handleModalDeviceSelected = useCallback(async (deviceId) => {
     const intent = pendingPlayIntent
     if (!intent) return
@@ -549,6 +563,40 @@ export default function App() {
     setSelectedAlbumIds(new Set())
   }
 
+  // Auto-advance to next album when current album finishes in collection playback
+  useEffect(() => {
+    const cp = collectionPlaybackRef.current
+    if (!cp) return
+
+    const currentAlbumId = cp.albumIds[cp.currentIndex]
+    const currentAlbum = albums.find(a => a.service_id === currentAlbumId) ||
+                         collectionAlbums.find(a => a.service_id === currentAlbumId)
+    if (!currentAlbum) return
+
+    const playbackAlbumServiceId = playback.track?.album_service_id
+    const playbackAlbumName = playback.track?.album
+    const isCurrentAlbumPlaying = playbackAlbumServiceId
+      ? playbackAlbumServiceId === currentAlbum.service_id
+      : playbackAlbumName === currentAlbum.name
+
+    if (!isCurrentAlbumPlaying && playingIdRef.current === currentAlbumId) {
+      const nextIndex = cp.currentIndex + 1
+      if (nextIndex < cp.albumIds.length) {
+        setCollectionPlayback(prev => prev ? { ...prev, currentIndex: nextIndex } : null)
+        handlePlayRef.current(cp.albumIds[nextIndex])
+      } else {
+        setCollectionPlayback(null)
+      }
+    }
+  }, [playback.track?.album_service_id, playback.track?.album, playback.is_playing])
+
+  // Clear collection playback if we navigate to a different collection
+  useEffect(() => {
+    if (collectionPlayback && isInCollection && view.id !== collectionPlayback.collectionId) {
+      setCollectionPlayback(null)
+    }
+  }, [view])
+
   // Auth gate
   const isSpotifyCallback = window.location.pathname === '/auth/spotify/callback'
   const hasLocalClientId = !!localStorage.getItem('spotify_client_id')
@@ -670,9 +718,9 @@ export default function App() {
   if (isMobile) {
     return (
       <div className="app flex flex-col h-dvh">
-        <header className="bg-surface border-b border-border flex items-center px-4 py-2 gap-3" style={{ paddingTop: 'env(safe-area-inset-top, 0px)' }}>
+        {view !== 'settings' && <header className="bg-surface border-b border-border flex items-center px-4 py-2 gap-3" style={{ paddingTop: 'env(safe-area-inset-top, 0px)' }}>
           <h1>
-            {view === 'home' ? 'Home' : view === 'library' ? 'Library' : view === 'collections' ? 'Collections' : view === 'settings' ? 'Settings' : view?.name ?? 'Collection'}
+            {view === 'home' ? 'Home' : view === 'library' ? 'Library' : view === 'collections' ? 'Collections' : view?.name ?? 'Collection'}
             {' '}<span style={{ fontSize: '10px', fontWeight: 400, opacity: 0.35, letterSpacing: '0.05em' }}>{__APP_VERSION__}</span>
           </h1>
           {view === 'library' && (
@@ -702,7 +750,7 @@ export default function App() {
               <circle cx="12" cy="12" r="3" />
             </svg>
           </button>
-        </header>
+        </header>}
 
         <div data-testid="mobile-content-area" className="flex-1 overflow-hidden flex flex-col" style={{ paddingBottom: playback.track ? 'calc(106px + env(safe-area-inset-bottom, 0px))' : 'calc(50px + env(safe-area-inset-bottom, 0px))' }}>
           {view === 'home' && (
@@ -779,6 +827,7 @@ export default function App() {
                 albumCount={filterAlbums(collectionAlbums, search).length}
                 onBack={() => setView('collections')}
                 onDescriptionChange={(desc) => handleUpdateCollectionDescription(view.id, desc)}
+                onPlay={handlePlayCollection}
               />
               <div className="flex-1 overflow-y-auto">
                 <AlbumTable
@@ -932,17 +981,17 @@ export default function App() {
             <line x1="5" y1="11" x2="9" y2="11" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
           </svg>
         </button>
-          <button
-            onClick={() => setView('settings')}
-            aria-label="Settings"
-            className="bg-transparent border-none text-text-dim p-1.5 cursor-pointer hover:text-text transition-colors duration-150"
-            title="Settings"
-          >
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-              <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z" />
-              <circle cx="12" cy="12" r="3" />
-            </svg>
-          </button>
+        <button
+          onClick={() => setView('settings')}
+          aria-label="Settings"
+          className="bg-transparent border-none text-text-dim p-1.5 cursor-pointer hover:text-text transition-colors duration-150"
+          title="Settings"
+        >
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z" />
+            <circle cx="12" cy="12" r="3" />
+          </svg>
+        </button>
       </header>
 
       <div className="flex-1 overflow-hidden flex flex-col">
@@ -1020,6 +1069,7 @@ export default function App() {
               albumCount={filterAlbums(collectionAlbums, search).length}
               onBack={() => setView('collections')}
               onDescriptionChange={(desc) => handleUpdateCollectionDescription(view.id, desc)}
+              onPlay={handlePlayCollection}
             />
             <div className="flex-1 overflow-y-auto pb-16">
               <AlbumTable
