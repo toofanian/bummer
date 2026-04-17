@@ -211,74 +211,8 @@ describe('App — onboarding auth gate', () => {
   })
 })
 
-describe('App — loading progress messages', () => {
-  // ----------------------------------------------------------------
-  // 4. "Syncing your Spotify library..." message appears immediately
-  // ----------------------------------------------------------------
-  it('shows "Syncing your library..." message on cold start while sync runs', async () => {
-    let resolveLibrary
-    const libraryPromise = new Promise(res => { resolveLibrary = res })
-
-    global.fetch = vi.fn().mockImplementation((url, options) => {
-      if (url.includes('/library/sync') && !url.includes('/sync-complete') && options?.method === 'POST') {
-        return Promise.resolve({ ok: true, json: () => Promise.resolve(SYNC_DONE) })
-      }
-      if (url.includes('/library/albums') && !url.includes('/tracks')) {
-        return libraryPromise.then(() => ({ ok: true, json: () => Promise.resolve(LIBRARY_OK) }))
-      }
-      if (url.includes('/collections')) {
-        return Promise.resolve({ ok: true, json: () => Promise.resolve(COLLECTIONS_OK) })
-      }
-      if (url.includes('/home')) {
-        return Promise.resolve({ ok: true, json: () => Promise.resolve(HOME_OK) })
-      }
-      return Promise.resolve({ ok: true, json: () => Promise.resolve({}) })
-    })
-
-    render(<App />)
-
-    // The library sync message should appear immediately on cold start
-    expect(screen.getByText(/syncing your library/i)).toBeInTheDocument()
-
-    // Unblock library so the component can finish
-    resolveLibrary()
-    await waitFor(() => expect(screen.queryByText(/syncing your library/i)).not.toBeInTheDocument())
-  })
-
-  // ----------------------------------------------------------------
-  // 6. "Loading collections..." message appears while collections load
-  // ----------------------------------------------------------------
-  it('shows "Loading collections..." message while collections are loading', async () => {
-    let resolveCollections
-    const collectionsPromise = new Promise(res => { resolveCollections = res })
-
-    global.fetch = vi.fn().mockImplementation((url, options) => {
-      if (url.includes('/library/sync') && !url.includes('/sync-complete') && options?.method === 'POST') {
-        return Promise.resolve({ ok: true, json: () => Promise.resolve(SYNC_DONE) })
-      }
-
-      if (url.includes('/library/albums')) {
-        return Promise.resolve({ ok: true, json: () => Promise.resolve(LIBRARY_OK) })
-      }
-      if (url.includes('/collections')) {
-        return collectionsPromise.then(() => ({ ok: true, json: () => Promise.resolve(COLLECTIONS_OK) }))
-      }
-      if (url.includes('/home')) {
-        return Promise.resolve({ ok: true, json: () => Promise.resolve(HOME_OK) })
-      }
-      return Promise.resolve({ ok: true, json: () => Promise.resolve({}) })
-    })
-
-    render(<App />)
-
-    // After auth+library resolve, collections message should appear
-    await waitFor(() => expect(screen.getByText(/loading collections/i)).toBeInTheDocument())
-
-    // Unblock collections so the component can finish
-    resolveCollections()
-    await waitFor(() => expect(screen.queryByText(/loading collections/i)).not.toBeInTheDocument())
-  })
-})
+// Loading progress messages tests removed — full-screen loading messages
+// no longer exist after cold start refactor (issue #26)
 
 describe('App — load failure handling', () => {
   // ----------------------------------------------------------------
@@ -1505,7 +1439,56 @@ describe('App — sync/loading bug fixes', () => {
     clearLocalStorageCache()
   })
 
-  // 5. Existing state preserved on loadData — collections/albumCollectionMap not cleared
+  // 5. Cold start drops into main UI immediately without full-screen spinner
+  it('cold start drops into main UI immediately without full-screen spinner', async () => {
+    window.matchMedia = vi.fn().mockImplementation(query => ({
+      matches: false,
+      media: query,
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+    }))
+
+    clearLocalStorageCache()
+
+    let resolveLibrary
+    const libraryPromise = new Promise(res => { resolveLibrary = res })
+    let resolveCollections
+    const collectionsPromise = new Promise(res => { resolveCollections = res })
+
+    global.fetch = vi.fn().mockImplementation((url, options) => {
+      if (url.includes('/library/albums') && !url.includes('/tracks')) {
+        return libraryPromise
+      }
+      if (url.includes('/library/sync') && !url.includes('/sync-complete') && options?.method === 'POST') {
+        return Promise.resolve({ ok: true, json: () => Promise.resolve(SYNC_DONE) })
+      }
+      if (url.includes('/library/sync-complete') && options?.method === 'POST') {
+        return Promise.resolve({ ok: true, json: () => Promise.resolve({ ok: true }) })
+      }
+      if (url.includes('/collections')) {
+        return collectionsPromise
+      }
+      if (url.includes('/home')) {
+        return Promise.resolve({ ok: true, json: () => Promise.resolve(HOME_OK) })
+      }
+      return Promise.resolve({ ok: true, json: () => Promise.resolve({}) })
+    })
+
+    render(<App />)
+
+    // No full-screen "syncing your library" message should appear
+    expect(screen.queryByText(/syncing your library/i)).not.toBeInTheDocument()
+
+    // Main UI should render immediately — Home button visible in nav
+    expect(screen.getByRole('button', { name: /home/i })).toBeInTheDocument()
+
+    // Clean up: resolve pending promises so component unmounts cleanly
+    resolveLibrary({ ok: true, json: () => Promise.resolve(LIBRARY_OK) })
+    resolveCollections({ ok: true, json: () => Promise.resolve(COLLECTIONS_OK) })
+    await waitFor(() => {})
+  })
+
+  // 6. Existing state preserved on loadData — collections/albumCollectionMap not cleared
   it('does not clear collections state at start of loadData', async () => {
     seedLocalStorageCache([ALBUM_A])
 
