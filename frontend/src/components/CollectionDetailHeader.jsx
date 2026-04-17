@@ -1,6 +1,6 @@
 import { useState } from 'react'
 
-export default function CollectionDetailHeader({ name, description, albumCount, onBack, onDescriptionChange, onPlay }) {
+export default function CollectionDetailHeader({ name, description, albumCount, onBack, onDescriptionChange }) {
   const [desc, setDesc] = useState(description || '')
 
   function handleBlur() {
@@ -24,15 +24,6 @@ export default function CollectionDetailHeader({ name, description, albumCount, 
           onKeyDown={e => e.key === 'Enter' && e.target.blur()}
         />
       </div>
-      {albumCount > 0 && onPlay && (
-        <button
-          aria-label="Play collection"
-          className="bg-accent text-white border-none rounded-full w-8 h-8 flex items-center justify-center cursor-pointer flex-shrink-0 hover:brightness-110 transition-all duration-150"
-          onClick={onPlay}
-        >
-          ▶
-        </button>
-      )}
       <span className="text-sm text-text-dim flex-shrink-0">{albumCount} albums</span>
     </div>
   )
