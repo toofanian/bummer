@@ -22,6 +22,11 @@ export default function DigestPanel({ open, onClose, onPlay, session }) {
   const [noSnapshots, setNoSnapshots] = useState(false)
   const isMobile = useIsMobile()
 
+  // Reset to digest tab when panel closes so changelog remounts fresh on reopen
+  useEffect(() => {
+    if (!open) setActiveTab('digest')
+  }, [open])
+
   useEffect(() => {
     if (!open) return
     let cancelled = false
