@@ -2,7 +2,6 @@ import { useState, useMemo, useCallback, useRef, memo } from 'react'
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors } from '@dnd-kit/core'
 import { SortableContext, verticalListSortingStrategy, useSortable, arrayMove } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
-import CollectionsBubble from './CollectionsBubble'
 import { useIsMobile } from '../hooks/useIsMobile'
 
 const EMPTY_ARRAY = []
@@ -70,7 +69,7 @@ function ArtistLinks({ artists, onArtistClick }) {
   ))
 }
 
-const MobileAlbumCard = memo(function MobileAlbumCard({ album, isExpanded, isPlaying, exp, playingTrackName, onPlay, onPlayTrack, collections, albumCollectionIds, onToggleCollection, onCreateCollection, onExpand, dragHandleProps, sortableRef, sortableStyle, selectable, isSelected, onToggleSelect, onArtistClick }) {
+const MobileAlbumCard = memo(function MobileAlbumCard({ album, isExpanded, isPlaying, exp, playingTrackName, onPlay, onPlayTrack, onExpand, dragHandleProps, sortableRef, sortableStyle, isSelected, onToggleSelect, collectionCount, onArtistClick }) {
   return (
     <div ref={sortableRef} style={sortableStyle}>
       <div
@@ -86,10 +85,7 @@ const MobileAlbumCard = memo(function MobileAlbumCard({ album, isExpanded, isPla
             {...dragHandleProps}
           >⠿</button>
         )}
-        <div
-          className="relative flex-shrink-0 w-11 h-11"
-          onClick={selectable ? (e) => { e.stopPropagation(); onToggleSelect?.(album.service_id) } : undefined}
-        >
+        <div className="relative flex-shrink-0 w-11 h-11">
           {album.image_url
             ? <img src={album.image_url} alt={album.name} width={44} height={44} className="w-11 h-11 rounded object-cover flex-shrink-0" />
             : <div className="w-11 h-11 rounded bg-surface-2" />
@@ -104,21 +100,19 @@ const MobileAlbumCard = memo(function MobileAlbumCard({ album, isExpanded, isPla
               </span>
             </span>
           )}
-          {selectable && isSelected && (
-            <span data-testid={`select-check-${album.service_id}`} className="absolute inset-0 flex items-center justify-center bg-accent/70 rounded"><span className="text-white text-lg">✓</span></span>
-          )}
         </div>
         <div className="flex-1 min-w-0 flex flex-col gap-0.5">
           <span className="text-sm font-semibold text-text truncate">{album.name}</span>
           <span className="text-xs text-text-dim truncate"><ArtistLinks artists={album.artists} onArtistClick={onArtistClick} /></span>
         </div>
-        {collections !== undefined && (
-          <CollectionsBubble
-            albumCollectionIds={albumCollectionIds}
-            collections={collections || []}
-            onToggle={(colId, add) => onToggleCollection?.(album.service_id, colId, add)}
-            onCreate={name => onCreateCollection?.(name)}
-          />
+        {onToggleSelect && (
+          <button
+            className={`bg-transparent border cursor-pointer w-[22px] h-[22px] rounded-full text-xs font-semibold flex items-center justify-center p-0${isSelected ? ' text-accent border-accent bg-surface-2' : collectionCount > 0 ? ' bg-surface-2 border-accent text-accent' : ' border-transparent text-text-dim'}`}
+            aria-label={isSelected ? 'Selected' : collectionCount > 0 ? `${collectionCount} collections` : 'Add to collection'}
+            onClick={(e) => { e.stopPropagation(); onToggleSelect(album.service_id) }}
+          >
+            {isSelected ? '✓' : collectionCount > 0 ? collectionCount : '+'}
+          </button>
         )}
         <button
           aria-label={isExpanded ? 'Collapse' : 'Expand'}
@@ -158,7 +152,7 @@ const MobileAlbumCard = memo(function MobileAlbumCard({ album, isExpanded, isPla
   )
 })
 
-const DesktopAlbumRow = memo(function DesktopAlbumRow({ album, isExpanded, isPlaying, expandedEntry, playingTrackId, playingTrackName, onPlay, onPlayTrack, onExpand, navigateRow, collections, albumCollectionIds, onToggleCollection, onCreateCollection, dragHandleProps, sortableRef, sortableStyle, selectable, isSelected, onToggleSelect, onArtistClick }) {
+const DesktopAlbumRow = memo(function DesktopAlbumRow({ album, isExpanded, isPlaying, expandedEntry, playingTrackId, playingTrackName, onPlay, onPlayTrack, onExpand, navigateRow, dragHandleProps, sortableRef, sortableStyle, isSelected, onToggleSelect, collectionCount, onArtistClick }) {
   function handleAlbumKeyDown(e) {
     if (e.key === 'ArrowDown') {
       e.preventDefault()
@@ -211,10 +205,7 @@ const DesktopAlbumRow = memo(function DesktopAlbumRow({ album, isExpanded, isPla
           <span className={`expand-chevron${isExpanded ? ' expanded' : ''}`}>▸</span>
         </button>
       </td>
-      <td
-        className="px-2 py-1.5 whitespace-nowrap overflow-hidden text-ellipsis align-middle relative"
-        onClick={selectable ? (e) => { e.stopPropagation(); onToggleSelect?.(album.service_id) } : undefined}
-      >
+      <td className="px-2 py-1.5 whitespace-nowrap overflow-hidden text-ellipsis align-middle relative">
         {isPlaying ? (
           <span className="now-playing-indicator inline-flex items-end justify-center w-10 h-10">
             <span className="eq-bar"></span>
@@ -226,22 +217,20 @@ const DesktopAlbumRow = memo(function DesktopAlbumRow({ album, isExpanded, isPla
           ? <img src={album.image_url} alt={album.name} width={40} height={40} className="rounded-sm object-cover block" />
           : <img src={null} alt="No cover" width={40} height={40} className="rounded-sm object-cover block" style={{ background: '#333' }} />
         }
-        {selectable && isSelected && (
-          <span data-testid={`select-check-${album.service_id}`} className="absolute inset-0 flex items-center justify-center bg-accent/70 rounded-sm"><span className="text-white text-lg">✓</span></span>
-        )}
       </td>
       <td className="px-2 py-1.5 whitespace-nowrap overflow-hidden text-ellipsis align-middle">{album.name}</td>
       <td className="px-2 py-1.5 whitespace-nowrap overflow-hidden text-ellipsis align-middle"><ArtistLinks artists={album.artists} onArtistClick={onArtistClick} /></td>
       <td className="px-2 py-1.5 whitespace-nowrap overflow-hidden text-ellipsis align-middle">{formatYear(album.release_date)}</td>
       <td className="px-2 py-1.5 whitespace-nowrap overflow-hidden text-ellipsis align-middle">{formatDateAdded(album.added_at)}</td>
       <td className="px-2 py-1.5 whitespace-nowrap overflow-hidden text-ellipsis align-middle text-center">
-        {collections !== undefined && (
-          <CollectionsBubble
-            albumCollectionIds={albumCollectionIds}
-            collections={collections || []}
-            onToggle={(colId, add) => onToggleCollection?.(album.service_id, colId, add)}
-            onCreate={name => onCreateCollection?.(name)}
-          />
+        {onToggleSelect && (
+          <button
+            className={`mx-auto bg-transparent border cursor-pointer w-[22px] h-[22px] rounded-full text-xs font-semibold flex items-center justify-center p-0${isSelected ? ' text-accent border-accent bg-surface-2' : collectionCount > 0 ? ' bg-surface-2 border-accent text-accent' : ' border-transparent text-text-dim'}`}
+            aria-label={isSelected ? 'Selected' : collectionCount > 0 ? `${collectionCount} collections` : 'Add to collection'}
+            onClick={(e) => { e.stopPropagation(); onToggleSelect(album.service_id) }}
+          >
+            {isSelected ? '✓' : collectionCount > 0 ? collectionCount : '+'}
+          </button>
         )}
       </td>
     </tr>,
@@ -373,13 +362,9 @@ export default function AlbumTable({
   playingId,
   playingTrackId,
   playingTrackName = null,
-  collections,
   albumCollectionMap,
-  onToggleCollection,
-  onCreateCollection,
   reorderable = false,
   onReorder,
-  selectable = false,
   selectedIds,
   onToggleSelect,
   onArtistClick,
@@ -460,14 +445,10 @@ export default function AlbumTable({
       playingTrackName,
       onPlay,
       onPlayTrack,
-      collections,
-      albumCollectionIds: (albumCollectionMap && albumCollectionMap[album.service_id]) || EMPTY_ARRAY,
-      onToggleCollection,
-      onCreateCollection,
       onExpand: handleExpand,
-      selectable,
-      isSelected: selectable && selectedIds?.has(album.service_id),
+      isSelected: selectedIds?.has(album.service_id),
       onToggleSelect,
+      collectionCount: (albumCollectionMap?.[album.service_id] || []).length,
       onArtistClick,
     }
 
@@ -480,7 +461,6 @@ export default function AlbumTable({
   function renderDesktopRow(album) {
     const isExpanded = !!expanded[album.service_id]
     const isPlaying = playingId === album.service_id
-    const albumCollectionIds = (albumCollectionMap && albumCollectionMap[album.service_id]) || EMPTY_ARRAY
     const commonProps = {
       album,
       isExpanded,
@@ -492,13 +472,9 @@ export default function AlbumTable({
       onPlayTrack,
       onExpand: handleExpand,
       navigateRow,
-      collections,
-      albumCollectionIds,
-      onToggleCollection,
-      onCreateCollection,
-      selectable,
-      isSelected: selectable && selectedIds?.has(album.service_id),
+      isSelected: selectedIds?.has(album.service_id),
       onToggleSelect,
+      collectionCount: (albumCollectionMap?.[album.service_id] || []).length,
       onArtistClick,
     }
 
