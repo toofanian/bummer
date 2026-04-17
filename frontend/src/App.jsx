@@ -76,7 +76,7 @@ export default function App() {
   const [collectionPlayback, setCollectionPlayback] = useState(null)
   const collectionPlaybackRef = useRef(null)
   collectionPlaybackRef.current = collectionPlayback
-  const isInCollection = view !== 'home' && view !== 'library' && view !== 'collections'
+  const isInCollection = view !== 'home' && view !== 'library' && view !== 'collections' && view !== 'settings'
   const artistCount = useMemo(() => {
     const artists = new Set()
     for (const album of albums) {
