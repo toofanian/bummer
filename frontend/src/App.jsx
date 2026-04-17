@@ -954,6 +954,7 @@ export default function App() {
                 onPlayTrack={handlePlayTrack}
                 playingId={playback.is_playing ? playingId : null}
                 playingTrackName={playback.track?.name ?? null}
+                albumCollectionMap={albumCollectionMap}
                 selectedIds={selectedAlbumIdSet}
                 onToggleSelect={handleToggleSelect}
                 onArtistClick={handleArtistClick}
@@ -967,6 +968,7 @@ export default function App() {
                 onPlayTrack={handlePlayTrack}
                 playingId={playback.is_playing ? playingId : null}
                 playingTrackName={playback.track?.name ?? null}
+                albumCollectionMap={albumCollectionMap}
                 selectedIds={selectedAlbumIdSet}
                 onToggleSelect={handleToggleSelect}
                 targetArtist={targetArtist}
