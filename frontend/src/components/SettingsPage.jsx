@@ -51,7 +51,7 @@ export default function SettingsPage({ onLogout, session, onBack }) {
 
   return (
     <div className="flex-1 overflow-y-auto">
-      <div className="max-w-lg mx-auto px-4 py-6 flex flex-col gap-6">
+      <div className="max-w-lg md:max-w-2xl mx-auto px-4 py-6 flex flex-col gap-6">
         <div className="flex items-center gap-3">
           <button
             onClick={onBack}
