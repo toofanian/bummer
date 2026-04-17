@@ -693,9 +693,10 @@ describe('AlbumTable mobile card list', () => {
         selectedIds={new Set(['id1'])}
       />
     )
-    const buttons = screen.getAllByRole('button', { name: /collection/i })
-    expect(buttons[0].textContent).toBe('✓')
-    expect(buttons[1].textContent).toBe('+')
+    const selected = screen.getByRole('button', { name: /selected/i })
+    expect(selected.textContent).toBe('✓')
+    const unselected = screen.getAllByRole('button', { name: /add to collection/i })
+    expect(unselected[0].textContent).toBe('+')
   })
 
   it('shows equalizer overlay on album art when playing on mobile', () => {
@@ -818,9 +819,10 @@ describe('AlbumTable selection via + button (desktop)', () => {
         onToggleSelect={() => {}}
       />
     )
-    const buttons = screen.getAllByRole('button', { name: /collection/i })
-    expect(buttons[0].textContent).toBe('✓')
-    expect(buttons[1].textContent).toBe('+')
+    const selected = screen.getByRole('button', { name: /selected/i })
+    expect(selected.textContent).toBe('✓')
+    const unselected = screen.getAllByRole('button', { name: /add to collection/i })
+    expect(unselected[0].textContent).toBe('+')
   })
 
   it('does not render + button when onToggleSelect is not provided', () => {

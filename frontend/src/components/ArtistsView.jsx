@@ -50,6 +50,7 @@ export default function ArtistsView({
   onPlayTrack,
   playingId,
   playingTrackName,
+  albumCollectionMap,
   selectedIds,
   onToggleSelect,
   targetArtist = null,
@@ -93,6 +94,7 @@ export default function ArtistsView({
             onPlayTrack={onPlayTrack}
             playingId={playingId}
             playingTrackName={playingTrackName}
+            albumCollectionMap={albumCollectionMap}
             selectedIds={selectedIds}
             onToggleSelect={onToggleSelect}
           />

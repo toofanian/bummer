@@ -69,7 +69,7 @@ function ArtistLinks({ artists, onArtistClick }) {
   ))
 }
 
-const MobileAlbumCard = memo(function MobileAlbumCard({ album, isExpanded, isPlaying, exp, playingTrackName, onPlay, onPlayTrack, onExpand, dragHandleProps, sortableRef, sortableStyle, isSelected, onToggleSelect, onArtistClick }) {
+const MobileAlbumCard = memo(function MobileAlbumCard({ album, isExpanded, isPlaying, exp, playingTrackName, onPlay, onPlayTrack, onExpand, dragHandleProps, sortableRef, sortableStyle, isSelected, onToggleSelect, collectionCount, onArtistClick }) {
   return (
     <div ref={sortableRef} style={sortableStyle}>
       <div
@@ -107,11 +107,11 @@ const MobileAlbumCard = memo(function MobileAlbumCard({ album, isExpanded, isPla
         </div>
         {onToggleSelect && (
           <button
-            className={`bg-transparent border cursor-pointer w-[22px] h-[22px] rounded-full text-xs font-semibold flex items-center justify-center p-0${isSelected ? ' text-accent border-accent bg-surface-2' : ' border-transparent text-text-dim'}`}
-            aria-label="Add to collection"
+            className={`bg-transparent border cursor-pointer w-[22px] h-[22px] rounded-full text-xs font-semibold flex items-center justify-center p-0${isSelected ? ' text-accent border-accent bg-surface-2' : collectionCount > 0 ? ' bg-surface-2 border-accent text-accent' : ' border-transparent text-text-dim'}`}
+            aria-label={isSelected ? 'Selected' : collectionCount > 0 ? `${collectionCount} collections` : 'Add to collection'}
             onClick={(e) => { e.stopPropagation(); onToggleSelect(album.service_id) }}
           >
-            {isSelected ? '✓' : '+'}
+            {isSelected ? '✓' : collectionCount > 0 ? collectionCount : '+'}
           </button>
         )}
         <button
@@ -152,7 +152,7 @@ const MobileAlbumCard = memo(function MobileAlbumCard({ album, isExpanded, isPla
   )
 })
 
-const DesktopAlbumRow = memo(function DesktopAlbumRow({ album, isExpanded, isPlaying, expandedEntry, playingTrackId, playingTrackName, onPlay, onPlayTrack, onExpand, navigateRow, dragHandleProps, sortableRef, sortableStyle, isSelected, onToggleSelect, onArtistClick }) {
+const DesktopAlbumRow = memo(function DesktopAlbumRow({ album, isExpanded, isPlaying, expandedEntry, playingTrackId, playingTrackName, onPlay, onPlayTrack, onExpand, navigateRow, dragHandleProps, sortableRef, sortableStyle, isSelected, onToggleSelect, collectionCount, onArtistClick }) {
   function handleAlbumKeyDown(e) {
     if (e.key === 'ArrowDown') {
       e.preventDefault()
@@ -225,11 +225,11 @@ const DesktopAlbumRow = memo(function DesktopAlbumRow({ album, isExpanded, isPla
       <td className="px-2 py-1.5 whitespace-nowrap overflow-hidden text-ellipsis align-middle text-center">
         {onToggleSelect && (
           <button
-            className={`bg-transparent border cursor-pointer w-[22px] h-[22px] rounded-full text-xs font-semibold flex items-center justify-center p-0${isSelected ? ' text-accent border-accent bg-surface-2' : ' border-transparent text-text-dim'}`}
-            aria-label="Add to collection"
+            className={`bg-transparent border cursor-pointer w-[22px] h-[22px] rounded-full text-xs font-semibold flex items-center justify-center p-0${isSelected ? ' text-accent border-accent bg-surface-2' : collectionCount > 0 ? ' bg-surface-2 border-accent text-accent' : ' border-transparent text-text-dim'}`}
+            aria-label={isSelected ? 'Selected' : collectionCount > 0 ? `${collectionCount} collections` : 'Add to collection'}
             onClick={(e) => { e.stopPropagation(); onToggleSelect(album.service_id) }}
           >
-            {isSelected ? '✓' : '+'}
+            {isSelected ? '✓' : collectionCount > 0 ? collectionCount : '+'}
           </button>
         )}
       </td>
@@ -362,6 +362,7 @@ export default function AlbumTable({
   playingId,
   playingTrackId,
   playingTrackName = null,
+  albumCollectionMap,
   reorderable = false,
   onReorder,
   selectedIds,
@@ -447,6 +448,7 @@ export default function AlbumTable({
       onExpand: handleExpand,
       isSelected: selectedIds?.has(album.service_id),
       onToggleSelect,
+      collectionCount: (albumCollectionMap?.[album.service_id] || []).length,
       onArtistClick,
     }
 
@@ -472,6 +474,7 @@ export default function AlbumTable({
       navigateRow,
       isSelected: selectedIds?.has(album.service_id),
       onToggleSelect,
+      collectionCount: (albumCollectionMap?.[album.service_id] || []).length,
       onArtistClick,
     }
 
