@@ -5,6 +5,16 @@
   "framework": null,
   "rewrites": [
     { "source": "/api/(.*)", "destination": "/api/index" },
+    {
+      "source": "/((?!api/).*)",
+      "has": [{ "type": "host", "value": "thedeathofshuffle.com" }],
+      "destination": "/landing.html"
+    },
+    {
+      "source": "/((?!api/).*)",
+      "has": [{ "type": "host", "value": "www.thedeathofshuffle.com" }],
+      "destination": "/landing.html"
+    },
     { "source": "/((?!api/).*)", "destination": "/index.html" }
   ],
   "crons": [{ "path": "/api/digest/snapshot", "schedule": "0 6 * * *" }],
