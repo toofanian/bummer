@@ -98,6 +98,89 @@ describe('DigestPanel', () => {
     })
   })
 
+  it('renders Digest and Changelog tabs', async () => {
+    global.fetch = vi.fn(() =>
+      Promise.resolve({ ok: true, json: () => Promise.resolve(mockDigestData) })
+    )
+    render(<DigestPanel open={true} onClose={() => {}} onPlay={() => {}} />)
+    expect(screen.getByRole('tab', { name: /digest/i })).toBeInTheDocument()
+    expect(screen.getByRole('tab', { name: /changelog/i })).toBeInTheDocument()
+  })
+
+  it('shows digest content by default and changelog on tab switch', async () => {
+    const mockChangelogData = {
+      entries: [
+        {
+          date: '2026-04-15',
+          added: [{ service_id: 'a1', name: 'Changelog Album', artists: ['Artist A'], image_url: 'https://img/1.jpg' }],
+          removed: [],
+        },
+        {
+          date: '2026-04-14',
+          added: [],
+          removed: [{ service_id: 'a2', name: 'Removed Album', artists: ['Artist B'], image_url: 'https://img/2.jpg' }],
+        },
+      ],
+      has_more: false,
+      next_cursor: null,
+    }
+
+    global.fetch = vi.fn((url) => {
+      if (url.includes('/digest/changelog')) {
+        return Promise.resolve({ ok: true, json: () => Promise.resolve(mockChangelogData) })
+      }
+      return Promise.resolve({ ok: true, json: () => Promise.resolve(mockDigestData) })
+    })
+
+    render(<DigestPanel open={true} onClose={() => {}} onPlay={() => {}} />)
+
+    // Digest content loads by default — date inputs should be present
+    await waitFor(() => {
+      expect(screen.getAllByDisplayValue(/\d{4}-\d{2}-\d{2}/).length).toBeGreaterThan(0)
+    })
+
+    // Switch to changelog tab
+    await userEvent.click(screen.getByRole('tab', { name: /changelog/i }))
+
+    // Date inputs should disappear, changelog entries should appear
+    await waitFor(() => {
+      expect(screen.getByText('2026-04-15')).toBeInTheDocument()
+      expect(screen.getByText('2026-04-14')).toBeInTheDocument()
+    })
+  })
+
+  it('shows Load more button when changelog has_more is true', async () => {
+    const mockChangelogData = {
+      entries: [{ date: '2026-04-15', added: [{ service_id: 'a1', name: 'Album X', artists: ['X'], image_url: null }], removed: [] }],
+      has_more: true,
+      next_cursor: '2026-04-14',
+    }
+
+    global.fetch = vi.fn((url) => {
+      if (url.includes('/digest/changelog')) {
+        return Promise.resolve({ ok: true, json: () => Promise.resolve(mockChangelogData) })
+      }
+      return Promise.resolve({ ok: true, json: () => Promise.resolve(mockDigestData) })
+    })
+
+    render(<DigestPanel open={true} onClose={() => {}} onPlay={() => {}} />)
+    await userEvent.click(screen.getByRole('tab', { name: /changelog/i }))
+    await waitFor(() => expect(screen.getByText(/load more/i)).toBeInTheDocument())
+  })
+
+  it('shows empty message when changelog has no entries', async () => {
+    global.fetch = vi.fn((url) => {
+      if (url.includes('/digest/changelog')) {
+        return Promise.resolve({ ok: true, json: () => Promise.resolve({ entries: [], has_more: false, next_cursor: null }) })
+      }
+      return Promise.resolve({ ok: true, json: () => Promise.resolve(mockDigestData) })
+    })
+
+    render(<DigestPanel open={true} onClose={() => {}} onPlay={() => {}} />)
+    await userEvent.click(screen.getByRole('tab', { name: /changelog/i }))
+    await waitFor(() => expect(screen.getByText(/no changes recorded/i)).toBeInTheDocument())
+  })
+
   it('re-fetches when date range changes', async () => {
     global.fetch = vi.fn(() =>
       Promise.resolve({ ok: true, json: () => Promise.resolve(mockDigestData) })
