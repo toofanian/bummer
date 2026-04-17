@@ -20,6 +20,7 @@ import { useSpotifyAuth } from './hooks/useSpotifyAuth'
 import SignupScreen from './components/SignupScreen'
 import OnboardingWizard from './components/OnboardingWizard'
 import BulkAddBar from './components/BulkAddBar'
+import CollectionPicker from './components/CollectionPicker'
 import SettingsMenu from './components/SettingsMenu'
 import { apiFetch } from './api'
 import { IS_PREVIEW } from './previewMode'
@@ -71,6 +72,7 @@ export default function App() {
   // Picker is shown when: devicePickerOpen OR pendingPlayIntent !== null
   const isMobile = useIsMobile()
   const [selectedAlbumIds, setSelectedAlbumIds] = useState(new Set())
+  const [pickerAlbumIds, setPickerAlbumIds] = useState(null)
   const [targetArtist, setTargetArtist] = useState(null)
   const isInCollection = view !== 'home' && view !== 'library' && view !== 'collections'
   const artistCount = useMemo(() => {
@@ -525,6 +527,13 @@ export default function App() {
     setSelectedAlbumIds(new Set())
   }
 
+  function handleOpenPicker(albumIds) {
+    setPickerAlbumIds(albumIds)
+  }
+  function handleClosePicker() {
+    setPickerAlbumIds(null)
+  }
+
   async function handleBulkAdd(collectionId) {
     const ids = [...selectedAlbumIds]
     await apiFetch(`/collections/${collectionId}/albums/bulk`, {
@@ -712,10 +721,7 @@ export default function App() {
                   onPlayTrack={handlePlayTrack}
                   playingId={playback.is_playing ? playingId : null}
                   playingTrackName={playback.track?.name ?? null}
-                  collections={collections}
-                  albumCollectionMap={albumCollectionMap}
-                  onToggleCollection={handleToggleCollection}
-                  onCreateCollection={handleCreateCollection}
+                  onOpenPicker={handleOpenPicker}
                   selectable
                   selectedIds={selectedAlbumIds}
                   onToggleSelect={handleToggleSelect}
@@ -730,10 +736,7 @@ export default function App() {
                   onPlayTrack={handlePlayTrack}
                   playingId={playback.is_playing ? playingId : null}
                   playingTrackName={playback.track?.name ?? null}
-                  collections={collections}
-                  albumCollectionMap={albumCollectionMap}
-                  onToggleCollection={handleToggleCollection}
-                  onCreateCollection={handleCreateCollection}
+                  onOpenPicker={handleOpenPicker}
                   targetArtist={targetArtist}
                   onClearTargetArtist={() => setTargetArtist(null)}
                 />
@@ -779,10 +782,7 @@ export default function App() {
                   onPlayTrack={handlePlayTrack}
                   playingId={playback.is_playing ? playingId : null}
                   playingTrackName={playback.track?.name ?? null}
-                  collections={collections}
-                  albumCollectionMap={albumCollectionMap}
-                  onToggleCollection={handleToggleCollection}
-                  onCreateCollection={handleCreateCollection}
+                  onOpenPicker={handleOpenPicker}
                   reorderable
                   onReorder={handleReorderCollectionAlbums}
                   onArtistClick={handleArtistClick}
@@ -795,9 +795,23 @@ export default function App() {
         {selectedAlbumIds.size > 0 && (
           <BulkAddBar
             selectedCount={selectedAlbumIds.size}
-            collections={collections}
-            onAddToCollection={handleBulkAdd}
+            onOpenPicker={() => handleOpenPicker([...selectedAlbumIds])}
             onClear={handleClearSelection}
+          />
+        )}
+
+        {pickerAlbumIds && (
+          <CollectionPicker
+            albumIds={pickerAlbumIds}
+            collections={collections}
+            albumCollectionMap={albumCollectionMap}
+            onToggle={handleToggleCollection}
+            onBulkAdd={(collectionId) => {
+              handleBulkAdd(collectionId)
+              setPickerAlbumIds(null)
+            }}
+            onCreate={handleCreateCollection}
+            onClose={handleClosePicker}
           />
         )}
 
@@ -939,10 +953,7 @@ export default function App() {
                 onPlayTrack={handlePlayTrack}
                 playingId={playback.is_playing ? playingId : null}
                 playingTrackName={playback.track?.name ?? null}
-                collections={collections}
-                albumCollectionMap={albumCollectionMap}
-                onToggleCollection={handleToggleCollection}
-                onCreateCollection={handleCreateCollection}
+                onOpenPicker={handleOpenPicker}
                 selectable
                 selectedIds={selectedAlbumIds}
                 onToggleSelect={handleToggleSelect}
@@ -957,10 +968,7 @@ export default function App() {
                 onPlayTrack={handlePlayTrack}
                 playingId={playback.is_playing ? playingId : null}
                 playingTrackName={playback.track?.name ?? null}
-                collections={collections}
-                albumCollectionMap={albumCollectionMap}
-                onToggleCollection={handleToggleCollection}
-                onCreateCollection={handleCreateCollection}
+                onOpenPicker={handleOpenPicker}
                 targetArtist={targetArtist}
                 onClearTargetArtist={() => setTargetArtist(null)}
               />
@@ -1006,10 +1014,7 @@ export default function App() {
                 onPlayTrack={handlePlayTrack}
                 playingId={playback.is_playing ? playingId : null}
                 playingTrackName={playback.track?.name ?? null}
-                collections={collections}
-                albumCollectionMap={albumCollectionMap}
-                onToggleCollection={handleToggleCollection}
-                onCreateCollection={handleCreateCollection}
+                onOpenPicker={handleOpenPicker}
                 reorderable
                 onReorder={handleReorderCollectionAlbums}
                 onArtistClick={handleArtistClick}
@@ -1021,9 +1026,22 @@ export default function App() {
       {selectedAlbumIds.size > 0 && (
         <BulkAddBar
           selectedCount={selectedAlbumIds.size}
-          collections={collections}
-          onAddToCollection={handleBulkAdd}
+          onOpenPicker={() => handleOpenPicker([...selectedAlbumIds])}
           onClear={handleClearSelection}
+        />
+      )}
+      {pickerAlbumIds && (
+        <CollectionPicker
+          albumIds={pickerAlbumIds}
+          collections={collections}
+          albumCollectionMap={albumCollectionMap}
+          onToggle={handleToggleCollection}
+          onBulkAdd={(collectionId) => {
+            handleBulkAdd(collectionId)
+            setPickerAlbumIds(null)
+          }}
+          onCreate={handleCreateCollection}
+          onClose={handleClosePicker}
         />
       )}
       <NowPlayingPane
