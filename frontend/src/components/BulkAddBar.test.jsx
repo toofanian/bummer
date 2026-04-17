@@ -1,63 +1,42 @@
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { describe, it, expect, vi } from 'vitest'
 import BulkAddBar from './BulkAddBar'
 
-const COLLECTIONS = [
-  { id: 'col-1', name: 'Road trip' },
-  { id: 'col-2', name: '90s classics' },
-]
-
 describe('BulkAddBar', () => {
-  it('shows selected count text', () => {
+  it('calls onOpenPicker when "Add to Collection" is clicked', async () => {
+    const onOpenPicker = vi.fn()
     render(
       <BulkAddBar
         selectedCount={3}
-        collections={COLLECTIONS}
-        onAddToCollection={() => {}}
+        onOpenPicker={onOpenPicker}
         onClear={() => {}}
       />
     )
-    expect(screen.getByText('3 selected')).toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: /add to collection/i }))
+    expect(onOpenPicker).toHaveBeenCalled()
   })
 
-  it('calls onClear when × is clicked', async () => {
+  it('shows selected count', () => {
+    render(
+      <BulkAddBar
+        selectedCount={5}
+        onOpenPicker={() => {}}
+        onClear={() => {}}
+      />
+    )
+    expect(screen.getByText('5 selected')).toBeInTheDocument()
+  })
+
+  it('calls onClear when clear button is clicked', async () => {
     const onClear = vi.fn()
     render(
       <BulkAddBar
-        selectedCount={2}
-        collections={COLLECTIONS}
-        onAddToCollection={() => {}}
+        selectedCount={3}
+        onOpenPicker={() => {}}
         onClear={onClear}
       />
     )
-    await userEvent.click(screen.getByRole('button', { name: /clear selection/i }))
-    expect(onClear).toHaveBeenCalledOnce()
-  })
-
-  it('shows collection picker and calls onAddToCollection when a collection is clicked', async () => {
-    const onAddToCollection = vi.fn()
-    render(
-      <BulkAddBar
-        selectedCount={1}
-        collections={COLLECTIONS}
-        onAddToCollection={onAddToCollection}
-        onClear={() => {}}
-      />
-    )
-    // Picker should not be visible initially
-    expect(screen.queryByText('Road trip')).not.toBeInTheDocument()
-
-    // Open the picker
-    await userEvent.click(screen.getByRole('button', { name: /add to collection/i }))
-    expect(screen.getByText('Road trip')).toBeInTheDocument()
-    expect(screen.getByText('90s classics')).toBeInTheDocument()
-
-    // Click a collection
-    await userEvent.click(screen.getByText('Road trip'))
-    expect(onAddToCollection).toHaveBeenCalledWith('col-1')
-
-    // Picker should close after selection
-    expect(screen.queryByText('Road trip')).not.toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: /clear/i }))
+    expect(onClear).toHaveBeenCalled()
   })
 })
