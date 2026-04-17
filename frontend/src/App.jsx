@@ -161,6 +161,10 @@ export default function App() {
 
       if (serverAlbums.length > 0) {
         setAlbums(serverAlbums)
+        if (isColdStart) {
+          setLoading(false)
+          setSyncing(true)
+        }
         try {
           localStorage.setItem(CACHE_KEY, JSON.stringify({
             albums: serverAlbums,

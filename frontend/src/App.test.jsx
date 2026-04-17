@@ -1445,7 +1445,67 @@ describe('App — sync/loading bug fixes', () => {
     clearLocalStorageCache()
   })
 
-  // 4. Existing state preserved on loadData — collections/albumCollectionMap not cleared
+  // 4. Cold start renders albums immediately after Supabase cache returns, before sync completes
+  it('renders albums and hides spinner on cold start as soon as Supabase cache returns, before sync completes', async () => {
+    clearLocalStorageCache()
+
+    const SERVER_ALBUMS = [
+      { service_id: 'srv1', name: 'Server Album', artists: ['Artist'], image_url: null, release_date: '2020', total_tracks: 10, added_at: '2021-01-01T00:00:00Z' },
+    ]
+
+    let resolveSync
+    const syncPromise = new Promise(res => { resolveSync = res })
+
+    global.fetch = vi.fn().mockImplementation((url, options) => {
+      // Sync hangs until explicitly resolved
+      if (url.includes('/library/sync') && !url.includes('/sync-complete') && options?.method === 'POST') {
+        return syncPromise
+      }
+      if (url.includes('/library/sync-complete') && options?.method === 'POST') {
+        return Promise.resolve({ ok: true, json: () => Promise.resolve({ ok: true }) })
+      }
+      // Supabase cache returns albums immediately
+      if (url.includes('/library/albums') && !url.includes('/tracks')) {
+        return Promise.resolve({ ok: true, json: () => Promise.resolve({ albums: SERVER_ALBUMS, total: 1, last_synced: null }) })
+      }
+      if (url.includes('/collections')) {
+        return Promise.resolve({ ok: true, json: () => Promise.resolve(COLLECTIONS_OK) })
+      }
+      if (url.includes('/home')) {
+        return Promise.resolve({ ok: true, json: () => Promise.resolve(HOME_OK) })
+      }
+      return Promise.resolve({ ok: true, json: () => Promise.resolve({}) })
+    })
+
+    render(<App />)
+
+    // Spinner should disappear and Library nav should be available even though sync is still pending
+    const libraryBtn = await screen.findByRole('button', { name: /^library( syncing)?$/i })
+    await userEvent.click(libraryBtn)
+    expect(await screen.findByText('Server Album')).toBeInTheDocument()
+
+    // The cold-start loading message should NOT be visible
+    expect(screen.queryByText(/syncing your library/i)).not.toBeInTheDocument()
+
+    // Now resolve sync so the component can finish cleanly
+    resolveSync({ ok: true, json: () => Promise.resolve({
+      albums: SERVER_ALBUMS,
+      done: true,
+      next_offset: 1,
+      spotify_total: 1,
+      synced_this_page: 1,
+    })})
+
+    // Verify sync completes — syncing pulse should eventually stop
+    await waitFor(() => {
+      const btn = screen.getByRole('button', { name: /^library$/i })
+      expect(btn.querySelector('.animate-pulse')).not.toBeInTheDocument()
+    })
+
+    clearLocalStorageCache()
+  })
+
+  // 5. Existing state preserved on loadData — collections/albumCollectionMap not cleared
   it('does not clear collections state at start of loadData', async () => {
     seedLocalStorageCache([ALBUM_A])
 
