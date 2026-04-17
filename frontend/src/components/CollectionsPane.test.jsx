@@ -12,8 +12,8 @@ const COLLECTIONS = [
 ]
 
 const ALBUMS = [
-  { spotify_id: 'alb-1', name: 'In Rainbows', artists: ['Radiohead'], image_url: 'http://img/1.jpg' },
-  { spotify_id: 'alb-2', name: 'OK Computer', artists: ['Radiohead'], image_url: null },
+  { service_id: 'alb-1', name: 'In Rainbows', artists: ['Radiohead'], image_url: 'http://img/1.jpg' },
+  { service_id: 'alb-2', name: 'OK Computer', artists: ['Radiohead'], image_url: null },
 ]
 
 describe('CollectionsPane', () => {

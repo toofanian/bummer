@@ -248,7 +248,7 @@ export default function FullScreenNowPlaying({
                   className={`flex items-center gap-3 py-2 px-2 rounded cursor-pointer transition-colors duration-100 ${
                     isActive ? 'bg-now-playing' : 'hover:bg-surface-2'
                   }`}
-                  onClick={() => onPlayTrack?.(`spotify:track:${t.spotify_id}`)}
+                  onClick={() => onPlayTrack?.(`spotify:track:${t.service_id}`)}
                 >
                   <span className="text-xs text-text-dim w-5 text-right flex-shrink-0">{t.track_number}</span>
                   <span className={`flex-1 text-sm truncate ${isActive ? 'text-text font-semibold' : 'text-text-dim'}`}>{t.name}</span>

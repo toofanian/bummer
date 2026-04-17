@@ -7,7 +7,6 @@ vi.mock('../hooks/useIsMobile', () => ({ useIsMobile: vi.fn().mockReturnValue(fa
 
 const ALBUMS = [
   {
-    spotify_id: 'id1',
     service_id: 'id1',
     name: 'Love Deluxe',
     artists: ['Sade'],
@@ -17,7 +16,6 @@ const ALBUMS = [
     added_at: '2021-03-15T00:00:00Z',
   },
   {
-    spotify_id: 'id2',
     service_id: 'id2',
     name: 'Room On Fire',
     artists: ['The Strokes'],
@@ -139,7 +137,7 @@ describe('AlbumTable', () => {
     expect(fontSize).toBeGreaterThanOrEqual(20)
   })
 
-  it('calls onFetchTracks with spotify_id when expand is clicked', async () => {
+  it('calls onFetchTracks with service_id when expand is clicked', async () => {
     const onFetchTracks = vi.fn().mockResolvedValue([])
     render(<AlbumTable albums={ALBUMS} onFetchTracks={onFetchTracks} />)
 
@@ -150,8 +148,8 @@ describe('AlbumTable', () => {
 
   it('shows tracks after expansion', async () => {
     const tracks = [
-      { track_number: 1, name: 'No Ordinary Love', duration: '4:25', spotify_id: 'tid1', service_id: 'tid1' },
-      { track_number: 2, name: 'Feel No Pain',     duration: '5:42', spotify_id: 'tid2', service_id: 'tid2' },
+      { track_number: 1, name: 'No Ordinary Love', duration: '4:25', service_id: 'tid1' },
+      { track_number: 2, name: 'Feel No Pain',     duration: '5:42', service_id: 'tid2' },
     ]
     const onFetchTracks = vi.fn().mockResolvedValue(tracks)
     render(<AlbumTable albums={ALBUMS} onFetchTracks={onFetchTracks} />)
@@ -165,7 +163,7 @@ describe('AlbumTable', () => {
 
   it('collapses tracks on second click', async () => {
     const onFetchTracks = vi.fn().mockResolvedValue([
-      { track_number: 1, name: 'No Ordinary Love', duration: '4:25', spotify_id: 'tid1', service_id: 'tid1' },
+      { track_number: 1, name: 'No Ordinary Love', duration: '4:25', service_id: 'tid1' },
     ])
     render(<AlbumTable albums={ALBUMS} onFetchTracks={onFetchTracks} />)
 
@@ -198,7 +196,7 @@ describe('AlbumTable', () => {
 
   it('expanded row has rotate class on expand-chevron when expanded', async () => {
     const onFetchTracks = vi.fn().mockResolvedValue([
-      { track_number: 1, name: 'No Ordinary Love', duration: '4:25', spotify_id: 'tid1', service_id: 'tid1' },
+      { track_number: 1, name: 'No Ordinary Love', duration: '4:25', service_id: 'tid1' },
     ])
     render(<AlbumTable albums={[ALBUMS[0]]} onFetchTracks={onFetchTracks} />)
 
@@ -216,7 +214,7 @@ describe('AlbumTable', () => {
 
   it('does not render track play buttons when onPlayTrack is not provided', async () => {
     const tracks = [
-      { track_number: 1, name: 'No Ordinary Love', duration: '4:25', spotify_id: 'tid1', service_id: 'tid1' },
+      { track_number: 1, name: 'No Ordinary Love', duration: '4:25', service_id: 'tid1' },
     ]
     const onFetchTracks = vi.fn().mockResolvedValue(tracks)
     render(<AlbumTable albums={[ALBUMS[0]]} onFetchTracks={onFetchTracks} />)
@@ -237,7 +235,7 @@ describe('AlbumTable', () => {
     expect(screen.queryByRole('button', { name: /^pause$/i })).not.toBeInTheDocument()
   })
 
-  it('clicking an album row calls onPlay with that album spotify_id', async () => {
+  it('clicking an album row calls onPlay with that album service_id', async () => {
     const onPlay = vi.fn().mockResolvedValue(null)
     render(<AlbumTable albums={ALBUMS} onPlay={onPlay} onFetchTracks={() => {}} />)
 
@@ -257,7 +255,7 @@ describe('AlbumTable', () => {
 
   it('clicking a track row calls onPlayTrack with track URI', async () => {
     const tracks = [
-      { track_number: 1, name: 'No Ordinary Love', duration: '4:25', spotify_id: 'tid1', service_id: 'tid1' },
+      { track_number: 1, name: 'No Ordinary Love', duration: '4:25', service_id: 'tid1' },
     ]
     const onFetchTracks = vi.fn().mockResolvedValue(tracks)
     const onPlayTrack = vi.fn()
@@ -298,8 +296,8 @@ describe('AlbumTable', () => {
 
   it('shows now-playing indicator on track row when playingTrackId matches', async () => {
     const tracks = [
-      { track_number: 1, name: 'No Ordinary Love', duration: '4:25', spotify_id: 'tid1', service_id: 'tid1' },
-      { track_number: 2, name: 'Feel No Pain',     duration: '5:42', spotify_id: 'tid2', service_id: 'tid2' },
+      { track_number: 1, name: 'No Ordinary Love', duration: '4:25', service_id: 'tid1' },
+      { track_number: 2, name: 'Feel No Pain',     duration: '5:42', service_id: 'tid2' },
     ]
     const onFetchTracks = vi.fn().mockResolvedValue(tracks)
     render(
@@ -338,7 +336,7 @@ describe('AlbumTable', () => {
 
   it('pressing ArrowRight on a focused album row expands it', async () => {
     const onFetchTracks = vi.fn().mockResolvedValue([
-      { track_number: 1, name: 'No Ordinary Love', duration: '4:25', spotify_id: 'tid1', service_id: 'tid1' },
+      { track_number: 1, name: 'No Ordinary Love', duration: '4:25', service_id: 'tid1' },
     ])
     render(<AlbumTable albums={[ALBUMS[0]]} onFetchTracks={onFetchTracks} />)
 
@@ -351,7 +349,7 @@ describe('AlbumTable', () => {
 
   it('pressing ArrowLeft on a focused expanded album row collapses it', async () => {
     const onFetchTracks = vi.fn().mockResolvedValue([
-      { track_number: 1, name: 'No Ordinary Love', duration: '4:25', spotify_id: 'tid1', service_id: 'tid1' },
+      { track_number: 1, name: 'No Ordinary Love', duration: '4:25', service_id: 'tid1' },
     ])
     render(<AlbumTable albums={[ALBUMS[0]]} onFetchTracks={onFetchTracks} />)
 
@@ -390,8 +388,8 @@ describe('AlbumTable', () => {
 
   it('track rows have tabIndex=0 so they are focusable', async () => {
     const tracks = [
-      { track_number: 1, name: 'No Ordinary Love', duration: '4:25', spotify_id: 'tid1', service_id: 'tid1' },
-      { track_number: 2, name: 'Feel No Pain',     duration: '5:42', spotify_id: 'tid2', service_id: 'tid2' },
+      { track_number: 1, name: 'No Ordinary Love', duration: '4:25', service_id: 'tid1' },
+      { track_number: 2, name: 'Feel No Pain',     duration: '5:42', service_id: 'tid2' },
     ]
     const onFetchTracks = vi.fn().mockResolvedValue(tracks)
     render(<AlbumTable albums={[ALBUMS[0]]} onFetchTracks={onFetchTracks} onPlayTrack={() => {}} />)
@@ -407,7 +405,7 @@ describe('AlbumTable', () => {
 
   it('pressing Enter on a focused track row calls onPlayTrack', async () => {
     const tracks = [
-      { track_number: 1, name: 'No Ordinary Love', duration: '4:25', spotify_id: 'tid1', service_id: 'tid1' },
+      { track_number: 1, name: 'No Ordinary Love', duration: '4:25', service_id: 'tid1' },
     ]
     const onFetchTracks = vi.fn().mockResolvedValue(tracks)
     const onPlayTrack = vi.fn()
@@ -425,7 +423,7 @@ describe('AlbumTable', () => {
 
   it('pressing Escape on a focused track row blurs it', async () => {
     const tracks = [
-      { track_number: 1, name: 'No Ordinary Love', duration: '4:25', spotify_id: 'tid1', service_id: 'tid1' },
+      { track_number: 1, name: 'No Ordinary Love', duration: '4:25', service_id: 'tid1' },
     ]
     const onFetchTracks = vi.fn().mockResolvedValue(tracks)
     render(<AlbumTable albums={[ALBUMS[0]]} onFetchTracks={onFetchTracks} onPlayTrack={() => {}} />)
@@ -446,7 +444,7 @@ describe('AlbumTable', () => {
 
   it('renders a header row inside the expanded section with Name, Artists, Duration labels', async () => {
     const tracks = [
-      { track_number: 1, name: 'No Ordinary Love', duration: '4:25', spotify_id: 'tid1', service_id: 'tid1', artists: ['Sade'] },
+      { track_number: 1, name: 'No Ordinary Love', duration: '4:25', service_id: 'tid1', artists: ['Sade'] },
     ]
     const onFetchTracks = vi.fn().mockResolvedValue(tracks)
     render(<AlbumTable albums={[ALBUMS[0]]} onFetchTracks={onFetchTracks} />)
@@ -461,8 +459,8 @@ describe('AlbumTable', () => {
 
   it('renders artists cell with artist names in track rows', async () => {
     const tracks = [
-      { track_number: 1, name: 'No Ordinary Love', duration: '4:25', spotify_id: 'tid1', service_id: 'tid1', artists: ['Sade', 'Extra Artist'] },
-      { track_number: 2, name: 'Feel No Pain',     duration: '5:42', spotify_id: 'tid2', service_id: 'tid2', artists: ['Sade'] },
+      { track_number: 1, name: 'No Ordinary Love', duration: '4:25', service_id: 'tid1', artists: ['Sade', 'Extra Artist'] },
+      { track_number: 2, name: 'Feel No Pain',     duration: '5:42', service_id: 'tid2', artists: ['Sade'] },
     ]
     const onFetchTracks = vi.fn().mockResolvedValue(tracks)
     render(<AlbumTable albums={[ALBUMS[0]]} onFetchTracks={onFetchTracks} />)
@@ -476,7 +474,7 @@ describe('AlbumTable', () => {
 
   it('renders artists cell gracefully when artists is missing from track', async () => {
     const tracks = [
-      { track_number: 1, name: 'No Ordinary Love', duration: '4:25', spotify_id: 'tid1', service_id: 'tid1' },
+      { track_number: 1, name: 'No Ordinary Love', duration: '4:25', service_id: 'tid1' },
     ]
     const onFetchTracks = vi.fn().mockResolvedValue(tracks)
     render(<AlbumTable albums={[ALBUMS[0]]} onFetchTracks={onFetchTracks} />)
@@ -491,8 +489,8 @@ describe('AlbumTable', () => {
 
   it('highlights the currently playing track row with now-playing background when expanded', async () => {
     const tracks = [
-      { track_number: 1, name: 'No Ordinary Love', duration: '4:25', spotify_id: 'tid1', service_id: 'tid1', artists: ['Sade'] },
-      { track_number: 2, name: 'Feel No Pain',     duration: '5:42', spotify_id: 'tid2', service_id: 'tid2', artists: ['Sade'] },
+      { track_number: 1, name: 'No Ordinary Love', duration: '4:25', service_id: 'tid1', artists: ['Sade'] },
+      { track_number: 2, name: 'Feel No Pain',     duration: '5:42', service_id: 'tid2', artists: ['Sade'] },
     ]
     const onFetchTracks = vi.fn().mockResolvedValue(tracks)
     render(
@@ -563,7 +561,7 @@ describe('AlbumTable', () => {
 
   it('now-playing indicator on an active track row contains .eq-bar elements and not a music note emoji', async () => {
     const tracks = [
-      { track_number: 1, name: 'No Ordinary Love', duration: '4:25', spotify_id: 'tid1', service_id: 'tid1', artists: ['Sade'] },
+      { track_number: 1, name: 'No Ordinary Love', duration: '4:25', service_id: 'tid1', artists: ['Sade'] },
     ]
     const onFetchTracks = vi.fn().mockResolvedValue(tracks)
     render(
@@ -609,7 +607,7 @@ describe('AlbumTable mobile card list', () => {
     expect(screen.getByText('The Strokes')).toBeInTheDocument()
   })
 
-  it('tapping a card calls onPlay with the album spotify_id', () => {
+  it('tapping a card calls onPlay with the album service_id', () => {
     const onPlay = vi.fn()
     render(<AlbumTable albums={ALBUMS} loading={false} onPlay={onPlay} />)
     const card = document.querySelector('[data-testid="album-card-id1"]')
@@ -628,7 +626,7 @@ describe('AlbumTable mobile card list', () => {
 
   it('tapping a track row calls onPlayTrack', async () => {
     const tracks = [
-      { track_number: 1, name: 'No Ordinary Love', duration: '4:25', spotify_id: 'tid1', service_id: 'tid1', artists: ['Sade'] },
+      { track_number: 1, name: 'No Ordinary Love', duration: '4:25', service_id: 'tid1', artists: ['Sade'] },
     ]
     const onFetchTracks = vi.fn().mockResolvedValue(tracks)
     const onPlayTrack = vi.fn()
@@ -655,48 +653,20 @@ describe('AlbumTable mobile card list', () => {
     expect(card).toHaveClass('now-playing')
   })
 
-  it('renders + button for each card when onToggleSelect is provided', () => {
-    const onToggleSelect = vi.fn()
+  it('renders CollectionsBubble for each card when collections prop is provided', () => {
+    const onToggle = vi.fn()
     render(
       <AlbumTable
         albums={ALBUMS}
         loading={false}
-        onToggleSelect={onToggleSelect}
-        selectedIds={new Set()}
+        collections={COLLECTIONS}
+        albumCollectionMap={{}}
+        onToggleCollection={onToggle}
       />
     )
-    const buttons = screen.getAllByRole('button', { name: /collection/i })
-    expect(buttons).toHaveLength(ALBUMS.length)
-  })
-
-  it('+ button calls onToggleSelect with album id when tapped on mobile', () => {
-    const onToggleSelect = vi.fn()
-    render(
-      <AlbumTable
-        albums={ALBUMS}
-        loading={false}
-        onToggleSelect={onToggleSelect}
-        selectedIds={new Set()}
-      />
-    )
-    const buttons = screen.getAllByRole('button', { name: /collection/i })
-    fireEvent.click(buttons[0])
-    expect(onToggleSelect).toHaveBeenCalledWith('id1')
-  })
-
-  it('+ button shows checkmark when album is selected on mobile', () => {
-    render(
-      <AlbumTable
-        albums={ALBUMS}
-        loading={false}
-        onToggleSelect={() => {}}
-        selectedIds={new Set(['id1'])}
-      />
-    )
-    const selected = screen.getByRole('button', { name: /selected/i })
-    expect(selected.textContent).toBe('✓')
-    const unselected = screen.getAllByRole('button', { name: /add to collection/i })
-    expect(unselected[0].textContent).toBe('+')
+    // CollectionsBubble renders a button with the collection count or a "+" indicator
+    const bubbles = screen.getAllByRole('button', { name: /collection/i })
+    expect(bubbles).toHaveLength(ALBUMS.length)
   })
 
   it('shows equalizer overlay on album art when playing on mobile', () => {
@@ -782,88 +752,126 @@ describe('AlbumTable reorderable drag handles (mobile)', () => {
   })
 })
 
-describe('AlbumTable selection via + button (desktop)', () => {
+describe('AlbumTable selection overlay (desktop)', () => {
   afterEach(() => useIsMobile.mockReturnValue(false))
 
-  it('renders + button for each album when onToggleSelect is provided', () => {
-    render(
-      <AlbumTable
-        albums={ALBUMS}
-        selectedIds={new Set()}
-        onToggleSelect={() => {}}
-      />
-    )
-    const buttons = screen.getAllByRole('button', { name: /collection/i })
-    expect(buttons).toHaveLength(ALBUMS.length)
-  })
-
-  it('+ button calls onToggleSelect with album id', async () => {
+  it('calls onToggleSelect when album art is clicked in selectable mode', async () => {
     const onToggleSelect = vi.fn()
     render(
       <AlbumTable
         albums={ALBUMS}
+        selectable
         selectedIds={new Set()}
         onToggleSelect={onToggleSelect}
       />
     )
-    const buttons = screen.getAllByRole('button', { name: /collection/i })
-    await userEvent.click(buttons[0])
+    // The art cell is the 2nd td (index 1) in each album row (after expand column)
+    const rows = screen.getAllByRole('row').slice(1)
+    const artCell = rows[0].querySelectorAll('td')[1]
+    await userEvent.click(artCell)
     expect(onToggleSelect).toHaveBeenCalledWith('id1')
   })
 
-  it('+ button shows checkmark when album is selected', () => {
+  it('shows checkmark overlay on selected albums', () => {
     render(
       <AlbumTable
         albums={ALBUMS}
+        selectable
         selectedIds={new Set(['id1'])}
         onToggleSelect={() => {}}
       />
     )
-    const selected = screen.getByRole('button', { name: /selected/i })
-    expect(selected.textContent).toBe('✓')
-    const unselected = screen.getAllByRole('button', { name: /add to collection/i })
-    expect(unselected[0].textContent).toBe('+')
+    expect(screen.getByTestId('select-check-id1')).toBeInTheDocument()
   })
 
-  it('does not render + button when onToggleSelect is not provided', () => {
+  it('does not show checkmark on unselected albums', () => {
     render(
       <AlbumTable
         albums={ALBUMS}
-        selectedIds={new Set()}
+        selectable
+        selectedIds={new Set(['id1'])}
+        onToggleSelect={() => {}}
       />
     )
-    expect(screen.queryByRole('button', { name: /collection/i })).not.toBeInTheDocument()
+    expect(screen.queryByTestId('select-check-id2')).not.toBeInTheDocument()
   })
-})
 
-describe('AlbumTable selection via + button (mobile)', () => {
-  beforeEach(() => useIsMobile.mockReturnValue(true))
-  afterEach(() => useIsMobile.mockReturnValue(false))
-
-  it('album art click does not trigger selection', () => {
+  it('no selection behavior when selectable is false', async () => {
     const onToggleSelect = vi.fn()
     render(
       <AlbumTable
         albums={ALBUMS}
+        selectable={false}
+        selectedIds={new Set(['id1'])}
+        onToggleSelect={onToggleSelect}
+      />
+    )
+    // No checkmark should appear
+    expect(screen.queryByTestId('select-check-id1')).not.toBeInTheDocument()
+    // Clicking art cell should not call onToggleSelect
+    const rows = screen.getAllByRole('row').slice(1)
+    const artCell = rows[0].querySelectorAll('td')[1]
+    await userEvent.click(artCell)
+    expect(onToggleSelect).not.toHaveBeenCalled()
+  })
+})
+
+describe('AlbumTable selection overlay (mobile)', () => {
+  beforeEach(() => useIsMobile.mockReturnValue(true))
+  afterEach(() => useIsMobile.mockReturnValue(false))
+
+  it('calls onToggleSelect when album art is clicked in selectable mode', () => {
+    const onToggleSelect = vi.fn()
+    render(
+      <AlbumTable
+        albums={ALBUMS}
+        selectable
         selectedIds={new Set()}
         onToggleSelect={onToggleSelect}
       />
     )
     const card = document.querySelector('[data-testid="album-card-id1"]')
+    // The art wrapper is the div with the img
     const artWrapper = card.querySelector('img').parentElement
     fireEvent.click(artWrapper)
-    // onToggleSelect should NOT be called from art click (only from + button)
-    expect(onToggleSelect).not.toHaveBeenCalled()
+    expect(onToggleSelect).toHaveBeenCalledWith('id1')
   })
 
-  it('does not render + button when onToggleSelect is not provided', () => {
+  it('shows checkmark overlay on selected albums', () => {
     render(
       <AlbumTable
         albums={ALBUMS}
-        selectedIds={new Set()}
+        selectable
+        selectedIds={new Set(['id1'])}
+        onToggleSelect={() => {}}
       />
     )
-    expect(screen.queryByRole('button', { name: /collection/i })).not.toBeInTheDocument()
+    expect(screen.getByTestId('select-check-id1')).toBeInTheDocument()
+  })
+
+  it('does not show checkmark on unselected albums', () => {
+    render(
+      <AlbumTable
+        albums={ALBUMS}
+        selectable
+        selectedIds={new Set(['id1'])}
+        onToggleSelect={() => {}}
+      />
+    )
+    expect(screen.queryByTestId('select-check-id2')).not.toBeInTheDocument()
+  })
+
+  it('no selection behavior when selectable is false on mobile', () => {
+    const onToggleSelect = vi.fn()
+    render(
+      <AlbumTable
+        albums={ALBUMS}
+        selectable={false}
+        selectedIds={new Set(['id1'])}
+        onToggleSelect={onToggleSelect}
+      />
+    )
+    expect(screen.queryByTestId('select-check-id1')).not.toBeInTheDocument()
   })
 })
 

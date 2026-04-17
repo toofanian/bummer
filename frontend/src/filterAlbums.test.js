@@ -1,9 +1,9 @@
 import { filterAlbums } from './filterAlbums'
 
 const ALBUMS = [
-  { spotify_id: '1', name: 'Love Deluxe', artists: ['Sade'] },
-  { spotify_id: '2', name: 'Room On Fire', artists: ['The Strokes'] },
-  { spotify_id: '3', name: 'Promises', artists: ['Sade', 'Floating Points'] },
+  { service_id: '1', name: 'Love Deluxe', artists: ['Sade'] },
+  { service_id: '2', name: 'Room On Fire', artists: ['The Strokes'] },
+  { service_id: '3', name: 'Promises', artists: ['Sade', 'Floating Points'] },
 ]
 
 test('returns all albums when query is empty', () => {

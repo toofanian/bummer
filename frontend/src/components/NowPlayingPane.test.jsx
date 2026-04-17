@@ -21,9 +21,9 @@ const IDLE_STATE = {
 }
 
 const TRACKS = [
-  { track_number: 1, name: 'No Ordinary Love', duration: '4:25', spotify_id: 'tid1' },
-  { track_number: 2, name: 'Feel No Pain',     duration: '5:42', spotify_id: 'tid2' },
-  { track_number: 3, name: 'Like a Tattoo',    duration: '4:02', spotify_id: 'tid3' },
+  { track_number: 1, name: 'No Ordinary Love', duration: '4:25', service_id: 'tid1' },
+  { track_number: 2, name: 'Feel No Pain',     duration: '5:42', service_id: 'tid2' },
+  { track_number: 3, name: 'Like a Tattoo',    duration: '4:02', service_id: 'tid3' },
 ]
 
 describe('NowPlayingPane', () => {
@@ -36,7 +36,7 @@ describe('NowPlayingPane', () => {
         open={false}
         onClose={vi.fn()}
         onFetchTracks={vi.fn()}
-        albumSpotifyId="abc123"
+        albumServiceId="abc123"
       />
     )
     // The pane should exist in the DOM but be hidden (aria-hidden or off-screen)
@@ -51,7 +51,7 @@ describe('NowPlayingPane', () => {
         open={true}
         onClose={vi.fn()}
         onFetchTracks={vi.fn().mockResolvedValue(TRACKS)}
-        albumSpotifyId="abc123"
+        albumServiceId="abc123"
       />
     )
     const pane = screen.getByRole('complementary')
@@ -67,7 +67,7 @@ describe('NowPlayingPane', () => {
         open={true}
         onClose={vi.fn()}
         onFetchTracks={vi.fn().mockResolvedValue(TRACKS)}
-        albumSpotifyId="abc123"
+        albumServiceId="abc123"
       />
     )
     expect(screen.getByRole('button', { name: /close/i })).toBeInTheDocument()
@@ -81,7 +81,7 @@ describe('NowPlayingPane', () => {
         open={true}
         onClose={onClose}
         onFetchTracks={vi.fn().mockResolvedValue(TRACKS)}
-        albumSpotifyId="abc123"
+        albumServiceId="abc123"
       />
     )
     await userEvent.click(screen.getByRole('button', { name: /close/i }))
@@ -97,7 +97,7 @@ describe('NowPlayingPane', () => {
         open={true}
         onClose={vi.fn()}
         onFetchTracks={vi.fn().mockResolvedValue([])}
-        albumSpotifyId="abc123"
+        albumServiceId="abc123"
       />
     )
     expect(screen.getByText('Love Deluxe')).toBeInTheDocument()
@@ -110,7 +110,7 @@ describe('NowPlayingPane', () => {
         open={true}
         onClose={vi.fn()}
         onFetchTracks={vi.fn().mockResolvedValue([])}
-        albumSpotifyId="abc123"
+        albumServiceId="abc123"
       />
     )
     expect(screen.getByText('Sade')).toBeInTheDocument()
@@ -123,7 +123,7 @@ describe('NowPlayingPane', () => {
         open={true}
         onClose={vi.fn()}
         onFetchTracks={vi.fn()}
-        albumSpotifyId={null}
+        albumServiceId={null}
       />
     )
     expect(screen.getByText(/nothing playing/i)).toBeInTheDocument()
@@ -131,7 +131,7 @@ describe('NowPlayingPane', () => {
 
   // --- Track list ---
 
-  it('fetches and shows tracks when albumSpotifyId is provided and pane opens', async () => {
+  it('fetches and shows tracks when albumServiceId is provided and pane opens', async () => {
     const onFetchTracks = vi.fn().mockResolvedValue(TRACKS)
     render(
       <NowPlayingPane
@@ -139,7 +139,7 @@ describe('NowPlayingPane', () => {
         open={true}
         onClose={vi.fn()}
         onFetchTracks={onFetchTracks}
-        albumSpotifyId="abc123"
+        albumServiceId="abc123"
       />
     )
     expect(onFetchTracks).toHaveBeenCalledWith('abc123')
@@ -147,14 +147,14 @@ describe('NowPlayingPane', () => {
     expect(await screen.findByText('Feel No Pain')).toBeInTheDocument()
   })
 
-  it('shows unavailable message when albumSpotifyId is null', () => {
+  it('shows unavailable message when albumServiceId is null', () => {
     render(
       <NowPlayingPane
         state={PLAYING_STATE}
         open={true}
         onClose={vi.fn()}
         onFetchTracks={vi.fn()}
-        albumSpotifyId={null}
+        albumServiceId={null}
       />
     )
     expect(screen.getByText(/track list unavailable/i)).toBeInTheDocument()
@@ -168,7 +168,7 @@ describe('NowPlayingPane', () => {
         open={true}
         onClose={vi.fn()}
         onFetchTracks={onFetchTracks}
-        albumSpotifyId="abc123"
+        albumServiceId="abc123"
       />
     )
     const activeTrack = await screen.findByText('No Ordinary Love')
@@ -184,7 +184,7 @@ describe('NowPlayingPane', () => {
         open={true}
         onClose={vi.fn()}
         onFetchTracks={onFetchTracks}
-        albumSpotifyId="abc123"
+        albumServiceId="abc123"
       />
     )
     const inactiveTrack = await screen.findByText('Feel No Pain')
@@ -200,7 +200,7 @@ describe('NowPlayingPane', () => {
         open={true}
         onClose={vi.fn()}
         onFetchTracks={onFetchTracks}
-        albumSpotifyId="abc123"
+        albumServiceId="abc123"
       />
     )
     expect(screen.getByText(/loading/i)).toBeInTheDocument()
@@ -208,9 +208,9 @@ describe('NowPlayingPane', () => {
     expect(await screen.findByText('No Ordinary Love')).toBeInTheDocument()
   })
 
-  // --- Re-fetch when albumSpotifyId changes ---
+  // --- Re-fetch when albumServiceId changes ---
 
-  it('re-fetches tracks when albumSpotifyId changes', async () => {
+  it('re-fetches tracks when albumServiceId changes', async () => {
     const onFetchTracks = vi.fn().mockResolvedValue(TRACKS)
     const { rerender } = render(
       <NowPlayingPane
@@ -218,7 +218,7 @@ describe('NowPlayingPane', () => {
         open={true}
         onClose={vi.fn()}
         onFetchTracks={onFetchTracks}
-        albumSpotifyId="abc123"
+        albumServiceId="abc123"
       />
     )
     await screen.findByText('No Ordinary Love')
@@ -230,7 +230,7 @@ describe('NowPlayingPane', () => {
         open={true}
         onClose={vi.fn()}
         onFetchTracks={onFetchTracks}
-        albumSpotifyId="xyz789"
+        albumServiceId="xyz789"
       />
     )
     await waitFor(() => expect(onFetchTracks).toHaveBeenCalledTimes(2))
@@ -246,7 +246,7 @@ describe('NowPlayingPane', () => {
         open={true}
         onClose={vi.fn()}
         onFetchTracks={vi.fn().mockResolvedValue([])}
-        albumSpotifyId="abc123"
+        albumServiceId="abc123"
       />
     )
     expect(screen.getByRole('img', { name: /vinyl record/i })).toBeInTheDocument()
@@ -259,7 +259,7 @@ describe('NowPlayingPane', () => {
         open={true}
         onClose={vi.fn()}
         onFetchTracks={vi.fn().mockResolvedValue([])}
-        albumSpotifyId="abc123"
+        albumServiceId="abc123"
         albumImageUrl="http://example.com/album.jpg"
       />
     )
@@ -274,7 +274,7 @@ describe('NowPlayingPane', () => {
         open={true}
         onClose={vi.fn()}
         onFetchTracks={vi.fn()}
-        albumSpotifyId={null}
+        albumServiceId={null}
       />
     )
     expect(screen.queryByRole('img', { name: /vinyl record/i })).not.toBeInTheDocument()
@@ -289,7 +289,7 @@ describe('NowPlayingPane', () => {
         open={true}
         onClose={vi.fn()}
         onFetchTracks={vi.fn().mockResolvedValue([])}
-        albumSpotifyId="abc123"
+        albumServiceId="abc123"
       />
     )
     expect(screen.getByText(/My Mac/i)).toBeInTheDocument()
@@ -305,7 +305,7 @@ describe('NowPlayingPane', () => {
         open={true}
         onClose={vi.fn()}
         onFetchTracks={vi.fn().mockResolvedValue(TRACKS)}
-        albumSpotifyId="abc123"
+        albumServiceId="abc123"
         onPlayTrack={onPlayTrack}
       />
     )
@@ -322,7 +322,7 @@ describe('NowPlayingPane', () => {
         open={true}
         onClose={vi.fn()}
         onFetchTracks={vi.fn().mockResolvedValue(TRACKS)}
-        albumSpotifyId="abc123"
+        albumServiceId="abc123"
         onPlayTrack={onPlayTrack}
       />
     )
@@ -338,7 +338,7 @@ describe('NowPlayingPane', () => {
         open={true}
         onClose={vi.fn()}
         onFetchTracks={vi.fn().mockResolvedValue(TRACKS)}
-        albumSpotifyId="abc123"
+        albumServiceId="abc123"
         onPlayTrack={vi.fn()}
       />
     )
@@ -357,7 +357,7 @@ describe('NowPlayingPane', () => {
         open={true}
         onClose={vi.fn()}
         onFetchTracks={vi.fn().mockResolvedValue(TRACKS)}
-        albumSpotifyId="abc123"
+        albumServiceId="abc123"
       />
     )
     await screen.findByText('Feel No Pain')
@@ -385,7 +385,7 @@ describe('NowPlayingPane', () => {
         open={true}
         onClose={vi.fn()}
         onFetchTracks={vi.fn().mockResolvedValue(TRACKS)}
-        albumSpotifyId="abc123"
+        albumServiceId="abc123"
         onFetchQueue={onFetchQueue}
       />
     )
@@ -404,7 +404,7 @@ describe('NowPlayingPane', () => {
         open={true}
         onClose={vi.fn()}
         onFetchTracks={vi.fn().mockResolvedValue(TRACKS)}
-        albumSpotifyId="abc123"
+        albumServiceId="abc123"
         onFetchQueue={onFetchQueue}
       />
     )
@@ -422,7 +422,7 @@ describe('NowPlayingPane', () => {
         open={true}
         onClose={vi.fn()}
         onFetchTracks={vi.fn().mockResolvedValue(TRACKS)}
-        albumSpotifyId="abc123"
+        albumServiceId="abc123"
       />
     )
     await screen.findByText('No Ordinary Love')

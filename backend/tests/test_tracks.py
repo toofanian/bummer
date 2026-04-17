@@ -92,7 +92,7 @@ def test_get_tracks_fetches_all_pages():
     clear_overrides()
 
 
-def test_get_tracks_includes_spotify_id():
+def test_get_tracks_includes_service_id():
     sp = MagicMock()
     sp.album_tracks.return_value = {
         "items": [make_track(1, "Track One", 210000, spotify_id="track-abc")],
@@ -102,7 +102,7 @@ def test_get_tracks_includes_spotify_id():
 
     tracks = client.get("/library/albums/abc123/tracks").json()["tracks"]
 
-    assert tracks[0]["spotify_id"] == "track-abc"
+    assert tracks[0]["service_id"] == "track-abc"
 
     clear_overrides()
 
