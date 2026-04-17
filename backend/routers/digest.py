@@ -130,6 +130,75 @@ def get_digest(
     }
 
 
+@router.get("/changelog")
+def get_changelog(
+    limit: int = 50,
+    before: date | None = None,
+    sp: spotipy.Spotify = Depends(get_user_spotify),
+    db: Client = Depends(get_authed_db),
+    user: dict = Depends(get_current_user),
+):
+    if limit < 1:
+        limit = 1
+    if limit > 200:
+        limit = 200
+
+    # Fetch limit+1 snapshots to compute `limit` diffs (need pairs)
+    query = (
+        db.table("library_snapshots")
+        .select("snapshot_date, album_ids")
+        .order("snapshot_date", desc=True)
+        .limit(limit + 1)
+    )
+    if before:
+        query = query.lt("snapshot_date", str(before))
+
+    snapshots = query.execute().data
+
+    if len(snapshots) < 2:
+        return {"entries": [], "has_more": False, "next_cursor": None}
+
+    # Compute diffs between consecutive pairs
+    raw_entries = []
+    for i in range(len(snapshots) - 1):
+        newer = snapshots[i]
+        older = snapshots[i + 1]
+        newer_ids = set(newer["album_ids"])
+        older_ids = set(older["album_ids"])
+        added_ids = list(newer_ids - older_ids)
+        removed_ids = list(older_ids - newer_ids)
+        if added_ids or removed_ids:
+            raw_entries.append({
+                "date": newer["snapshot_date"],
+                "added_ids": added_ids,
+                "removed_ids": removed_ids,
+            })
+
+    # Resolve metadata for all referenced album IDs
+    all_ids = set()
+    for entry in raw_entries:
+        all_ids.update(entry["added_ids"])
+        all_ids.update(entry["removed_ids"])
+
+    album_cache = get_album_cache(db, user_id=user["user_id"])
+    metadata = _resolve_album_metadata(list(all_ids), album_cache, sp)
+    meta_lookup = {m["service_id"]: m for m in metadata}
+
+    entries = []
+    for entry in raw_entries:
+        entries.append({
+            "date": entry["date"],
+            "added": [meta_lookup[aid] for aid in entry["added_ids"] if aid in meta_lookup],
+            "removed": [meta_lookup[aid] for aid in entry["removed_ids"] if aid in meta_lookup],
+        })
+
+    # Pagination: if we fetched limit+1 snapshots and used all pairs, there may be more
+    has_more = len(snapshots) > limit
+    next_cursor = snapshots[-2]["snapshot_date"] if has_more else None
+
+    return {"entries": entries, "has_more": has_more, "next_cursor": next_cursor}
+
+
 @router.post("/snapshot")
 def create_snapshot(
     db: Client = Depends(get_db),

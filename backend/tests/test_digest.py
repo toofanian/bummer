@@ -353,3 +353,55 @@ def test_ensure_snapshot_returns_503_when_cache_empty(mock_date, mock_cache):
         assert res.status_code == 503
     finally:
         clear_overrides()
+
+
+# --- GET /digest/changelog ---
+
+
+def test_changelog_returns_entries_from_consecutive_snapshots():
+    """Three snapshots → two entries, each showing adds/removes between consecutive pairs."""
+    snapshots = [
+        {"snapshot_date": "2026-04-03", "album_ids": ["a1", "a2", "a3"], "total": 3},
+        {"snapshot_date": "2026-04-02", "album_ids": ["a1", "a2"], "total": 2},
+        {"snapshot_date": "2026-04-01", "album_ids": ["a1"], "total": 1},
+    ]
+
+    db = MagicMock()
+    call_count = {"n": 0}
+
+    def table_router(table_name):
+        mock_table = MagicMock()
+        if table_name == "library_snapshots":
+            # First call: fetch snapshots list (limit+1 rows, ordered desc)
+            mock_table.select.return_value.order.return_value.limit.return_value.execute.return_value = MagicMock(
+                data=snapshots
+            )
+            return mock_table
+        elif table_name == "library_cache":
+            mock_table.select.return_value.eq.return_value.execute.return_value = (
+                MagicMock(data=[{"albums": ALBUM_CACHE}])
+            )
+        return mock_table
+
+    db.table.side_effect = table_router
+    setup_overrides(db=db)
+    try:
+        res = client.get("/digest/changelog")
+        assert res.status_code == 200
+        data = res.json()
+        entries = data["entries"]
+        assert len(entries) == 2
+
+        # Most recent entry: 2026-04-03 vs 2026-04-02 → a3 added
+        assert entries[0]["date"] == "2026-04-03"
+        added_ids_0 = [a["service_id"] for a in entries[0]["added"]]
+        assert "a3" in added_ids_0
+        assert entries[0]["removed"] == []
+
+        # Older entry: 2026-04-02 vs 2026-04-01 → a2 added
+        assert entries[1]["date"] == "2026-04-02"
+        added_ids_1 = [a["service_id"] for a in entries[1]["added"]]
+        assert "a2" in added_ids_1
+        assert entries[1]["removed"] == []
+    finally:
+        clear_overrides()
