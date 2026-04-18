@@ -5,7 +5,17 @@
   "framework": null,
   "rewrites": [
     { "source": "/api/(.*)", "destination": "/api/index" },
-    { "source": "/((?!api/).*)", "destination": "/index.html" }
+    {
+      "source": "/((?!api/).*)",
+      "has": [{ "type": "host", "value": "thedeathofshuffle.com" }],
+      "destination": "/landing.html"
+    },
+    {
+      "source": "/((?!api/).*)",
+      "has": [{ "type": "host", "value": "www.thedeathofshuffle.com" }],
+      "destination": "/landing.html"
+    },
+    { "source": "/((?!api/).*)", "destination": "/app.html" }
   ],
   "crons": [{ "path": "/api/digest/snapshot", "schedule": "0 6 * * *" }],
   "functions": {
