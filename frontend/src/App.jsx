@@ -33,8 +33,8 @@ export default function App() {
   const [collectionAlbums, setCollectionAlbums] = useState([])
   // albumCollectionMap: { [service_id]: string[] } — IDs of collections the album belongs to
   const [albumCollectionMap, setAlbumCollectionMap] = useState({})
-  const [loading, setLoading] = useState(true)
-  const [loadingMessage, setLoadingMessage] = useState('Loading...')
+  const [albumsLoading, setAlbumsLoading] = useState(true)
+  const [collectionsLoading, setCollectionsLoading] = useState(true)
   const [syncing, setSyncing] = useState(false)
   const [error, setError] = useState(null)
   const [search, setSearch] = useState('')
@@ -121,13 +121,12 @@ export default function App() {
     if (!isColdStart) {
       // Warm start: render cached albums immediately, show subtle syncing pulse
       setAlbums(cached.albums)
-      setLoading(false)
+      setAlbumsLoading(false)
       setSyncing(true)
     } else {
-      // Cold start: loading screen with progress message
+      // Cold start: show empty state, main UI renders immediately
       setAlbums([])
-      setLoading(true)
-      setLoadingMessage('Syncing your library...')
+      setAlbumsLoading(true)
     }
 
     // Start collections fetch immediately (parallel with sync)
@@ -156,8 +155,10 @@ export default function App() {
           })
         })
         setAlbumCollectionMap(map)
+        setCollectionsLoading(false)
       } catch {
         // Collections fetch failed — keep any existing state
+        setCollectionsLoading(false)
       }
     })()
 
@@ -168,6 +169,7 @@ export default function App() {
 
       if (serverAlbums.length > 0) {
         setAlbums(serverAlbums)
+        setAlbumsLoading(false)
         try {
           localStorage.setItem(CACHE_KEY, JSON.stringify({
             albums: serverAlbums,
@@ -191,11 +193,6 @@ export default function App() {
           }, sessionRef.current).then(r => r.json())
           accumulated = accumulated.concat(resp.albums)
           progress = resp
-          if (isColdStart) {
-            setLoadingMessage(
-              `Syncing ${accumulated.length} of ${progress.spotify_total} albums...`
-            )
-          }
           offset = progress.next_offset
         } while (!progress.done)
 
@@ -220,7 +217,6 @@ export default function App() {
       setSyncing(false)
 
       // Await collections (already started in parallel)
-      setLoadingMessage('Loading collections...')
       await collectionsPromise
     } catch (err) {
       // If we had cached data, keep it visible and swallow the error — a
@@ -232,7 +228,7 @@ export default function App() {
         console.warn('Background sync failed, keeping cached library:', err)
       }
     } finally {
-      setLoading(false)
+      setAlbumsLoading(false)
       setSyncing(false)
     }
   }, [])
@@ -242,10 +238,10 @@ export default function App() {
   // Fire-and-forget: ensure a library snapshot exists for today once the user
   // is authenticated (indicated by albums being loaded and no loading state).
   useEffect(() => {
-    if (!loading && albums.length > 0) {
+    if (!albumsLoading && albums.length > 0) {
       apiFetch('/digest/ensure-snapshot', { method: 'POST' }, sessionRef.current).catch(() => {})
     }
-  }, [loading, albums.length])
+  }, [albumsLoading, albums.length])
 
   // Escape key clears selection
   useEffect(() => {
@@ -701,22 +697,15 @@ export default function App() {
     )
   }
 
-  if (loading) return (
-    <div className="flex flex-col items-center justify-center h-dvh gap-4">
-      <div className="w-9 h-9 border-[3px] border-border border-t-accent rounded-full animate-spin" />
-      {loadingMessage && <p className="text-sm text-text-dim">{loadingMessage}</p>}
-    </div>
-  )
-
   if (error) return (
     <div className="p-8">
       <p className="text-[#f88]">Error: {error}</p>
       <button
         onClick={loadData}
-        disabled={loading}
+        disabled={albumsLoading}
         className="mt-4 px-5 py-2 bg-surface-2 text-text border border-border rounded-lg text-base disabled:text-text-dim disabled:cursor-default transition-colors duration-150 hover:bg-hover"
       >
-        {loading ? 'Loading…' : 'Retry'}
+        {albumsLoading ? 'Loading…' : 'Retry'}
       </button>
     </div>
   )
@@ -768,10 +757,14 @@ export default function App() {
 
           {view === 'library' && (
             <div className="flex-1 overflow-y-auto">
-              {librarySubView === 'albums' ? (
+              {albumsLoading && albums.length === 0 ? (
+                <div data-testid="inline-loading-spinner" className="flex items-center justify-center py-16">
+                  <div className="w-7 h-7 border-[2.5px] border-border border-t-accent rounded-full animate-spin" />
+                </div>
+              ) : librarySubView === 'albums' ? (
                 <AlbumTable
                   albums={filterAlbums(albums, search)}
-                  loading={loading}
+                  loading={albumsLoading}
                   onFetchTracks={handleFetchTracks}
                   onPlay={handlePlay}
                   onPlayTrack={handlePlayTrack}
@@ -803,6 +796,11 @@ export default function App() {
 
           {view === 'collections' && (
             <div className="flex-1 overflow-y-auto">
+              {collectionsLoading && collections.length === 0 ? (
+                <div data-testid="inline-loading-spinner" className="flex items-center justify-center py-16">
+                  <div className="w-7 h-7 border-[2.5px] border-border border-t-accent rounded-full animate-spin" />
+                </div>
+              ) : (
               <CollectionsPane
                 collections={search ? collections.filter(c => {
                   const q = search.toLowerCase()
@@ -818,6 +816,7 @@ export default function App() {
                 onCreate={handleCreateCollection}
                 onFetchAlbums={handleFetchCollectionAlbums}
               />
+              )}
             </div>
           )}
 
@@ -919,6 +918,8 @@ export default function App() {
               setSearch('')
             }
           }}
+          syncing={albumsLoading || syncing}
+          collectionsLoading={collectionsLoading}
         />
 
         <DigestPanel open={digestOpen} onClose={() => setDigestOpen(false)} onPlay={handlePlay} session={session} />
@@ -955,7 +956,7 @@ export default function App() {
             className={`bg-transparent border-none text-sm cursor-pointer px-3 py-1.5 rounded transition-colors duration-150 hover:text-text hover:bg-hover${view === 'library' ? ' active text-text border-b-2 border-accent' : ' text-text-dim'}`}
             onClick={() => { setView('library'); setSearch('') }}
           >
-            <span className={syncing ? 'animate-pulse' : undefined}>Library</span>
+            <span className={(albumsLoading || syncing) ? 'animate-pulse' : undefined}>Library</span>
           </button>
           {view === 'library' && (
             <LibraryViewToggle
@@ -969,7 +970,7 @@ export default function App() {
             className={`bg-transparent border-none text-sm cursor-pointer px-3 py-1.5 rounded transition-colors duration-150 hover:text-text hover:bg-hover${view === 'collections' || isInCollection ? ' active text-text border-b-2 border-accent' : ' text-text-dim'}`}
             onClick={() => { setView('collections'); setSearch('') }}
           >
-            Collections
+            <span className={collectionsLoading ? 'animate-pulse' : undefined}>Collections</span>
           </button>
         </nav>
         <input
@@ -1018,10 +1019,14 @@ export default function App() {
 
         {view === 'library' && (
           <div className="flex-1 overflow-y-auto pb-16">
-            {librarySubView === 'albums' ? (
+            {albumsLoading && albums.length === 0 ? (
+              <div data-testid="inline-loading-spinner" className="flex items-center justify-center py-16">
+                <div className="w-7 h-7 border-[2.5px] border-border border-t-accent rounded-full animate-spin" />
+              </div>
+            ) : librarySubView === 'albums' ? (
               <AlbumTable
                 albums={filterAlbums(albums, search)}
-                loading={loading}
+                loading={albumsLoading}
                 onFetchTracks={handleFetchTracks}
                 onPlay={handlePlay}
                 onPlayTrack={handlePlayTrack}
@@ -1053,6 +1058,11 @@ export default function App() {
 
         {view === 'collections' && (
           <div className="flex-1 overflow-y-auto pb-16">
+            {collectionsLoading && collections.length === 0 ? (
+              <div data-testid="inline-loading-spinner" className="flex items-center justify-center py-16">
+                <div className="w-7 h-7 border-[2.5px] border-border border-t-accent rounded-full animate-spin" />
+              </div>
+            ) : (
             <CollectionsPane
               collections={search ? collections.filter(c => {
                 const q = search.toLowerCase()
@@ -1068,6 +1078,7 @@ export default function App() {
               onCreate={handleCreateCollection}
               onFetchAlbums={handleFetchCollectionAlbums}
             />
+            )}
           </div>
         )}
 
