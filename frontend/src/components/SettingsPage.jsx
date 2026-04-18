@@ -65,7 +65,7 @@ export default function SettingsPage({ onLogout, session }) {
             href="https://github.com/toofanian/bummer/discussions"
             target="_blank"
             rel="noopener noreferrer"
-            className="text-sm text-text hover:text-accent transition-colors duration-150 no-underline"
+            className="block text-sm text-text bg-surface-2 border border-border rounded-lg px-4 py-3 no-underline hover:bg-hover transition-colors duration-150"
           >
             Send Feedback
           </a>
@@ -75,13 +75,13 @@ export default function SettingsPage({ onLogout, session }) {
           <h2 className="text-sm font-semibold text-text-dim uppercase tracking-wider">Account</h2>
           <button
             onClick={onLogout}
-            className="text-left text-sm text-text bg-transparent border-none cursor-pointer p-0 hover:text-accent transition-colors duration-150"
+            className="text-left text-sm text-text bg-surface-2 border border-border rounded-lg px-4 py-3 cursor-pointer hover:bg-hover transition-colors duration-150"
           >
             Log Out
           </button>
           <button
             onClick={() => setDeleteModalOpen(true)}
-            className="text-left text-sm text-red-400 bg-transparent border-none cursor-pointer p-0 hover:text-red-300 transition-colors duration-150"
+            className="text-left text-sm text-red-400 bg-surface-2 border border-border rounded-lg px-4 py-3 cursor-pointer hover:bg-hover transition-colors duration-150"
           >
             Delete account
           </button>
