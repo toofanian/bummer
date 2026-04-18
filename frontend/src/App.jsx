@@ -764,11 +764,15 @@ export default function App() {
               />
             ) : (
               <button
-                className="bg-surface-2 border-none text-text-dim text-base leading-none cursor-pointer w-7 h-7 flex items-center justify-center rounded-full hover:text-text hover:bg-hover transition-colors duration-150"
+                className="bg-transparent border-none text-text-dim cursor-pointer p-1.5 rounded transition-colors duration-150 hover:text-text"
                 onClick={() => setShowCollectionCreate(true)}
                 aria-label="Create collection"
               >
-                +
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <circle cx="12" cy="12" r="10" />
+                  <path d="M12 8v8" />
+                  <path d="M8 12h8" />
+                </svg>
               </button>
             )
           )}
@@ -1058,11 +1062,15 @@ export default function App() {
               />
             ) : (
               <button
-                className="bg-surface-2 border-none text-text-dim text-base leading-none cursor-pointer w-7 h-7 flex items-center justify-center rounded-full hover:text-text hover:bg-hover transition-colors duration-150"
+                className="bg-transparent border-none text-text-dim cursor-pointer p-1.5 rounded transition-colors duration-150 hover:text-text"
                 onClick={() => setShowCollectionCreate(true)}
                 aria-label="Create collection"
               >
-                +
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <circle cx="12" cy="12" r="10" />
+                  <path d="M12 8v8" />
+                  <path d="M8 12h8" />
+                </svg>
               </button>
             )
           )}
