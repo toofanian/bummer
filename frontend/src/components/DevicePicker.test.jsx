@@ -99,7 +99,7 @@ describe('DevicePicker — main view', () => {
     expect(onClose).not.toHaveBeenCalled()
   })
 
-  it('does not call onDeviceSelected when clicking active device', async () => {
+  it('calls onDeviceSelected when clicking active device (re-transfer)', async () => {
     const user = userEvent.setup()
     const onFetchDevices = vi.fn().mockResolvedValue(DEVICES)
     const onDeviceSelected = vi.fn()
@@ -112,7 +112,7 @@ describe('DevicePicker — main view', () => {
     )
     await screen.findByText('My Mac')
     await user.click(screen.getByTestId('device-row-mac-id'))
-    expect(onDeviceSelected).not.toHaveBeenCalled()
+    expect(onDeviceSelected).toHaveBeenCalledWith('mac-id')
   })
 
   it('closes on Escape key', async () => {
