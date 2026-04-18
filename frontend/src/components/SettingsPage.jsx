@@ -24,6 +24,28 @@ export default function SettingsPage({ onLogout, session }) {
   const [confirmText, setConfirmText] = useState('')
   const [deleting, setDeleting] = useState(false)
   const [deleteError, setDeleteError] = useState('')
+  const [exportLoading, setExportLoading] = useState(false)
+  const [exportError, setExportError] = useState('')
+
+  async function handleExport() {
+    setExportLoading(true)
+    setExportError('')
+    try {
+      const res = await apiFetch('/export', {}, session)
+      if (!res.ok) throw new Error('Export failed')
+      const blob = await res.blob()
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = 'bummer-export.zip'
+      a.click()
+      URL.revokeObjectURL(url)
+    } catch {
+      setExportError('Export failed. Please try again.')
+    } finally {
+      setExportLoading(false)
+    }
+  }
 
   async function handleDeleteConfirm() {
     setDeleting(true)
@@ -69,6 +91,21 @@ export default function SettingsPage({ onLogout, session }) {
           >
             Send Feedback
           </a>
+        </section>
+
+        <section className="flex flex-col gap-2">
+          <h2 className="text-sm font-semibold text-text-dim uppercase tracking-wider">Export</h2>
+          <p className="text-sm text-text-dim">
+            Download your library and collections as CSV and JSON.
+          </p>
+          <button
+            onClick={handleExport}
+            disabled={exportLoading}
+            className="text-left text-sm text-text bg-surface-2 border border-border rounded-lg px-4 py-3 cursor-pointer hover:bg-hover transition-colors duration-150 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {exportLoading ? 'Downloading\u2026' : 'Download Export'}
+          </button>
+          {exportError && <p className="text-red-400 text-sm">{exportError}</p>}
         </section>
 
         <section className="flex flex-col gap-2">

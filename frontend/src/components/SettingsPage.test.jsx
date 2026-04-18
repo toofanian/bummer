@@ -99,4 +99,73 @@ describe('SettingsPage', () => {
     await waitFor(() => expect(screen.getByText(/server error/i)).toBeInTheDocument())
     expect(signOut).not.toHaveBeenCalled()
   })
+
+  describe('Download Export', () => {
+    it('renders export button', () => {
+      render(<SettingsPage onLogout={vi.fn()} session={fakeSession} />)
+      expect(screen.getByRole('button', { name: /download export/i })).toBeInTheDocument()
+    })
+
+    it('renders export description', () => {
+      render(<SettingsPage onLogout={vi.fn()} session={fakeSession} />)
+      expect(screen.getByText(/download your library and collections/i)).toBeInTheDocument()
+    })
+
+    it('calls GET /export and triggers download on click', async () => {
+      const blobUrl = 'blob:http://localhost/fake'
+      const revokeObjectURL = vi.fn()
+      const createObjectURL = vi.fn(() => blobUrl)
+      globalThis.URL.createObjectURL = createObjectURL
+      globalThis.URL.revokeObjectURL = revokeObjectURL
+
+      const fakeBlob = new Blob(['zip-data'])
+      fetch.mockResolvedValueOnce({ ok: true, blob: async () => fakeBlob })
+
+      const clickSpy = vi.fn()
+      const origCreateElement = document.createElement.bind(document)
+      vi.spyOn(document, 'createElement').mockImplementation((tag) => {
+        const el = origCreateElement(tag)
+        if (tag === 'a') el.click = clickSpy
+        return el
+      })
+
+      render(<SettingsPage onLogout={vi.fn()} session={fakeSession} />)
+      fireEvent.click(screen.getByRole('button', { name: /download export/i }))
+
+      await waitFor(() => expect(fetch).toHaveBeenCalled())
+      const [url, opts] = fetch.mock.calls[0]
+      expect(url).toContain('/export')
+      expect(opts.headers.Authorization).toBe('Bearer supabase-jwt')
+
+      await waitFor(() => expect(clickSpy).toHaveBeenCalled())
+      expect(createObjectURL).toHaveBeenCalledWith(fakeBlob)
+      expect(revokeObjectURL).toHaveBeenCalledWith(blobUrl)
+
+      document.createElement.mockRestore()
+    })
+
+    it('shows loading state while downloading', async () => {
+      let resolveFetch
+      fetch.mockReturnValueOnce(new Promise((r) => { resolveFetch = r }))
+
+      render(<SettingsPage onLogout={vi.fn()} session={fakeSession} />)
+      fireEvent.click(screen.getByRole('button', { name: /download export/i }))
+
+      await waitFor(() => expect(screen.getByRole('button', { name: /downloading/i })).toBeDisabled())
+
+      resolveFetch({ ok: true, blob: async () => new Blob(['x']) })
+      globalThis.URL.createObjectURL = vi.fn(() => 'blob:x')
+      globalThis.URL.revokeObjectURL = vi.fn()
+      await waitFor(() => expect(screen.getByRole('button', { name: /download export/i })).not.toBeDisabled())
+    })
+
+    it('shows error when export fails', async () => {
+      fetch.mockResolvedValueOnce({ ok: false })
+
+      render(<SettingsPage onLogout={vi.fn()} session={fakeSession} />)
+      fireEvent.click(screen.getByRole('button', { name: /download export/i }))
+
+      await waitFor(() => expect(screen.getByText(/export failed/i)).toBeInTheDocument())
+    })
+  })
 })
