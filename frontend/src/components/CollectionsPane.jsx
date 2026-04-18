@@ -81,7 +81,9 @@ export default function CollectionsPane({ collections, onEnter, onDelete, onCrea
             return (
               <div
                 key={col.id}
+                data-testid="collection-row"
                 className="border-b border-border cursor-pointer hover:bg-hover transition-colors duration-150 group"
+                style={{ minHeight: 62 }}
                 onClick={() => onEnter(col)}
               >
                 {isMobile ? (

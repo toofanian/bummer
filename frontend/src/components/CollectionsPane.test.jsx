@@ -248,6 +248,20 @@ describe('CollectionsPane', () => {
     expect(input.compareDocumentPosition(firstCollectionName)).toBe(Node.DOCUMENT_POSITION_FOLLOWING)
   })
 
+  it('collection rows have a minimum height to prevent layout shift', () => {
+    render(
+      <CollectionsPane
+        collections={COLLECTIONS}
+        onEnter={() => {}}
+        onDelete={() => {}}
+        onFetchAlbums={() => Promise.resolve([])}
+      />
+    )
+    const firstRow = screen.getByText('Road trip').closest('[data-testid="collection-row"]')
+    expect(firstRow).toBeInTheDocument()
+    expect(firstRow.style.minHeight).toBe('62px')
+  })
+
   it('does not use a multi-column grid layout', () => {
     render(
       <CollectionsPane
