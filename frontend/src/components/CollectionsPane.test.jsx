@@ -248,7 +248,7 @@ describe('CollectionsPane', () => {
     expect(input.compareDocumentPosition(firstCollectionName)).toBe(Node.DOCUMENT_POSITION_FOLLOWING)
   })
 
-  it('collection rows have a minimum height to prevent layout shift', () => {
+  it('art strip container has fixed height to prevent layout shift', () => {
     render(
       <CollectionsPane
         collections={COLLECTIONS}
@@ -258,8 +258,24 @@ describe('CollectionsPane', () => {
       />
     )
     const firstRow = screen.getByText('Road trip').closest('[data-testid="collection-row"]')
-    expect(firstRow).toBeInTheDocument()
-    expect(firstRow.style.minHeight).toBe('62px')
+    // The inner layout container (desktop: flex row, mobile: strip wrapper) has a fixed height
+    const fixedHeightEl = firstRow.querySelector('[style*="height: 62px"], [style*="height:62px"]')
+    expect(fixedHeightEl).toBeInTheDocument()
+  })
+
+  it('always renders album art strip area even before albums load', () => {
+    render(
+      <CollectionsPane
+        collections={COLLECTIONS}
+        onEnter={() => {}}
+        onDelete={() => {}}
+        onFetchAlbums={() => Promise.resolve([])}
+      />
+    )
+    // Strip container should exist immediately (not conditionally rendered)
+    const firstRow = screen.getByText('Road trip').closest('[data-testid="collection-row"]')
+    const fixedHeightEl = firstRow.querySelector('[style*="height: 62px"], [style*="height:62px"]')
+    expect(fixedHeightEl).toBeInTheDocument()
   })
 
   it('does not use a multi-column grid layout', () => {

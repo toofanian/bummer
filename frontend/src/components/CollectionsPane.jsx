@@ -83,7 +83,6 @@ export default function CollectionsPane({ collections, onEnter, onDelete, onCrea
                 key={col.id}
                 data-testid="collection-row"
                 className="border-b border-border cursor-pointer hover:bg-hover transition-colors duration-150 group"
-                style={{ minHeight: 62 }}
                 onClick={() => onEnter(col)}
               >
                 {isMobile ? (
@@ -111,12 +110,12 @@ export default function CollectionsPane({ collections, onEnter, onDelete, onCrea
                         )}
                       </div>
                     </div>
-                    {artAlbums.length > 0 && (
+                    <div style={{ height: 62 }}>
                       <AlbumArtStrip albums={artAlbums} size={62} />
-                    )}
+                    </div>
                   </>
                 ) : (
-                  <div className="flex items-stretch">
+                  <div className="flex items-stretch" style={{ height: 62 }}>
                     <div className="w-48 flex-shrink-0 flex items-center px-4">
                       <div className="min-w-0">
                         <div className="text-sm font-medium text-text truncate">{col.name}</div>
