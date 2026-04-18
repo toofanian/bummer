@@ -380,8 +380,7 @@ describe('PlaybackBar', () => {
         onPause={vi.fn()}
         paneOpen={false}
         onTogglePane={vi.fn()}
-        onFetchDevices={vi.fn().mockResolvedValue([])}
-        onDeviceSelected={vi.fn()}
+        onOpenDevicePicker={vi.fn()}
       />
     )
     const rightZone = screen.getByTestId('playback-right')
@@ -801,7 +800,7 @@ describe('PlaybackBar', () => {
 // --- Speaker icon + DevicePicker ---
 
 describe('device indicator', () => {
-  it('renders speaker icon when device is present', () => {
+  it('renders speaker icon when onOpenDevicePicker is provided', () => {
     render(
       <PlaybackBar
         state={PLAYING_STATE}
@@ -809,8 +808,7 @@ describe('device indicator', () => {
         onPause={vi.fn()}
         paneOpen={false}
         onTogglePane={vi.fn()}
-        onFetchDevices={vi.fn().mockResolvedValue([])}
-        onDeviceSelected={vi.fn()}
+        onOpenDevicePicker={vi.fn()}
       />
     )
     expect(screen.getByTestId('device-indicator')).toBeInTheDocument()
@@ -828,8 +826,7 @@ describe('device indicator', () => {
         onPause={vi.fn()}
         paneOpen={false}
         onTogglePane={vi.fn()}
-        onFetchDevices={vi.fn().mockResolvedValue([])}
-        onDeviceSelected={vi.fn()}
+        onOpenDevicePicker={vi.fn()}
       />
     )
     const indicator = screen.getByTestId('device-indicator')
@@ -844,19 +841,16 @@ describe('device indicator', () => {
         onPause={vi.fn()}
         paneOpen={false}
         onTogglePane={vi.fn()}
-        onFetchDevices={vi.fn().mockResolvedValue([])}
-        onDeviceSelected={vi.fn()}
+        onOpenDevicePicker={vi.fn()}
       />
     )
     const indicator = screen.getByTestId('device-indicator')
     expect(indicator).toHaveStyle({ color: 'var(--text-dim)' })
   })
 
-  it('opens DevicePicker on speaker icon click', async () => {
+  it('calls onOpenDevicePicker on speaker icon click', async () => {
     const user = userEvent.setup()
-    const onFetchDevices = vi.fn().mockResolvedValue([
-      { id: 'mac-id', name: 'My Mac', type: 'Computer', is_active: true },
-    ])
+    const onOpenDevicePicker = vi.fn()
     render(
       <PlaybackBar
         state={PLAYING_STATE}
@@ -864,15 +858,14 @@ describe('device indicator', () => {
         onPause={vi.fn()}
         paneOpen={false}
         onTogglePane={vi.fn()}
-        onFetchDevices={onFetchDevices}
-        onDeviceSelected={vi.fn()}
+        onOpenDevicePicker={onOpenDevicePicker}
       />
     )
     await user.click(screen.getByTestId('device-indicator'))
-    expect(await screen.findByText('Connect to a device')).toBeInTheDocument()
+    expect(onOpenDevicePicker).toHaveBeenCalledTimes(1)
   })
 
-  it('shows device indicator when onFetchDevices provided but device is null', () => {
+  it('shows device indicator when onOpenDevicePicker provided but device is null', () => {
     render(
       <PlaybackBar
         state={IDLE_STATE}
@@ -880,14 +873,13 @@ describe('device indicator', () => {
         onPause={vi.fn()}
         paneOpen={false}
         onTogglePane={vi.fn()}
-        onFetchDevices={vi.fn().mockResolvedValue([])}
-        onDeviceSelected={vi.fn()}
+        onOpenDevicePicker={vi.fn()}
       />
     )
     expect(screen.getByTestId('device-indicator')).toBeInTheDocument()
   })
 
-  it('does not render speaker icon when no device', () => {
+  it('does not render speaker icon when onOpenDevicePicker is not provided', () => {
     render(
       <PlaybackBar
         state={IDLE_STATE}
