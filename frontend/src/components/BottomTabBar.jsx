@@ -23,7 +23,7 @@ const TABS = [
   )},
 ]
 
-export default function BottomTabBar({ activeTab, onTabChange, syncing }) {
+export default function BottomTabBar({ activeTab, onTabChange, syncing, collectionsLoading }) {
   return (
     <nav className="fixed bottom-0 left-0 right-0 z-[200] flex items-stretch justify-around bg-surface border-t border-border pb-[env(safe-area-inset-bottom,0px)]"
          style={{ height: `calc(50px + env(safe-area-inset-bottom, 0px))` }}
@@ -38,7 +38,7 @@ export default function BottomTabBar({ activeTab, onTabChange, syncing }) {
           }`}
         >
           {tab.icon}
-          <span className={`text-xs${tab.id === 'library' && syncing ? ' animate-pulse' : ''}`}>{tab.label}</span>
+          <span className={`text-xs${(tab.id === 'library' && syncing) || (tab.id === 'collections' && collectionsLoading) ? ' animate-pulse' : ''}`}>{tab.label}</span>
         </button>
       ))}
     </nav>

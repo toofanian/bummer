@@ -692,7 +692,11 @@ export default function App() {
 
           {view === 'library' && (
             <div className="flex-1 overflow-y-auto">
-              {librarySubView === 'albums' ? (
+              {albumsLoading && albums.length === 0 ? (
+                <div data-testid="inline-loading-spinner" className="flex items-center justify-center py-16">
+                  <div className="w-7 h-7 border-[2.5px] border-border border-t-accent rounded-full animate-spin" />
+                </div>
+              ) : librarySubView === 'albums' ? (
                 <AlbumTable
                   albums={filterAlbums(albums, search)}
                   loading={albumsLoading}
@@ -732,6 +736,11 @@ export default function App() {
 
           {view === 'collections' && (
             <div className="flex-1 overflow-y-auto">
+              {collectionsLoading && collections.length === 0 ? (
+                <div data-testid="inline-loading-spinner" className="flex items-center justify-center py-16">
+                  <div className="w-7 h-7 border-[2.5px] border-border border-t-accent rounded-full animate-spin" />
+                </div>
+              ) : (
               <CollectionsPane
                 collections={search ? collections.filter(c => {
                   const q = search.toLowerCase()
@@ -747,6 +756,7 @@ export default function App() {
                 onCreate={handleCreateCollection}
                 onFetchAlbums={handleFetchCollectionAlbums}
               />
+              )}
             </div>
           )}
 
@@ -830,6 +840,8 @@ export default function App() {
               setSearch('')
             }
           }}
+          syncing={albumsLoading || syncing}
+          collectionsLoading={collectionsLoading}
         />
 
         <DigestPanel open={digestOpen} onClose={() => setDigestOpen(false)} onPlay={handlePlay} session={session} />
@@ -866,7 +878,7 @@ export default function App() {
             className={`bg-transparent border-none text-sm cursor-pointer px-3 py-1.5 rounded transition-colors duration-150 hover:text-text hover:bg-hover${view === 'library' ? ' active text-text border-b-2 border-accent' : ' text-text-dim'}`}
             onClick={() => { setView('library'); setSearch('') }}
           >
-            <span className={syncing ? 'animate-pulse' : undefined}>Library</span>
+            <span className={(albumsLoading || syncing) ? 'animate-pulse' : undefined}>Library</span>
           </button>
           {view === 'library' && (
             <LibraryViewToggle
@@ -880,7 +892,7 @@ export default function App() {
             className={`bg-transparent border-none text-sm cursor-pointer px-3 py-1.5 rounded transition-colors duration-150 hover:text-text hover:bg-hover${view === 'collections' || isInCollection ? ' active text-text border-b-2 border-accent' : ' text-text-dim'}`}
             onClick={() => { setView('collections'); setSearch('') }}
           >
-            Collections
+            <span className={collectionsLoading ? 'animate-pulse' : undefined}>Collections</span>
           </button>
         </nav>
         <input
@@ -919,7 +931,11 @@ export default function App() {
 
         {view === 'library' && (
           <div className="flex-1 overflow-y-auto pb-16">
-            {librarySubView === 'albums' ? (
+            {albumsLoading && albums.length === 0 ? (
+              <div data-testid="inline-loading-spinner" className="flex items-center justify-center py-16">
+                <div className="w-7 h-7 border-[2.5px] border-border border-t-accent rounded-full animate-spin" />
+              </div>
+            ) : librarySubView === 'albums' ? (
               <AlbumTable
                 albums={filterAlbums(albums, search)}
                 loading={albumsLoading}
@@ -959,6 +975,11 @@ export default function App() {
 
         {view === 'collections' && (
           <div className="flex-1 overflow-y-auto pb-16">
+            {collectionsLoading && collections.length === 0 ? (
+              <div data-testid="inline-loading-spinner" className="flex items-center justify-center py-16">
+                <div className="w-7 h-7 border-[2.5px] border-border border-t-accent rounded-full animate-spin" />
+              </div>
+            ) : (
             <CollectionsPane
               collections={search ? collections.filter(c => {
                 const q = search.toLowerCase()
@@ -974,6 +995,7 @@ export default function App() {
               onCreate={handleCreateCollection}
               onFetchAlbums={handleFetchCollectionAlbums}
             />
+            )}
           </div>
         )}
 
