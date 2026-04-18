@@ -61,8 +61,8 @@ def _mock_db():
     def table_router(table_name):
         mock_table = MagicMock()
         if table_name == "library_cache":
-            mock_table.select.return_value.eq.return_value.execute.return_value = MagicMock(
-                data=[{"albums": FAKE_ALBUMS}]
+            mock_table.select.return_value.eq.return_value.execute.return_value = (
+                MagicMock(data=[{"albums": FAKE_ALBUMS}])
             )
         elif table_name == "collections":
             mock_table.select.return_value.execute.return_value = MagicMock(
@@ -156,9 +156,7 @@ def test_export_collection_albums_csv():
     try:
         res = client.get("/export")
         zf = _get_zip(res)
-        reader = csv.DictReader(
-            io.StringIO(zf.read("collection_albums.csv").decode())
-        )
+        reader = csv.DictReader(io.StringIO(zf.read("collection_albums.csv").decode()))
         rows = list(reader)
         assert len(rows) == 1
         assert rows[0]["collection_name"] == "Road Trip"

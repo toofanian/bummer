@@ -57,7 +57,14 @@ def export_library(user=Depends(get_current_user), db=Depends(get_authed_db)):
         albums_csv = io.StringIO()
         writer = csv.DictWriter(
             albums_csv,
-            fieldnames=["title", "artist", "release_date", "spotify_id", "added_at", "tier"],
+            fieldnames=[
+                "title",
+                "artist",
+                "release_date",
+                "spotify_id",
+                "added_at",
+                "tier",
+            ],
         )
         writer.writeheader()
         writer.writerows(flat_albums)
@@ -70,11 +77,13 @@ def export_library(user=Depends(get_current_user), db=Depends(get_authed_db)):
         )
         writer.writeheader()
         for c in collections:
-            writer.writerow({
-                "name": c["name"],
-                "description": c.get("description", ""),
-                "created_at": c.get("created_at", ""),
-            })
+            writer.writerow(
+                {
+                    "name": c["name"],
+                    "description": c.get("description", ""),
+                    "created_at": c.get("created_at", ""),
+                }
+            )
         zf.writestr("collections.csv", coll_csv.getvalue())
 
         # collection_albums.csv
@@ -86,12 +95,14 @@ def export_library(user=Depends(get_current_user), db=Depends(get_authed_db)):
         writer.writeheader()
         for ca in collection_albums:
             sid = ca["service_id"]
-            writer.writerow({
-                "collection_name": collection_map.get(ca["collection_id"], ""),
-                "album_title": album_lookup.get(sid, {}).get("title", ""),
-                "spotify_id": sid,
-                "position": ca["position"],
-            })
+            writer.writerow(
+                {
+                    "collection_name": collection_map.get(ca["collection_id"], ""),
+                    "album_title": album_lookup.get(sid, {}).get("title", ""),
+                    "spotify_id": sid,
+                    "position": ca["position"],
+                }
+            )
         zf.writestr("collection_albums.csv", ca_csv.getvalue())
 
         # export.json
@@ -105,7 +116,9 @@ def export_library(user=Depends(get_current_user), db=Depends(get_authed_db)):
                     "albums": [
                         {
                             "spotify_id": ca["service_id"],
-                            "title": album_lookup.get(ca["service_id"], {}).get("title", ""),
+                            "title": album_lookup.get(ca["service_id"], {}).get(
+                                "title", ""
+                            ),
                             "position": ca["position"],
                         }
                         for ca in collection_albums
