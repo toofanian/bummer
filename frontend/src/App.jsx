@@ -66,7 +66,7 @@ export default function App() {
   }
   const sessionRef = useRef(session)
   sessionRef.current = session
-  const { state: playback, play, playTrack, pause, previousTrack, nextTrack, setVolume, fetchDevices, fetchQueue, seek, transferPlayback } = usePlayback(session)
+  const { state: playback, play, playTrack, pause, previousTrack, nextTrack, setVolume, fetchDevices, seek, transferPlayback } = usePlayback(session)
   const [pendingPlayIntent, setPendingPlayIntent] = useState(null)
   // Shape: null | { type: 'album'|'track', contextUri?, trackUri?, albumId? }
   const [devicePickerOpen, setDevicePickerOpen] = useState(false)
@@ -284,6 +284,23 @@ export default function App() {
     } catch {
       // Rollback: remove the optimistic entry
       setCollections(prev => prev.filter(c => c.id !== tmpId))
+    }
+  }
+
+  async function handleRenameCollection(id, newName) {
+    const prev = collections
+    setCollections(cs => cs.map(c => c.id === id ? { ...c, name: newName } : c))
+    // Also update the view if we're inside this collection
+    setView(v => typeof v === 'object' && v.id === id ? { ...v, name: newName } : v)
+    try {
+      const res = await apiFetch(`/collections/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: newName }),
+      }, sessionRef.current)
+      if (!res.ok) throw new Error('Failed to rename collection')
+    } catch {
+      setCollections(prev)
     }
   }
 
@@ -859,6 +876,7 @@ export default function App() {
                 collections={collections}
                 onEnter={handleEnterCollection}
                 onDelete={handleDeleteCollection}
+                onRename={handleRenameCollection}
                 onCreate={handleCreateCollection}
                 onFetchAlbums={handleFetchCollectionAlbums}
               />
@@ -880,6 +898,7 @@ export default function App() {
                 albumCount={collectionAlbums.length}
                 onBack={() => setView('collections')}
                 onDescriptionChange={(desc) => handleUpdateCollectionDescription(view.id, desc)}
+                onRename={(newName) => handleRenameCollection(view.id, newName)}
                 onPlay={handlePlayCollection}
               />
               <div className="flex-1 overflow-y-auto">
@@ -947,7 +966,6 @@ export default function App() {
           onTransferPlayback={transferPlayback}
           onOpenDevicePicker={() => { setDevicePickerOpen(true); setPickerRestrictedDevice(false) }}
           onSeek={seek}
-          onFetchQueue={fetchQueue}
         />
 
         <MiniPlaybackBar
@@ -1007,7 +1025,7 @@ export default function App() {
 
   // Desktop layout
   return (
-    <div className="app flex flex-col h-dvh" style={paneOpen && !isMobile ? { paddingRight: '300px' } : {}}>
+    <div className="app flex flex-col h-dvh">
       <header className="h-14 bg-surface border-b border-border flex items-center px-5 gap-6">
         <h1>Bummer<span style={{ fontSize: '10px', fontWeight: 400, opacity: 0.35, letterSpacing: '0.05em' }}>{__APP_VERSION__}</span></h1>
         <nav className="flex gap-1">
@@ -1172,6 +1190,7 @@ export default function App() {
               }) : collections}
               onEnter={handleEnterCollection}
               onDelete={handleDeleteCollection}
+              onRename={handleRenameCollection}
               onCreate={handleCreateCollection}
               onFetchAlbums={handleFetchCollectionAlbums}
             />
@@ -1193,6 +1212,7 @@ export default function App() {
               albumCount={filterAlbums(collectionAlbums, search).length}
               onBack={() => setView('collections')}
               onDescriptionChange={(desc) => handleUpdateCollectionDescription(view.id, desc)}
+              onRename={(newName) => handleRenameCollection(view.id, newName)}
               onPlay={handlePlayCollection}
             />
             <div className="flex-1 overflow-y-auto pb-16">
@@ -1247,7 +1267,6 @@ export default function App() {
         albumServiceId={nowPlayingServiceId}
         albumImageUrl={nowPlayingImageUrl}
         onPlayTrack={handlePlayTrack}
-        onFetchQueue={fetchQueue}
       />
       <PlaybackBar
         state={playback}

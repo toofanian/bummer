@@ -139,6 +139,22 @@ def delete_collection(
     return {"deleted": True}
 
 
+@router.patch("/collections/{collection_id}")
+def rename_collection(
+    collection_id: str,
+    body: CollectionBody,
+    db=Depends(get_authed_db),
+    sp: spotipy.Spotify = Depends(get_user_spotify),
+):
+    result = (
+        db.table("collections")
+        .update({"name": body.name})
+        .eq("id", collection_id)
+        .execute()
+    )
+    return result.data[0]
+
+
 @router.put("/collections/{collection_id}/description")
 def update_collection_description(
     collection_id: str,

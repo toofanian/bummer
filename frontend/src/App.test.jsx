@@ -495,7 +495,7 @@ describe('App — localStorage cache + syncing pulse', () => {
     clearLocalStorageCache()
   })
 
-  it('applies paddingRight on desktop when pane is open', async () => {
+  it('does not apply paddingRight on desktop when pane is open (overlay)', async () => {
     window.matchMedia = vi.fn().mockImplementation(query => ({
       matches: false,
       media: query,
@@ -528,7 +528,7 @@ describe('App — localStorage cache + syncing pulse', () => {
     await userEvent.click(screen.getByRole('button', { name: /now playing/i }))
 
     const appDiv = container.querySelector('.app')
-    expect(appDiv.style.paddingRight).toBe('300px')
+    expect(appDiv.style.paddingRight).toBe('')
 
     clearLocalStorageCache()
   })
