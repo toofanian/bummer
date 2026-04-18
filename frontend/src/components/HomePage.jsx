@@ -18,8 +18,8 @@ function mergeRecentlyPlayed(today, thisWeek) {
   const seen = new Set()
   const merged = []
   for (const album of [...today, ...thisWeek]) {
-    if (!seen.has(album.spotify_id)) {
-      seen.add(album.spotify_id)
+    if (!seen.has(album.service_id)) {
+      seen.add(album.service_id)
       merged.push(album)
     }
   }

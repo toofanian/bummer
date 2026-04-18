@@ -3,8 +3,8 @@ import { describe, it, expect, vi } from 'vitest'
 import AlbumRow from './AlbumRow'
 
 const ALBUMS = [
-  { spotify_id: 'a1', name: 'Album One', artists: ['Artist A'], image_url: 'https://img/1.jpg' },
-  { spotify_id: 'a2', name: 'Album Two', artists: ['Artist B', 'Artist C'], image_url: 'https://img/2.jpg' },
+  { service_id: 'a1', name: 'Album One', artists: ['Artist A'], image_url: 'https://img/1.jpg' },
+  { service_id: 'a2', name: 'Album Two', artists: ['Artist B', 'Artist C'], image_url: 'https://img/2.jpg' },
 ]
 
 describe('AlbumRow', () => {
@@ -28,7 +28,7 @@ describe('AlbumRow', () => {
     expect(images[0]).toHaveAttribute('src', 'https://img/1.jpg')
   })
 
-  it('calls onPlay with spotify_id on click', () => {
+  it('calls onPlay with service_id on click', () => {
     const onPlay = vi.fn()
     render(<AlbumRow title="Today" albums={ALBUMS} onPlay={onPlay} />)
     fireEvent.click(screen.getByText('Album One').closest('[data-testid]'))

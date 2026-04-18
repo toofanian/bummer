@@ -21,16 +21,16 @@ export default function AlbumRow({ title, albums, onPlay }) {
       >
         {albums.map(album => (
           <div
-            key={album.spotify_id}
+            key={album.service_id}
             className="flex-shrink-0 w-[110px] md:w-auto cursor-pointer active:scale-95 active:opacity-80 md:hover:scale-[1.03] md:hover:shadow-lg transition-transform duration-150"
             style={{ scrollSnapAlign: 'start' }}
-            data-testid={`album-card-${album.spotify_id}`}
+            data-testid={`album-card-${album.service_id}`}
             onPointerDown={e => { pointerStart.current = { x: e.clientX, y: e.clientY } }}
             onClick={e => {
               const dx = Math.abs(e.clientX - pointerStart.current.x)
               const dy = Math.abs(e.clientY - pointerStart.current.y)
               if (dx > 10 || dy > 10) return
-              onPlay(album.spotify_id)
+              onPlay(album.service_id)
             }}
           >
             {album.image_url ? (
