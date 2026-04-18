@@ -940,7 +940,7 @@ export default function App() {
             onArtistClick={handleArtistClick}
             onSelectArtist={(name) => { setTargetArtist(name); setSearchOpen(false) }}
             onEnterCollection={(col) => { handleEnterCollection(col); setSearchOpen(false) }}
-            bottomOffset={playback.track ? 'calc(106px + env(safe-area-inset-bottom, 0px))' : 'calc(50px + env(safe-area-inset-bottom, 0px))'}
+            bottomOffset="calc(106px + env(safe-area-inset-bottom, 0px))"
           />
         )}
         {(devicePickerOpen || pendingPlayIntent) && (
