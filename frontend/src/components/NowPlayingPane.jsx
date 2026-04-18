@@ -1,5 +1,4 @@
-import { useEffect, useState, useRef } from 'react'
-import { formatTime } from '../utils/playback'
+import { useEffect, useState } from 'react'
 
 function VinylRecord({ isPlaying, albumImageUrl, size = 180 }) {
   return (
@@ -57,11 +56,9 @@ function VinylRecord({ isPlaying, albumImageUrl, size = 180 }) {
  *   albumServiceId  — string | null  service_id of the currently playing album
  *   albumImageUrl   — string | undefined  album art URL for the vinyl label
  */
-export default function NowPlayingPane({ state, open, onClose, onFetchTracks, albumServiceId, albumImageUrl, onPlayTrack, onFetchQueue }) {
+export default function NowPlayingPane({ state, open, onClose, onFetchTracks, albumServiceId, albumImageUrl, onPlayTrack }) {
   const [tracks, setTracks] = useState([])
   const [tracksLoading, setTracksLoading] = useState(false)
-  const [queue, setQueue] = useState([])
-  const queueIntervalRef = useRef(null)
 
   useEffect(() => {
     if (!albumServiceId) {
@@ -86,32 +83,6 @@ export default function NowPlayingPane({ state, open, onClose, onFetchTracks, al
 
     return () => { cancelled = true }
   }, [albumServiceId])  // eslint-disable-line react-hooks/exhaustive-deps
-
-  useEffect(() => {
-    if (!open || !state.track || !onFetchQueue) {
-      setQueue([])
-      return
-    }
-
-    let cancelled = false
-
-    async function fetchQueue() {
-      try {
-        const data = await onFetchQueue()
-        if (!cancelled) setQueue(data?.queue ?? [])
-      } catch {
-        if (!cancelled) setQueue([])
-      }
-    }
-
-    fetchQueue()
-    queueIntervalRef.current = setInterval(fetchQueue, 30000)
-
-    return () => {
-      cancelled = true
-      clearInterval(queueIntervalRef.current)
-    }
-  }, [open, !!state.track, onFetchQueue]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const { track, device } = state
   const currentTrackName = track?.name ?? null
@@ -184,19 +155,6 @@ export default function NowPlayingPane({ state, open, onClose, onFetchTracks, al
             })
           )}
 
-          {/* Up Next queue */}
-          {queue.length > 0 && (
-            <div className="border-t border-border mt-2 pt-2">
-              <div className="px-4 py-1 text-xs font-bold tracking-wider uppercase text-text-dim">Up Next</div>
-              {queue.map((item, i) => (
-                <div key={i} className="flex items-center gap-2.5 py-[7px] px-4">
-                  <span className="text-sm flex-1 truncate text-text-dim">{item.name}</span>
-                  <span className="text-xs text-text-dim flex-shrink-0">{item.artists.join(', ')}</span>
-                  <span className="text-xs text-text-dim flex-shrink-0">{formatTime(item.duration_ms)}</span>
-                </div>
-              ))}
-            </div>
-          )}
         </div>
       )}
     </aside>

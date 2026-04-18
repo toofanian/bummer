@@ -1,6 +1,6 @@
 // FullScreenNowPlaying.test.jsx
 import { describe, it, expect, vi } from 'vitest'
-import { render, screen, fireEvent, act } from '@testing-library/react'
+import { render, screen, fireEvent } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import FullScreenNowPlaying from './FullScreenNowPlaying'
 
@@ -136,55 +136,3 @@ describe('device indicator', () => {
   })
 })
 
-describe('FullScreenNowPlaying - Up Next queue', () => {
-  const track = {
-    name: 'Test Track',
-    artists: ['Artist 1'],
-    album: 'Test Album',
-    progress_ms: 60000,
-    duration_ms: 180000,
-  }
-
-  const defaultProps = {
-    state: { is_playing: true, track, device: { name: 'iPhone' } },
-    open: true,
-    onClose: vi.fn(),
-    onPlay: vi.fn(),
-    onPause: vi.fn(),
-    onPrevious: vi.fn(),
-    onNext: vi.fn(),
-    onSetVolume: vi.fn(),
-    onFetchTracks: vi.fn().mockResolvedValue([]),
-    onPlayTrack: vi.fn(),
-    albumSpotifyId: 'abc123',
-    albumImageUrl: 'https://example.com/art.jpg',
-    onFetchDevices: vi.fn().mockResolvedValue([]),
-    onTransferPlayback: vi.fn(),
-  }
-
-  it('renders "Up Next" section when queue has items', async () => {
-    const queueData = {
-      currently_playing: null,
-      queue: [
-        { name: 'Queued Song', artists: ['Queue Artist'], duration_ms: 240000 },
-        { name: 'Next Up', artists: ['Another', 'Duo'], duration_ms: 185000 },
-      ],
-    }
-    const onFetchQueue = vi.fn().mockResolvedValue(queueData)
-    render(<FullScreenNowPlaying {...defaultProps} onFetchQueue={onFetchQueue} />)
-    expect(await screen.findByText('Up Next')).toBeInTheDocument()
-    expect(screen.getByText('Queued Song')).toBeInTheDocument()
-    expect(screen.getByText('Queue Artist')).toBeInTheDocument()
-    expect(screen.getByText('4:00')).toBeInTheDocument()
-    expect(screen.getByText('Next Up')).toBeInTheDocument()
-    expect(screen.getByText('Another, Duo')).toBeInTheDocument()
-  })
-
-  it('hides "Up Next" when queue is empty', async () => {
-    const onFetchQueue = vi.fn().mockResolvedValue({ currently_playing: null, queue: [] })
-    render(<FullScreenNowPlaying {...defaultProps} onFetchQueue={onFetchQueue} />)
-    // Wait for component to settle
-    await act(async () => {})
-    expect(screen.queryByText('Up Next')).not.toBeInTheDocument()
-  })
-})
