@@ -731,17 +731,19 @@ export default function App() {
               artistCount={artistCount}
             />
           )}
-          <button
-            onClick={() => setSearchOpen(true)}
-            aria-label="Search"
-            className="bg-transparent border-none p-1.5 cursor-pointer transition-colors duration-150 text-text-dim hover:text-text"
-            title="Search"
-          >
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-              <circle cx="11" cy="11" r="8" />
-              <path d="m21 21-4.3-4.3" />
-            </svg>
-          </button>
+          {(view === 'library' || view === 'collections') && (
+            <button
+              onClick={() => setSearchOpen(true)}
+              aria-label="Search"
+              className="bg-transparent border-none p-1.5 cursor-pointer transition-colors duration-150 text-text-dim hover:text-text"
+              title="Search"
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <circle cx="11" cy="11" r="8" />
+                <path d="m21 21-4.3-4.3" />
+              </svg>
+            </button>
+          )}
           <button
             onClick={() => setView('settings')}
             aria-label="Settings"
@@ -924,12 +926,21 @@ export default function App() {
 
         {searchOpen && (
           <SearchOverlay
+            mode={view === 'collections' ? 'collections' : librarySubView === 'artists' ? 'artists' : 'albums'}
             albums={albums}
+            collections={collections}
             onClose={() => { setSearchOpen(false); setSearch('') }}
             onPlay={handlePlay}
             onPlayTrack={handlePlayTrack}
             onFetchTracks={handleFetchTracks}
             playback={playback}
+            albumCollectionMap={albumCollectionMap}
+            selectedIds={selectedAlbumIdSet}
+            onToggleSelect={handleToggleSelect}
+            onArtistClick={handleArtistClick}
+            onSelectArtist={(name) => { setTargetArtist(name); setSearchOpen(false) }}
+            onEnterCollection={(col) => { handleEnterCollection(col); setSearchOpen(false) }}
+            bottomOffset={playback.track ? 'calc(106px + env(safe-area-inset-bottom, 0px))' : 'calc(50px + env(safe-area-inset-bottom, 0px))'}
           />
         )}
         {(devicePickerOpen || pendingPlayIntent) && (
