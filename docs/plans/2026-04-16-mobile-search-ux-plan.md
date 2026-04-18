@@ -1,27 +1,55 @@
-# Mobile Search UX Fix — Implementation Plan
+# Mobile Search UX — Implementation Plan
 
 **Spec:** `docs/specs/2026-04-16-mobile-search-ux-design.md`
 **Issue:** [#28](https://github.com/toofanian/bummer/issues/28)
 
-## Steps
+## Step 1: Extract MobileAlbumCard
 
-### Step 1: Sticky header
-1. Open `frontend/src/App.jsx`, find the mobile `<header>` element (~line 673)
-2. Add `sticky top-0 z-[100] bg-surface` to its className
-3. Verify existing tests pass: `cd frontend && npm test`
+**Why first:** SearchOverlay and AlbumTable both need it. Extract before building overlay.
 
-### Step 2: BulkAddBar z-index fix
-1. Open `frontend/src/components/BulkAddBar.jsx` (~line 12)
-2. Change `z-50` to `z-[210]`
-3. Change `bottom-0` positioning to `bottom-[calc(50px+env(safe-area-inset-bottom,0px))]` — or use inline style: `style={{ bottom: 'calc(50px + env(safe-area-inset-bottom, 0px))' }}`
-4. Remove redundant `paddingBottom` safe-area since BulkAddBar now sits above BottomTabBar
-5. Verify existing tests pass
+1. Create `frontend/src/components/MobileAlbumCard.jsx`
+2. Move MobileAlbumCard function from `AlbumTable.jsx` (~line 72-151) to new file
+3. Export from new file, import in AlbumTable.jsx
+4. Run tests: `npm test` — AlbumTable tests must still pass
+5. Commit
 
-### Step 3: Search input focus states
-1. Open `frontend/src/App.jsx`, find search `<input>` (~line 687)
-2. Add focus classes: `focus:ring-2 focus:ring-accent/40 focus:outline-none`
-3. Verify existing tests pass
+## Step 2: Build SearchOverlay component (TDD)
 
-### Step 4: Final verification
-1. Run full test suite: `cd frontend && npm test`
-2. Commit all changes
+1. Create test file `frontend/src/components/SearchOverlay.test.jsx`
+2. Write failing tests:
+   - Renders search input that is autofocused
+   - Typing in input filters albums using filterAlbums logic
+   - Displays MobileAlbumCard for each result
+   - Shows "No results" when query has no matches
+   - Shows empty state when query is blank
+   - Cancel button calls onClose
+   - Escape key calls onClose
+3. Create `frontend/src/components/SearchOverlay.jsx`
+4. Implement until all tests pass:
+   - `fixed inset-0 z-[350] bg-surface` full-screen overlay
+   - Top bar: search input (text-base, py-3, autofocus, focus:ring-2 focus:ring-accent/40) + Cancel button
+   - Results: filtered MobileAlbumCards
+   - Safe-area padding top and bottom
+5. Commit
+
+## Step 3: Wire SearchOverlay into App.jsx
+
+1. Add tests to `App.mobile-layout.test.jsx`:
+   - Search icon visible in header on all mobile views
+   - Tapping search icon opens SearchOverlay
+   - SearchOverlay cancel closes overlay and clears search
+2. In App.jsx mobile layout:
+   - Add `searchOpen` state
+   - Remove inline search `<input>` from header (lines 730-737)
+   - Add search icon button in header (all views)
+   - Render `<SearchOverlay>` when `searchOpen` is true
+   - Wire props: albums, search, onSearchChange, onClose, onPlay, playback
+   - onClose: `setSearchOpen(false); setSearch('')`
+3. Run full test suite
+4. Commit
+
+## Step 4: Clean up and verify
+
+1. Remove any dead search-related code (old inline input styles, etc.)
+2. Run full test suite: `npm test`
+3. Final commit
