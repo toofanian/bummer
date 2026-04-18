@@ -2,10 +2,12 @@ import { useState, useEffect } from 'react'
 import { useIsMobile } from '../hooks/useIsMobile'
 import AlbumArtStrip from './AlbumArtStrip'
 
-export default function CollectionsPane({ collections, onEnter, onDelete, onCreate, onFetchAlbums }) {
-  const [newName, setNewName] = useState('')
+export default function CollectionsPane({ collections, onEnter, onDelete, onCreate, onRename, onFetchAlbums }) {
   const [artMap, setArtMap] = useState({})
   const [confirmingId, setConfirmingId] = useState(null)
+  const [menuOpenId, setMenuOpenId] = useState(null)
+  const [renamingId, setRenamingId] = useState(null)
+  const [renameValue, setRenameValue] = useState('')
   const isMobile = useIsMobile()
 
   useEffect(() => {
@@ -20,9 +22,10 @@ export default function CollectionsPane({ collections, onEnter, onDelete, onCrea
   }, [collections])  // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
-    if (!confirmingId) return
+    if (!confirmingId && !menuOpenId) return
     function handleDocClick() {
       setConfirmingId(null)
+      setMenuOpenId(null)
     }
     const id = setTimeout(() => {
       document.addEventListener('click', handleDocClick)
@@ -31,13 +34,7 @@ export default function CollectionsPane({ collections, onEnter, onDelete, onCrea
       clearTimeout(id)
       document.removeEventListener('click', handleDocClick)
     }
-  }, [confirmingId])
-
-  function handleCreate() {
-    if (!newName.trim()) return
-    onCreate(newName.trim())
-    setNewName('')
-  }
+  }, [confirmingId, menuOpenId])
 
   function handleDeleteClick(e, colId) {
     e.stopPropagation()
@@ -57,18 +54,16 @@ export default function CollectionsPane({ collections, onEnter, onDelete, onCrea
     setConfirmingId(null)
   }
 
+  function submitRename(col) {
+    const trimmed = renameValue.trim()
+    if (trimmed && trimmed !== col.name) {
+      onRename(col.id, trimmed)
+    }
+    setRenamingId(null)
+  }
+
   return (
     <div className="w-full flex flex-col h-full overflow-hidden">
-      <div className="flex gap-2 px-4 py-3 border-b border-border bg-bg flex-shrink-0 sticky top-0 z-10 opacity-70 hover:opacity-100 focus-within:opacity-100 transition-opacity duration-150">
-        <input
-          placeholder="New collection name"
-          value={newName}
-          onChange={e => setNewName(e.target.value)}
-          onKeyDown={e => e.key === 'Enter' && handleCreate()}
-        />
-        <button onClick={handleCreate}>Create</button>
-      </div>
-
       {collections.length === 0 ? (
         <p className="p-4 text-sm text-text-dim italic">No collections yet.</p>
       ) : (
@@ -81,6 +76,7 @@ export default function CollectionsPane({ collections, onEnter, onDelete, onCrea
             return (
               <div
                 key={col.id}
+                data-testid="collection-row"
                 className="border-b border-border cursor-pointer hover:bg-hover transition-colors duration-150 group"
                 onClick={() => onEnter(col)}
               >
@@ -89,7 +85,22 @@ export default function CollectionsPane({ collections, onEnter, onDelete, onCrea
                     <div className="flex items-center justify-between px-4 py-2">
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-2">
-                          <span className="text-sm font-medium text-text">{col.name}</span>
+                          {renamingId === col.id ? (
+                            <input
+                              className="text-sm font-medium text-text bg-transparent border-b border-accent outline-none w-full"
+                              value={renameValue}
+                              onChange={e => setRenameValue(e.target.value)}
+                              onKeyDown={e => {
+                                if (e.key === 'Enter') submitRename(col)
+                                if (e.key === 'Escape') { setRenamingId(null) }
+                              }}
+                              onBlur={() => submitRename(col)}
+                              autoFocus
+                              onClick={e => e.stopPropagation()}
+                            />
+                          ) : (
+                            <span className="text-sm font-medium text-text">{col.name}</span>
+                          )}
                           {col.album_count != null && (
                             <span className="text-xs text-text-dim">{col.album_count}</span>
                           )}
@@ -98,26 +109,46 @@ export default function CollectionsPane({ collections, onEnter, onDelete, onCrea
                           <div className="text-xs text-text-dim mt-0.5 truncate">{col.description}</div>
                         )}
                       </div>
-                      <div onClick={e => e.stopPropagation()}>
-                        {isConfirming ? (
+                      <div onClick={e => e.stopPropagation()} className="relative">
+                        {renamingId === col.id ? null : confirmingId === col.id ? (
                           <>
                             <button className="bg-delete-red border-none text-white cursor-pointer text-xs font-semibold px-1.5 py-0.5 rounded mr-0.5 whitespace-nowrap" aria-label="Confirm delete" onClick={e => handleConfirmDelete(e, col.id)}>Delete</button>
                             <button className="bg-transparent border border-border text-text-dim cursor-pointer text-xs px-1.5 py-0.5 rounded whitespace-nowrap" aria-label="Cancel" onClick={handleCancelDelete}>Cancel</button>
                           </>
+                        ) : menuOpenId === col.id ? (
+                          <div className="flex gap-1">
+                            <button className="bg-transparent border border-border text-text text-xs px-2 py-1 rounded cursor-pointer hover:bg-surface-2" onClick={() => { setMenuOpenId(null); setRenamingId(col.id); setRenameValue(col.name) }}>Rename</button>
+                            <button className="bg-transparent border border-border text-delete-red text-xs px-2 py-1 rounded cursor-pointer hover:bg-surface-2" onClick={e => { setMenuOpenId(null); handleDeleteClick(e, col.id) }}>Delete</button>
+                          </div>
                         ) : (
-                          <button className="bg-transparent border-none text-text-dim cursor-pointer text-lg p-1.5 rounded opacity-0 group-hover:opacity-50 hover:!opacity-100 hover:bg-surface-2 transition-opacity duration-150" aria-label="Delete" onClick={e => handleDeleteClick(e, col.id)}>×</button>
+                          <button className="bg-transparent border-none text-text-dim cursor-pointer text-lg p-1.5 rounded opacity-0 group-hover:opacity-50 hover:!opacity-100 hover:bg-surface-2 transition-opacity duration-150" aria-label="More options" onClick={() => setMenuOpenId(col.id)}>⋯</button>
                         )}
                       </div>
                     </div>
-                    {artAlbums.length > 0 && (
+                    <div style={{ height: 62 }}>
                       <AlbumArtStrip albums={artAlbums} size={62} />
-                    )}
+                    </div>
                   </>
                 ) : (
-                  <div className="flex items-stretch">
+                  <div className="flex items-stretch" style={{ height: 62 }}>
                     <div className="w-48 flex-shrink-0 flex items-center px-4">
                       <div className="min-w-0">
-                        <div className="text-sm font-medium text-text truncate">{col.name}</div>
+                        {renamingId === col.id ? (
+                          <input
+                            className="text-sm font-medium text-text bg-transparent border-b border-accent outline-none w-full"
+                            value={renameValue}
+                            onChange={e => setRenameValue(e.target.value)}
+                            onKeyDown={e => {
+                              if (e.key === 'Enter') submitRename(col)
+                              if (e.key === 'Escape') { setRenamingId(null) }
+                            }}
+                            onBlur={() => submitRename(col)}
+                            autoFocus
+                            onClick={e => e.stopPropagation()}
+                          />
+                        ) : (
+                          <div className="text-sm font-medium text-text truncate">{col.name}</div>
+                        )}
                         {col.description && (
                           <div className="text-xs text-text-dim mt-0.5 truncate">{col.description}</div>
                         )}
@@ -130,14 +161,19 @@ export default function CollectionsPane({ collections, onEnter, onDelete, onCrea
                       {col.album_count != null && (
                         <span className="text-xs text-text-dim tabular-nums">{col.album_count}</span>
                       )}
-                      <div onClick={e => e.stopPropagation()}>
-                        {isConfirming ? (
+                      <div onClick={e => e.stopPropagation()} className="relative">
+                        {renamingId === col.id ? null : confirmingId === col.id ? (
                           <>
                             <button className="bg-delete-red border-none text-white cursor-pointer text-xs font-semibold px-1.5 py-0.5 rounded mr-0.5 whitespace-nowrap" aria-label="Confirm delete" onClick={e => handleConfirmDelete(e, col.id)}>Delete</button>
                             <button className="bg-transparent border border-border text-text-dim cursor-pointer text-xs px-1.5 py-0.5 rounded whitespace-nowrap" aria-label="Cancel" onClick={handleCancelDelete}>Cancel</button>
                           </>
+                        ) : menuOpenId === col.id ? (
+                          <div className="flex gap-1">
+                            <button className="bg-transparent border border-border text-text text-xs px-2 py-1 rounded cursor-pointer hover:bg-surface-2" onClick={() => { setMenuOpenId(null); setRenamingId(col.id); setRenameValue(col.name) }}>Rename</button>
+                            <button className="bg-transparent border border-border text-delete-red text-xs px-2 py-1 rounded cursor-pointer hover:bg-surface-2" onClick={e => { setMenuOpenId(null); handleDeleteClick(e, col.id) }}>Delete</button>
+                          </div>
                         ) : (
-                          <button className="bg-transparent border-none text-text-dim cursor-pointer text-lg p-1.5 rounded opacity-0 group-hover:opacity-50 hover:!opacity-100 hover:bg-surface-2 transition-opacity duration-150" aria-label="Delete" onClick={e => handleDeleteClick(e, col.id)}>×</button>
+                          <button className="bg-transparent border-none text-text-dim cursor-pointer text-lg p-1.5 rounded opacity-0 group-hover:opacity-50 hover:!opacity-100 hover:bg-surface-2 transition-opacity duration-150" aria-label="More options" onClick={() => setMenuOpenId(col.id)}>⋯</button>
                         )}
                       </div>
                     </div>

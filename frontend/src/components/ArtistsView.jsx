@@ -1,5 +1,6 @@
 import { useState, useMemo, useEffect } from 'react'
 import AlbumTable from './AlbumTable'
+import AlbumArtStrip from './AlbumArtStrip'
 import { useIsMobile } from '../hooks/useIsMobile'
 
 function groupByArtist(albums) {
@@ -116,17 +117,35 @@ export default function ArtistsView({
         <div
           key={group.name}
           data-testid={`artist-row-${group.name}`}
-          className={`flex items-center gap-3 border-b border-border cursor-pointer transition-colors duration-100 hover:bg-hover ${
-            isMobile ? 'px-4 py-2.5 min-h-16' : 'px-4 py-2'
-          }`}
+          className="border-b border-border cursor-pointer transition-colors duration-100 hover:bg-hover"
+          style={{ minHeight: 62 }}
           onClick={() => setSelectedArtist(group.name)}
         >
-          <ArtistThumbnail albums={group.albums} artistName={group.name} />
-          <div className="flex-1 min-w-0">
-            <div data-testid="artist-name" className="text-sm font-semibold text-text truncate">{group.name}</div>
-            <div className="text-xs text-text-dim">{group.albums.length} {group.albums.length === 1 ? 'album' : 'albums'}</div>
-          </div>
-          <span className="text-text-dim text-sm flex-shrink-0">›</span>
+          {isMobile ? (
+            <>
+              <div className="flex items-center px-4 py-2">
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2">
+                    <span data-testid="artist-name" className="text-sm font-semibold text-text">{group.name}</span>
+                    <span className="text-xs text-text-dim">{group.albums.length} {group.albums.length === 1 ? 'album' : 'albums'}</span>
+                  </div>
+                </div>
+              </div>
+              <AlbumArtStrip albums={group.albums} size={62} />
+            </>
+          ) : (
+            <div className="flex items-stretch">
+              <div className="w-48 flex-shrink-0 flex items-center px-4">
+                <div className="min-w-0">
+                  <div data-testid="artist-name" className="text-sm font-semibold text-text truncate">{group.name}</div>
+                  <div className="text-xs text-text-dim mt-0.5">{group.albums.length} {group.albums.length === 1 ? 'album' : 'albums'}</div>
+                </div>
+              </div>
+              <div className="flex-1 min-w-0 flex items-center">
+                <AlbumArtStrip albums={group.albums} size={62} />
+              </div>
+            </div>
+          )}
         </div>
       ))}
     </div>

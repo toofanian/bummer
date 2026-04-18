@@ -739,6 +739,61 @@ describe('PlaybackBar', () => {
     expect(btn.className).toContain('rounded-full')
   })
 
+  // --- Theme-aware slider colors ---
+
+  it('progress bar track uses theme CSS variable, not hardcoded white', () => {
+    render(
+      <PlaybackBar
+        state={PLAYING_STATE}
+        onPlay={vi.fn()}
+        onPause={vi.fn()}
+        paneOpen={false}
+        onTogglePane={vi.fn()}
+      />
+    )
+    const slider = screen.getByRole('slider', { name: /track progress/i })
+    expect(slider.style.background).not.toContain('rgba(255')
+    expect(slider.style.background).toContain('var(--color-text-dim)')
+  })
+
+  it('progress bar filled track uses theme CSS variable, not hardcoded white', () => {
+    render(
+      <PlaybackBar
+        state={PLAYING_STATE}
+        onPlay={vi.fn()}
+        onPause={vi.fn()}
+        paneOpen={false}
+        onTogglePane={vi.fn()}
+      />
+    )
+    const slider = screen.getByRole('slider', { name: /track progress/i })
+    const fill = slider.firstElementChild
+    expect(fill.style.background).not.toContain('rgba(255')
+    expect(fill.style.background).toContain('var(--color-accent)')
+  })
+
+  it('volume slider elements use theme CSS variables, not hardcoded white', () => {
+    render(
+      <PlaybackBar
+        state={PLAYING_STATE}
+        onPlay={vi.fn()}
+        onPause={vi.fn()}
+        paneOpen={false}
+        onTogglePane={vi.fn()}
+        onSetVolume={vi.fn()}
+      />
+    )
+    const slider = screen.getByRole('slider', { name: 'Volume' })
+    const children = slider.children
+    // track background (first child)
+    expect(children[0].style.background).not.toContain('rgba(255')
+    // filled track (second child)
+    expect(children[1].style.background).not.toContain('rgba(255')
+    // thumb (third child)
+    expect(children[2].style.background).not.toBe('#ffffff')
+    expect(children[2].style.background).toContain('var(--color-accent)')
+  })
+
   // --- Volume slider ---
 
   it('renders a volume slider in the right zone', () => {

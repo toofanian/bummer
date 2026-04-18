@@ -14,7 +14,7 @@ describe('CollectionDetailHeader', () => {
         onDescriptionChange={() => {}}
       />
     )
-    expect(screen.getByText('Late Night')).toBeInTheDocument()
+    expect(screen.getByDisplayValue('Late Night')).toBeInTheDocument()
     expect(screen.getByDisplayValue('low energy vibes')).toBeInTheDocument()
   })
 
@@ -87,5 +87,77 @@ describe('CollectionDetailHeader', () => {
       />
     )
     expect(screen.queryByRole('button', { name: /play collection/i })).not.toBeInTheDocument()
+  })
+
+  it('allows editing collection name inline', async () => {
+    const onRename = vi.fn()
+    render(
+      <CollectionDetailHeader
+        name="Late Night"
+        description={null}
+        albumCount={5}
+        onBack={() => {}}
+        onDescriptionChange={() => {}}
+        onRename={onRename}
+      />
+    )
+    const input = screen.getByDisplayValue('Late Night')
+    await userEvent.clear(input)
+    await userEvent.type(input, 'Early Morning')
+    await userEvent.tab()
+    expect(onRename).toHaveBeenCalledWith('Early Morning')
+  })
+
+  it('does not call onRename when name is unchanged', async () => {
+    const onRename = vi.fn()
+    render(
+      <CollectionDetailHeader
+        name="Late Night"
+        description={null}
+        albumCount={5}
+        onBack={() => {}}
+        onDescriptionChange={() => {}}
+        onRename={onRename}
+      />
+    )
+    const input = screen.getByDisplayValue('Late Night')
+    await userEvent.tab()
+    expect(onRename).not.toHaveBeenCalled()
+  })
+
+  it('does not call onRename when name is empty', async () => {
+    const onRename = vi.fn()
+    render(
+      <CollectionDetailHeader
+        name="Late Night"
+        description={null}
+        albumCount={5}
+        onBack={() => {}}
+        onDescriptionChange={() => {}}
+        onRename={onRename}
+      />
+    )
+    const input = screen.getByDisplayValue('Late Night')
+    await userEvent.clear(input)
+    await userEvent.tab()
+    expect(onRename).not.toHaveBeenCalled()
+  })
+
+  it('submits name on Enter key', async () => {
+    const onRename = vi.fn()
+    render(
+      <CollectionDetailHeader
+        name="Late Night"
+        description={null}
+        albumCount={5}
+        onBack={() => {}}
+        onDescriptionChange={() => {}}
+        onRename={onRename}
+      />
+    )
+    const input = screen.getByDisplayValue('Late Night')
+    await userEvent.clear(input)
+    await userEvent.type(input, 'Sunrise{Enter}')
+    expect(onRename).toHaveBeenCalledWith('Sunrise')
   })
 })

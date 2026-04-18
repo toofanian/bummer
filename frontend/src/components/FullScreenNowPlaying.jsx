@@ -75,14 +75,11 @@ export default function FullScreenNowPlaying({
   onTransferPlayback,
   onOpenDevicePicker,
   onSeek,
-  onFetchQueue,
 }) {
   const { is_playing, track, device } = state
   const [tracks, setTracks] = useState([])
   const [tracksLoading, setTracksLoading] = useState(false)
   const [volume, setVolume] = useState(50)
-  const [queue, setQueue] = useState([])
-  const queueIntervalRef = useRef(null)
 
   const debouncedSetVolume = useDebouncedCallback(
     (v) => { if (onSetVolume) onSetVolume(v) },
@@ -103,32 +100,6 @@ export default function FullScreenNowPlaying({
     })
     return () => { cancelled = true }
   }, [albumSpotifyId]) // eslint-disable-line react-hooks/exhaustive-deps
-
-  useEffect(() => {
-    if (!open || !track || !onFetchQueue) {
-      setQueue([])
-      return
-    }
-
-    let cancelled = false
-
-    async function fetchQueue() {
-      try {
-        const data = await onFetchQueue()
-        if (!cancelled) setQueue(data?.queue ?? [])
-      } catch {
-        if (!cancelled) setQueue([])
-      }
-    }
-
-    fetchQueue()
-    queueIntervalRef.current = setInterval(fetchQueue, 30000)
-
-    return () => {
-      cancelled = true
-      clearInterval(queueIntervalRef.current)
-    }
-  }, [open, !!track, onFetchQueue]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const currentTrackName = track?.name ?? null
 
@@ -259,19 +230,6 @@ export default function FullScreenNowPlaying({
           </div>
         )}
 
-        {/* Up Next queue */}
-        {queue.length > 0 && (
-          <div className="w-full max-w-[342px] mb-8 border-t border-border pt-4">
-            <div className="text-xs font-bold tracking-wider uppercase text-text-dim mb-2">Up Next</div>
-            {queue.map((item, i) => (
-              <div key={i} className="flex items-center gap-3 py-2 px-2">
-                <span className="flex-1 text-sm truncate text-text-dim">{item.name}</span>
-                <span className="text-xs text-text-dim flex-shrink-0">{item.artists.join(', ')}</span>
-                <span className="text-xs text-text-dim flex-shrink-0">{formatTime(item.duration_ms)}</span>
-              </div>
-            ))}
-          </div>
-        )}
       </div>
     </div>
   )

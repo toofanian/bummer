@@ -1,4 +1,4 @@
-import { render, screen, waitFor, act } from '@testing-library/react'
+import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import NowPlayingPane from './NowPlayingPane'
 
@@ -368,64 +368,4 @@ describe('NowPlayingPane', () => {
     })
   })
 
-  // --- Up Next queue ---
-
-  it('renders "Up Next" section when queue has items', async () => {
-    const queueData = {
-      currently_playing: null,
-      queue: [
-        { name: 'Future Track', artists: ['Band A', 'Band B'], duration_ms: 200000 },
-        { name: 'Another Song', artists: ['Solo'], duration_ms: 150000 },
-      ],
-    }
-    const onFetchQueue = vi.fn().mockResolvedValue(queueData)
-    render(
-      <NowPlayingPane
-        state={PLAYING_STATE}
-        open={true}
-        onClose={vi.fn()}
-        onFetchTracks={vi.fn().mockResolvedValue(TRACKS)}
-        albumServiceId="abc123"
-        onFetchQueue={onFetchQueue}
-      />
-    )
-    expect(await screen.findByText('Up Next')).toBeInTheDocument()
-    expect(await screen.findByText('Future Track')).toBeInTheDocument()
-    expect(screen.getByText('Band A, Band B')).toBeInTheDocument()
-    expect(screen.getByText('3:20')).toBeInTheDocument()
-    expect(screen.getByText('Another Song')).toBeInTheDocument()
-  })
-
-  it('hides "Up Next" when queue is empty', async () => {
-    const onFetchQueue = vi.fn().mockResolvedValue({ currently_playing: null, queue: [] })
-    render(
-      <NowPlayingPane
-        state={PLAYING_STATE}
-        open={true}
-        onClose={vi.fn()}
-        onFetchTracks={vi.fn().mockResolvedValue(TRACKS)}
-        albumServiceId="abc123"
-        onFetchQueue={onFetchQueue}
-      />
-    )
-    // Wait for tracks to load first
-    await screen.findByText('No Ordinary Love')
-    // Give queue fetch time to resolve
-    await act(async () => {})
-    expect(screen.queryByText('Up Next')).not.toBeInTheDocument()
-  })
-
-  it('does not render "Up Next" when onFetchQueue is not provided', async () => {
-    render(
-      <NowPlayingPane
-        state={PLAYING_STATE}
-        open={true}
-        onClose={vi.fn()}
-        onFetchTracks={vi.fn().mockResolvedValue(TRACKS)}
-        albumServiceId="abc123"
-      />
-    )
-    await screen.findByText('No Ordinary Love')
-    expect(screen.queryByText('Up Next')).not.toBeInTheDocument()
-  })
 })

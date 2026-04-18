@@ -402,6 +402,33 @@ def test_get_collection_albums_returns_empty_when_collection_empty(monkeypatch):
     clear_overrides()
 
 
+# --- Collection rename ---
+
+
+def test_rename_collection():
+    db = mock_db(execute_data=[{**COLLECTION, "name": "New name"}])
+    override_db(db)
+    override_spotify(mock_spotify())
+
+    response = client.patch("/collections/col-uuid-1", json={"name": "New name"})
+
+    assert response.status_code == 200
+    assert response.json()["name"] == "New name"
+
+    clear_overrides()
+
+
+def test_rename_collection_rejects_empty_name():
+    override_db(mock_db())
+    override_spotify(mock_spotify())
+
+    response = client.patch("/collections/col-uuid-1", json={"name": ""})
+
+    assert response.status_code == 422
+
+    clear_overrides()
+
+
 # --- Collection description ---
 
 

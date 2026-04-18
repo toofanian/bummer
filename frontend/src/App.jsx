@@ -67,7 +67,7 @@ export default function App() {
   }
   const sessionRef = useRef(session)
   sessionRef.current = session
-  const { state: playback, play, playTrack, pause, previousTrack, nextTrack, setVolume, fetchDevices, fetchQueue, seek, transferPlayback } = usePlayback(session)
+  const { state: playback, play, playTrack, pause, previousTrack, nextTrack, setVolume, fetchDevices, seek, transferPlayback } = usePlayback(session)
   const [pendingPlayIntent, setPendingPlayIntent] = useState(null)
   // Shape: null | { type: 'album'|'track', contextUri?, trackUri?, albumId? }
   const [devicePickerOpen, setDevicePickerOpen] = useState(false)
@@ -78,6 +78,8 @@ export default function App() {
   const selectedAlbumIdSet = useMemo(() => new Set(selectedAlbumIds), [selectedAlbumIds])
   const [pickerAlbumIds, setPickerAlbumIds] = useState(null)
   const [targetArtist, setTargetArtist] = useState(null)
+  const [showCollectionCreate, setShowCollectionCreate] = useState(false)
+  const [collectionCreateName, setCollectionCreateName] = useState('')
   // Collection playback: null | { collectionId: string, albumIds: string[], currentIndex: number }
   const [collectionPlayback, setCollectionPlayback] = useState(null)
   const collectionPlaybackRef = useRef(null)
@@ -252,6 +254,12 @@ export default function App() {
     }
   }, [albumsLoading, albums.length])
 
+  // Reset create-collection inline form when navigating away
+  useEffect(() => {
+    setShowCollectionCreate(false)
+    setCollectionCreateName('')
+  }, [view])
+
   // Escape key clears selection
   useEffect(() => {
     function handleKeyDown(e) {
@@ -283,6 +291,23 @@ export default function App() {
     } catch {
       // Rollback: remove the optimistic entry
       setCollections(prev => prev.filter(c => c.id !== tmpId))
+    }
+  }
+
+  async function handleRenameCollection(id, newName) {
+    const prev = collections
+    setCollections(cs => cs.map(c => c.id === id ? { ...c, name: newName } : c))
+    // Also update the view if we're inside this collection
+    setView(v => typeof v === 'object' && v.id === id ? { ...v, name: newName } : v)
+    try {
+      const res = await apiFetch(`/collections/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: newName }),
+      }, sessionRef.current)
+      if (!res.ok) throw new Error('Failed to rename collection')
+    } catch {
+      setCollections(prev)
     }
   }
 
@@ -742,6 +767,43 @@ export default function App() {
               artistCount={artistCount}
             />
           )}
+          {view === 'collections' && (
+            showCollectionCreate ? (
+              <input
+                autoFocus
+                className="bg-surface-2 text-text border border-border rounded-full px-3 py-1 text-sm flex-1 min-w-0"
+                placeholder="Collection name\u2026"
+                value={collectionCreateName}
+                onChange={e => setCollectionCreateName(e.target.value)}
+                onKeyDown={e => {
+                  if (e.key === 'Enter' && collectionCreateName.trim()) {
+                    handleCreateCollection(collectionCreateName.trim())
+                    setCollectionCreateName('')
+                    setShowCollectionCreate(false)
+                  } else if (e.key === 'Escape') {
+                    setCollectionCreateName('')
+                    setShowCollectionCreate(false)
+                  }
+                }}
+                onBlur={() => {
+                  setCollectionCreateName('')
+                  setShowCollectionCreate(false)
+                }}
+              />
+            ) : (
+              <button
+                className="bg-transparent border-none text-text-dim cursor-pointer p-1.5 rounded transition-colors duration-150 hover:text-text"
+                onClick={() => setShowCollectionCreate(true)}
+                aria-label="Create collection"
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <circle cx="12" cy="12" r="10" />
+                  <path d="M12 8v8" />
+                  <path d="M8 12h8" />
+                </svg>
+              </button>
+            )
+          )}
           {(view === 'library' || view === 'collections') && (
             <button
               onClick={() => setSearchOpen(true)}
@@ -827,6 +889,7 @@ export default function App() {
                 collections={collections}
                 onEnter={handleEnterCollection}
                 onDelete={handleDeleteCollection}
+                onRename={handleRenameCollection}
                 onCreate={handleCreateCollection}
                 onFetchAlbums={handleFetchCollectionAlbums}
               />
@@ -848,6 +911,7 @@ export default function App() {
                 albumCount={collectionAlbums.length}
                 onBack={() => setView('collections')}
                 onDescriptionChange={(desc) => handleUpdateCollectionDescription(view.id, desc)}
+                onRename={(newName) => handleRenameCollection(view.id, newName)}
                 onPlay={handlePlayCollection}
               />
               <div className="flex-1 overflow-y-auto">
@@ -916,7 +980,6 @@ export default function App() {
           onTransferPlayback={transferPlayback}
           onOpenDevicePicker={() => { setDevicePickerOpen(true); setPickerRestrictedDevice(false) }}
           onSeek={seek}
-          onFetchQueue={fetchQueue}
         />
 
         <MiniPlaybackBar
@@ -976,7 +1039,7 @@ export default function App() {
 
   // Desktop layout
   return (
-    <div className="app flex flex-col h-dvh" style={paneOpen && !isMobile ? { paddingRight: '300px' } : {}}>
+    <div className="app flex flex-col h-dvh">
       <header className="h-14 bg-surface border-b border-border flex items-center px-5 gap-6">
         <h1>Bummer<span style={{ fontSize: '10px', fontWeight: 400, opacity: 0.35, letterSpacing: '0.05em' }}>{__APP_VERSION__}</span></h1>
         <nav className="flex gap-1">
@@ -1006,6 +1069,43 @@ export default function App() {
           >
             <span className={collectionsLoading ? 'animate-pulse' : undefined}>Collections</span>
           </button>
+          {view === 'collections' && (
+            showCollectionCreate ? (
+              <input
+                autoFocus
+                className="bg-surface-2 text-text border border-border rounded-full px-3 py-1 text-sm w-48"
+                placeholder="Collection name&#x2026;"
+                value={collectionCreateName}
+                onChange={e => setCollectionCreateName(e.target.value)}
+                onKeyDown={e => {
+                  if (e.key === 'Enter' && collectionCreateName.trim()) {
+                    handleCreateCollection(collectionCreateName.trim())
+                    setCollectionCreateName('')
+                    setShowCollectionCreate(false)
+                  } else if (e.key === 'Escape') {
+                    setCollectionCreateName('')
+                    setShowCollectionCreate(false)
+                  }
+                }}
+                onBlur={() => {
+                  setCollectionCreateName('')
+                  setShowCollectionCreate(false)
+                }}
+              />
+            ) : (
+              <button
+                className="bg-transparent border-none text-text-dim cursor-pointer p-1.5 rounded transition-colors duration-150 hover:text-text"
+                onClick={() => setShowCollectionCreate(true)}
+                aria-label="Create collection"
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <circle cx="12" cy="12" r="10" />
+                  <path d="M12 8v8" />
+                  <path d="M8 12h8" />
+                </svg>
+              </button>
+            )
+          )}
         </nav>
         <input
           className="ml-auto w-48 bg-surface-2 text-text border border-border rounded px-2.5 py-1 text-sm"
@@ -1106,6 +1206,7 @@ export default function App() {
               }) : collections}
               onEnter={handleEnterCollection}
               onDelete={handleDeleteCollection}
+              onRename={handleRenameCollection}
               onCreate={handleCreateCollection}
               onFetchAlbums={handleFetchCollectionAlbums}
             />
@@ -1127,6 +1228,7 @@ export default function App() {
               albumCount={filterAlbums(collectionAlbums, search).length}
               onBack={() => setView('collections')}
               onDescriptionChange={(desc) => handleUpdateCollectionDescription(view.id, desc)}
+              onRename={(newName) => handleRenameCollection(view.id, newName)}
               onPlay={handlePlayCollection}
             />
             <div className="flex-1 overflow-y-auto pb-16">
@@ -1182,7 +1284,6 @@ export default function App() {
         albumServiceId={nowPlayingServiceId}
         albumImageUrl={nowPlayingImageUrl}
         onPlayTrack={handlePlayTrack}
-        onFetchQueue={fetchQueue}
       />
       <PlaybackBar
         state={playback}

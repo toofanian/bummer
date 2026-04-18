@@ -495,7 +495,7 @@ describe('App — localStorage cache + syncing pulse', () => {
     clearLocalStorageCache()
   })
 
-  it('applies paddingRight on desktop when pane is open', async () => {
+  it('does not apply paddingRight on desktop when pane is open (overlay)', async () => {
     window.matchMedia = vi.fn().mockImplementation(query => ({
       matches: false,
       media: query,
@@ -528,7 +528,7 @@ describe('App — localStorage cache + syncing pulse', () => {
     await userEvent.click(screen.getByRole('button', { name: /now playing/i }))
 
     const appDiv = container.querySelector('.app')
-    expect(appDiv.style.paddingRight).toBe('300px')
+    expect(appDiv.style.paddingRight).toBe('')
 
     clearLocalStorageCache()
   })
@@ -1683,6 +1683,131 @@ describe('App — listen counts', () => {
     // Library should still load despite listen-counts failure
     await userEvent.click(await screen.findByRole('button', { name: /^library( syncing)?$/i }))
     expect(await screen.findByText('Cached Album')).toBeInTheDocument()
+
+    clearLocalStorageCache()
+  })
+})
+
+describe('App — create collection from nav bar', () => {
+  it('shows a create collection button in nav when on collections view', async () => {
+    seedLocalStorageCache()
+    setupSuccessfulFetch()
+
+    render(<App />)
+
+    // Navigate to Collections
+    await userEvent.click(await screen.findByRole('button', { name: /collections/i }))
+
+    // The "+" button should be visible
+    expect(screen.getByRole('button', { name: /create collection/i })).toBeInTheDocument()
+
+    clearLocalStorageCache()
+  })
+
+  it('does not show create collection button when not on collections view', async () => {
+    seedLocalStorageCache()
+    setupSuccessfulFetch()
+
+    render(<App />)
+
+    // Default view is home — no create button
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /home/i })).toBeInTheDocument()
+    })
+    expect(screen.queryByRole('button', { name: /create collection/i })).not.toBeInTheDocument()
+
+    clearLocalStorageCache()
+  })
+
+  it('clicking create collection button shows an input', async () => {
+    seedLocalStorageCache()
+    setupSuccessfulFetch()
+
+    render(<App />)
+
+    await userEvent.click(await screen.findByRole('button', { name: /collections/i }))
+    await userEvent.click(screen.getByRole('button', { name: /create collection/i }))
+
+    expect(screen.getByPlaceholderText(/collection name/i)).toBeInTheDocument()
+
+    clearLocalStorageCache()
+  })
+
+  it('pressing Enter in create collection input creates collection and hides input', async () => {
+    seedLocalStorageCache()
+    global.fetch = vi.fn().mockImplementation((url, options) => {
+      if (url.includes('/library/sync-complete') && options?.method === 'POST') {
+        return Promise.resolve({ ok: true, json: () => Promise.resolve({ ok: true }) })
+      }
+      if (url.includes('/library/sync') && !url.includes('/sync-complete') && options?.method === 'POST') {
+        return Promise.resolve({ ok: true, json: () => Promise.resolve(SYNC_DONE) })
+      }
+      if (url.includes('/library/albums') && !url.includes('/tracks')) {
+        return Promise.resolve({ ok: true, json: () => Promise.resolve(LIBRARY_OK) })
+      }
+      // POST to /collections creates a collection
+      if (url.includes('/collections') && options?.method === 'POST' && !url.includes('/albums')) {
+        return Promise.resolve({ ok: true, json: () => Promise.resolve({ id: 'new-col', name: 'Road trip', album_count: 0 }) })
+      }
+      // GET /collections/:id/albums
+      if (url.includes('/collections') && url.includes('/albums')) {
+        return Promise.resolve({ ok: true, json: () => Promise.resolve({ albums: [] }) })
+      }
+      if (url.includes('/collections')) {
+        return Promise.resolve({ ok: true, json: () => Promise.resolve(COLLECTIONS_OK) })
+      }
+      if (url.includes('/home')) {
+        return Promise.resolve({ ok: true, json: () => Promise.resolve(HOME_OK) })
+      }
+      return Promise.resolve({ ok: true, json: () => Promise.resolve({}) })
+    })
+
+    render(<App />)
+
+    await userEvent.click(await screen.findByRole('button', { name: /collections/i }))
+    await userEvent.click(screen.getByRole('button', { name: /create collection/i }))
+
+    const input = screen.getByPlaceholderText(/collection name/i)
+    await userEvent.type(input, 'Road trip{Enter}')
+
+    // Input should be gone, "+" button should be back
+    await waitFor(() => {
+      expect(screen.queryByPlaceholderText(/collection name/i)).not.toBeInTheDocument()
+    })
+    expect(screen.getByRole('button', { name: /create collection/i })).toBeInTheDocument()
+
+    // Verify the collection creation API was called
+    const createCalls = global.fetch.mock.calls.filter(
+      ([url, opts]) => url.includes('/collections') && opts?.method === 'POST' && !url.includes('/albums')
+    )
+    expect(createCalls.length).toBeGreaterThanOrEqual(1)
+
+    clearLocalStorageCache()
+  })
+
+  it('pressing Escape in create collection input hides it without creating', async () => {
+    seedLocalStorageCache()
+    setupSuccessfulFetch()
+
+    render(<App />)
+
+    await userEvent.click(await screen.findByRole('button', { name: /collections/i }))
+    await userEvent.click(screen.getByRole('button', { name: /create collection/i }))
+
+    const input = screen.getByPlaceholderText(/collection name/i)
+    await userEvent.type(input, 'Road trip{Escape}')
+
+    // Input should be gone, "+" button should be back
+    await waitFor(() => {
+      expect(screen.queryByPlaceholderText(/collection name/i)).not.toBeInTheDocument()
+    })
+    expect(screen.getByRole('button', { name: /create collection/i })).toBeInTheDocument()
+
+    // No collection creation API call
+    const createCalls = global.fetch.mock.calls.filter(
+      ([url, opts]) => url.includes('/collections') && opts?.method === 'POST' && !url.includes('/albums')
+    )
+    expect(createCalls.length).toBe(0)
 
     clearLocalStorageCache()
   })

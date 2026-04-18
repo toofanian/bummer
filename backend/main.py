@@ -13,6 +13,7 @@ from routers import (
     auth,
     auth_proxy,
     digest,
+    export,
     home,
     library,
     metadata,
@@ -63,6 +64,7 @@ app.include_router(library.router)
 app.include_router(metadata.router)
 app.include_router(playback.router)
 app.include_router(digest.router)
+app.include_router(export.router)
 
 
 @app.get("/health")
