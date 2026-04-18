@@ -51,11 +51,11 @@ function ProgressBar({ progressMs, durationMs, onSeek }) {
         onPointerDown={handlePointerDown}
         onPointerMove={handlePointerMove}
         className="flex-1 h-1.5 rounded-sm relative overflow-hidden"
-        style={{ cursor: onSeek ? 'pointer' : 'default', background: 'rgba(255,255,255,0.2)' }}
+        style={{ cursor: onSeek ? 'pointer' : 'default', background: 'color-mix(in srgb, var(--color-text-dim) 25%, transparent)' }}
       >
         <div
           className="absolute left-0 top-0 bottom-0 rounded-sm transition-[width] duration-300 ease-linear"
-          style={{ background: 'rgba(255,255,255,0.85)', width: `${pct * 100}%` }}
+          style={{ background: 'var(--color-accent)', width: `${pct * 100}%` }}
         />
       </div>
       <span className="text-xs text-text-dim min-w-8 tabular-nums">{formatTime(durationMs)}</span>
@@ -107,9 +107,9 @@ function VolumeSlider({ value, onChange }) {
         onKeyDown={handleKeyDown}
         style={{ position: 'relative', width: '100px', height: `${THUMB}px`, cursor: 'pointer', display: 'flex', alignItems: 'center', flexShrink: 0 }}
       >
-        <div style={{ position: 'absolute', left: 0, right: 0, height: '4px', background: 'rgba(255,255,255,0.2)', borderRadius: '2px' }} />
-        <div style={{ position: 'absolute', left: 0, width: `calc(${pct} * 100%)`, height: '4px', background: 'rgba(255,255,255,0.85)', borderRadius: '2px' }} />
-        <div style={{ position: 'absolute', left: `calc(${pct} * (100% - ${THUMB}px))`, width: `${THUMB}px`, height: `${THUMB}px`, borderRadius: '50%', background: '#ffffff' }} />
+        <div style={{ position: 'absolute', left: 0, right: 0, height: '4px', background: 'color-mix(in srgb, var(--color-text-dim) 25%, transparent)', borderRadius: '2px' }} />
+        <div style={{ position: 'absolute', left: 0, width: `calc(${pct} * 100%)`, height: '4px', background: 'var(--color-accent)', borderRadius: '2px' }} />
+        <div style={{ position: 'absolute', left: `calc(${pct} * (100% - ${THUMB}px))`, width: `${THUMB}px`, height: `${THUMB}px`, borderRadius: '50%', background: 'var(--color-accent)' }} />
       </div>
     </div>
   )
