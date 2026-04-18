@@ -38,11 +38,21 @@ describe('ArtistsView — artist list', () => {
     expect(radioheadRow).toHaveTextContent('2 albums')
   })
 
-  it('shows composite thumbnail from up to 4 album covers', () => {
+  it('shows AlbumArtStrip images for each artist row', () => {
     render(<ArtistsView {...defaultProps} />)
     const radioheadRow = screen.getByTestId('artist-row-Radiohead')
     const images = radioheadRow.querySelectorAll('img')
     expect(images.length).toBe(2) // Radiohead has 2 albums
+    expect(images[0].src).toContain('/rc1.jpg')
+    expect(images[1].src).toContain('/rc2.jpg')
+  })
+
+  it('renders AlbumArtStrip images at 62px size', () => {
+    render(<ArtistsView {...defaultProps} />)
+    const radioheadRow = screen.getByTestId('artist-row-Radiohead')
+    const images = radioheadRow.querySelectorAll('img')
+    expect(images[0].getAttribute('width')).toBe('62')
+    expect(images[0].getAttribute('height')).toBe('62')
   })
 
   it('filters artists by artist name matching search', () => {
