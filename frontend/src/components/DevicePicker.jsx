@@ -83,6 +83,7 @@ export default function DevicePicker({
   }, [onClose])
 
   function handleDeviceClick(deviceId) {
+    window.alert('device clicked: ' + deviceId)
     onDeviceSelected(deviceId)
   }
 
