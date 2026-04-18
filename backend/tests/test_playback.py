@@ -416,7 +416,7 @@ def test_transfer_playback_calls_spotify_transfer():
     response = client.put("/playback/transfer", json={"device_id": "abc123"})
 
     assert response.status_code == 204
-    sp.transfer_playback.assert_called_once_with("abc123", force_play=True)
+    sp.transfer_playback.assert_called_once_with("abc123", force_play=False)
 
     clear_overrides()
 

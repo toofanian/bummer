@@ -189,5 +189,5 @@ def get_queue(sp: spotipy.Spotify = Depends(get_user_spotify)):
 def transfer_playback(
     body: TransferRequest, sp: spotipy.Spotify = Depends(get_user_spotify)
 ):
-    sp.transfer_playback(body.device_id, force_play=True)
+    sp.transfer_playback(body.device_id, force_play=False)
     return Response(status_code=204)
