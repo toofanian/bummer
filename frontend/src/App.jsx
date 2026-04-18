@@ -66,7 +66,7 @@ export default function App() {
   }
   const sessionRef = useRef(session)
   sessionRef.current = session
-  const { state: playback, play, playTrack, pause, previousTrack, nextTrack, setVolume, fetchDevices, fetchQueue, seek, transferPlayback } = usePlayback(session)
+  const { state: playback, play, playTrack, pause, previousTrack, nextTrack, setVolume, fetchDevices, seek, transferPlayback } = usePlayback(session)
   const [pendingPlayIntent, setPendingPlayIntent] = useState(null)
   // Shape: null | { type: 'album'|'track', contextUri?, trackUri?, albumId? }
   const [devicePickerOpen, setDevicePickerOpen] = useState(false)
@@ -902,7 +902,6 @@ export default function App() {
           onTransferPlayback={transferPlayback}
           onOpenDevicePicker={() => { setDevicePickerOpen(true); setPickerRestrictedDevice(false) }}
           onSeek={seek}
-          onFetchQueue={fetchQueue}
         />
 
         <MiniPlaybackBar
@@ -1165,7 +1164,6 @@ export default function App() {
         albumServiceId={nowPlayingServiceId}
         albumImageUrl={nowPlayingImageUrl}
         onPlayTrack={handlePlayTrack}
-        onFetchQueue={fetchQueue}
       />
       <PlaybackBar
         state={playback}
