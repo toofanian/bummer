@@ -1,3 +1,5 @@
+import AlbumArtStrip from './AlbumArtStrip'
+
 export default function BulkAddBar({ selectedAlbums, onOpenPicker, onClear, bottomOffset = 0 }) {
   return (
     <div
@@ -5,15 +7,8 @@ export default function BulkAddBar({ selectedAlbums, onOpenPicker, onClear, bott
       style={{ bottom: bottomOffset, paddingBottom: bottomOffset === 0 ? 'calc(12px + env(safe-area-inset-bottom, 0px))' : undefined }}
     >
       <div className="flex items-center justify-between px-4 py-2 gap-3 h-14">
-        <div className="flex items-center gap-0 flex-1 min-w-0 overflow-hidden">
-          {selectedAlbums.map((album) => (
-            <div key={album.service_id} className="flex-shrink-0 w-10 h-10 -mr-1 first:ml-0">
-              {album.image_url
-                ? <img src={album.image_url} alt={album.name} width={40} height={40} className="w-10 h-10 rounded object-cover border border-border" />
-                : <div className="w-10 h-10 rounded bg-surface-2 border border-border" />
-              }
-            </div>
-          ))}
+        <div className="flex-1 min-w-0">
+          <AlbumArtStrip albums={selectedAlbums} size={40} />
         </div>
         <div className="flex items-center gap-2 flex-shrink-0">
           <button
