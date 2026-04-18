@@ -16,23 +16,19 @@ FAKE_USER = {"user_id": FAKE_USER_ID, "token": "fake-token"}
 
 FAKE_ALBUMS = [
     {
-        "album": {
-            "id": "spotify-1",
-            "name": "OK Computer",
-            "artists": [{"name": "Radiohead"}],
-            "release_date": "1997-05-28",
-            "images": [{"url": "https://img/1"}],
-        },
+        "service_id": "spotify-1",
+        "name": "OK Computer",
+        "artists": ["Radiohead"],
+        "release_date": "1997-05-28",
+        "image_url": "https://img/1",
         "added_at": "2024-01-15T10:00:00Z",
     },
     {
-        "album": {
-            "id": "spotify-2",
-            "name": "Kid A",
-            "artists": [{"name": "Radiohead"}],
-            "release_date": "2000-10-02",
-            "images": [{"url": "https://img/2"}],
-        },
+        "service_id": "spotify-2",
+        "name": "Kid A",
+        "artists": ["Radiohead"],
+        "release_date": "2000-10-02",
+        "image_url": "https://img/2",
         "added_at": "2024-02-20T12:00:00Z",
     },
 ]
@@ -65,8 +61,8 @@ def _mock_db():
     def table_router(table_name):
         mock_table = MagicMock()
         if table_name == "library_cache":
-            mock_table.select.return_value.eq.return_value.execute.return_value = (
-                MagicMock(data=[{"albums": FAKE_ALBUMS}])
+            mock_table.select.return_value.eq.return_value.execute.return_value = MagicMock(
+                data=[{"albums": FAKE_ALBUMS}]
             )
         elif table_name == "collections":
             mock_table.select.return_value.execute.return_value = MagicMock(

@@ -165,7 +165,7 @@ describe('SettingsPage', () => {
       render(<SettingsPage onLogout={vi.fn()} session={fakeSession} />)
       fireEvent.click(screen.getByRole('button', { name: /download export/i }))
 
-      await waitFor(() => expect(screen.getByText(/export failed/i)).toBeInTheDocument())
+      await waitFor(() => expect(screen.getByText('Export failed.')).toBeInTheDocument())
     })
   })
 })

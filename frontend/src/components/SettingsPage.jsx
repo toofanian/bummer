@@ -41,7 +41,7 @@ export default function SettingsPage({ onLogout, session }) {
       a.click()
       URL.revokeObjectURL(url)
     } catch {
-      setExportError('Export failed. Please try again.')
+      setExportError('Export failed.')
     } finally {
       setExportLoading(false)
     }

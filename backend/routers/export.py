@@ -18,7 +18,7 @@ def export_library(user=Depends(get_current_user), db=Depends(get_authed_db)):
     cache_rows = (
         db.table("library_cache")
         .select("albums")
-        .eq("user_id", user["user_id"])
+        .eq("id", user["user_id"])
         .execute()
         .data
     )
@@ -32,16 +32,17 @@ def export_library(user=Depends(get_current_user), db=Depends(get_authed_db)):
     collection_map = {c["id"]: c["name"] for c in collections}
 
     # Build album lookup for collection_albums CSV
+    # library_cache stores normalized albums (service_id, name, artists as string list)
     album_lookup = {}
     flat_albums = []
     for item in albums:
-        a = item["album"]
-        spotify_id = a["id"]
-        artist = ", ".join(art["name"] for art in a.get("artists", []))
+        spotify_id = item["service_id"]
+        artists = item.get("artists", [])
+        artist = ", ".join(artists) if isinstance(artists, list) else str(artists)
         flat = {
-            "title": a["name"],
+            "title": item["name"],
             "artist": artist,
-            "release_date": a.get("release_date", ""),
+            "release_date": item.get("release_date", ""),
             "spotify_id": spotify_id,
             "added_at": item.get("added_at", ""),
             "tier": tier_map.get(spotify_id, ""),
