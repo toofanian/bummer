@@ -15,7 +15,7 @@ describe('BottomTabBar', () => {
     expect(screen.getByRole('button', { name: /home/i })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /library/i })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /collections/i })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /digest/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /changelog/i })).toBeInTheDocument()
   })
 
   it('highlights the active tab', () => {
