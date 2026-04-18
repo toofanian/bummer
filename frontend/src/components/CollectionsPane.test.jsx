@@ -190,7 +190,7 @@ describe('CollectionsPane', () => {
     expect(screen.queryByText('low energy')).not.toBeInTheDocument()
   })
 
-  it('has an input and button to create a new collection', () => {
+  it('does not render a create input or Create button', () => {
     render(
       <CollectionsPane
         collections={[]}
@@ -200,55 +200,38 @@ describe('CollectionsPane', () => {
         onFetchAlbums={() => Promise.resolve([])}
       />
     )
-    expect(screen.getByPlaceholderText(/new collection/i)).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /create/i })).toBeInTheDocument()
+    expect(screen.queryByPlaceholderText(/new collection/i)).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /create/i })).not.toBeInTheDocument()
   })
 
-  it('calls onCreate with name when form is submitted', async () => {
-    const onCreate = vi.fn()
-    render(
-      <CollectionsPane
-        collections={[]}
-        onEnter={() => {}}
-        onDelete={() => {}}
-        onCreate={onCreate}
-        onFetchAlbums={() => Promise.resolve([])}
-      />
-    )
-    await userEvent.type(screen.getByPlaceholderText(/new collection/i), 'Rainy day')
-    await userEvent.click(screen.getByRole('button', { name: /create/i }))
-    expect(onCreate).toHaveBeenCalledWith('Rainy day')
-  })
-
-  it('clears the input after creating a collection', async () => {
-    render(
-      <CollectionsPane
-        collections={[]}
-        onEnter={() => {}}
-        onDelete={() => {}}
-        onCreate={() => {}}
-        onFetchAlbums={() => Promise.resolve([])}
-      />
-    )
-    const input = screen.getByPlaceholderText(/new collection/i)
-    await userEvent.type(input, 'Rainy day')
-    await userEvent.click(screen.getByRole('button', { name: /create/i }))
-    expect(input).toHaveValue('')
-  })
-
-  it('create input appears before the collection list in the DOM', () => {
+  it('art strip container has fixed height to prevent layout shift', () => {
     render(
       <CollectionsPane
         collections={COLLECTIONS}
         onEnter={() => {}}
         onDelete={() => {}}
-        onCreate={() => {}}
         onFetchAlbums={() => Promise.resolve([])}
       />
     )
-    const input = screen.getByPlaceholderText(/new collection/i)
-    const firstCollectionName = screen.getByText('Road trip')
-    expect(input.compareDocumentPosition(firstCollectionName)).toBe(Node.DOCUMENT_POSITION_FOLLOWING)
+    const firstRow = screen.getByText('Road trip').closest('[data-testid="collection-row"]')
+    // The inner layout container (desktop: flex row, mobile: strip wrapper) has a fixed height
+    const fixedHeightEl = firstRow.querySelector('[style*="height: 62px"], [style*="height:62px"]')
+    expect(fixedHeightEl).toBeInTheDocument()
+  })
+
+  it('always renders album art strip area even before albums load', () => {
+    render(
+      <CollectionsPane
+        collections={COLLECTIONS}
+        onEnter={() => {}}
+        onDelete={() => {}}
+        onFetchAlbums={() => Promise.resolve([])}
+      />
+    )
+    // Strip container should exist immediately (not conditionally rendered)
+    const firstRow = screen.getByText('Road trip').closest('[data-testid="collection-row"]')
+    const fixedHeightEl = firstRow.querySelector('[style*="height: 62px"], [style*="height:62px"]')
+    expect(fixedHeightEl).toBeInTheDocument()
   })
 
   it('does not use a multi-column grid layout', () => {

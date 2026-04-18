@@ -3,7 +3,6 @@ import { useIsMobile } from '../hooks/useIsMobile'
 import AlbumArtStrip from './AlbumArtStrip'
 
 export default function CollectionsPane({ collections, onEnter, onDelete, onCreate, onRename, onFetchAlbums }) {
-  const [newName, setNewName] = useState('')
   const [artMap, setArtMap] = useState({})
   const [confirmingId, setConfirmingId] = useState(null)
   const [menuOpenId, setMenuOpenId] = useState(null)
@@ -37,12 +36,6 @@ export default function CollectionsPane({ collections, onEnter, onDelete, onCrea
     }
   }, [confirmingId, menuOpenId])
 
-  function handleCreate() {
-    if (!newName.trim()) return
-    onCreate(newName.trim())
-    setNewName('')
-  }
-
   function handleDeleteClick(e, colId) {
     e.stopPropagation()
     if (confirmingId !== colId) {
@@ -71,16 +64,6 @@ export default function CollectionsPane({ collections, onEnter, onDelete, onCrea
 
   return (
     <div className="w-full flex flex-col h-full overflow-hidden">
-      <div className="flex gap-2 px-4 py-3 border-b border-border bg-bg flex-shrink-0 sticky top-0 z-10 opacity-70 hover:opacity-100 focus-within:opacity-100 transition-opacity duration-150">
-        <input
-          placeholder="New collection name"
-          value={newName}
-          onChange={e => setNewName(e.target.value)}
-          onKeyDown={e => e.key === 'Enter' && handleCreate()}
-        />
-        <button onClick={handleCreate}>Create</button>
-      </div>
-
       {collections.length === 0 ? (
         <p className="p-4 text-sm text-text-dim italic">No collections yet.</p>
       ) : (
@@ -93,6 +76,7 @@ export default function CollectionsPane({ collections, onEnter, onDelete, onCrea
             return (
               <div
                 key={col.id}
+                data-testid="collection-row"
                 className="border-b border-border cursor-pointer hover:bg-hover transition-colors duration-150 group"
                 onClick={() => onEnter(col)}
               >
@@ -141,12 +125,12 @@ export default function CollectionsPane({ collections, onEnter, onDelete, onCrea
                         )}
                       </div>
                     </div>
-                    {artAlbums.length > 0 && (
+                    <div style={{ height: 62 }}>
                       <AlbumArtStrip albums={artAlbums} size={62} />
-                    )}
+                    </div>
                   </>
                 ) : (
-                  <div className="flex items-stretch">
+                  <div className="flex items-stretch" style={{ height: 62 }}>
                     <div className="w-48 flex-shrink-0 flex items-center px-4">
                       <div className="min-w-0">
                         {renamingId === col.id ? (
