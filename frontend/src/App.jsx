@@ -403,12 +403,15 @@ export default function App() {
 
   const handleModalDeviceSelected = useCallback(async (deviceId) => {
     const intent = pendingPlayIntent
+    window.alert('handleModalDeviceSelected: intent=' + JSON.stringify(intent))
     if (!intent) return
 
     let err
     if (intent.type === 'album') {
       setPlayingId(intent.albumId)
+      window.alert('transferring to device ' + deviceId + ' with uri ' + intent.contextUri)
       await transferPlayback(deviceId, intent.contextUri)
+      window.alert('transfer complete')
       // transferPlayback with context_uri is atomic — no separate play() needed
     } else if (intent.type === 'track') {
       await transferPlayback(deviceId)
