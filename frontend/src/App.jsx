@@ -764,7 +764,7 @@ export default function App() {
               />
             ) : (
               <button
-                className="bg-surface-2 border-none text-text-dim text-sm cursor-pointer w-7 h-7 flex items-center justify-center rounded-full hover:text-text hover:bg-hover transition-colors duration-150"
+                className="bg-surface-2 border-none text-text-dim text-base leading-none cursor-pointer w-7 h-7 flex items-center justify-center rounded-full hover:text-text hover:bg-hover transition-colors duration-150"
                 onClick={() => setShowCollectionCreate(true)}
                 aria-label="Create collection"
               >
@@ -1058,7 +1058,7 @@ export default function App() {
               />
             ) : (
               <button
-                className="bg-surface-2 border-none text-text-dim text-sm cursor-pointer w-7 h-7 flex items-center justify-center rounded-full hover:text-text hover:bg-hover transition-colors duration-150"
+                className="bg-surface-2 border-none text-text-dim text-base leading-none cursor-pointer w-7 h-7 flex items-center justify-center rounded-full hover:text-text hover:bg-hover transition-colors duration-150"
                 onClick={() => setShowCollectionCreate(true)}
                 aria-label="Create collection"
               >
