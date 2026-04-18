@@ -1578,6 +1578,81 @@ describe('App — listen counts', () => {
     clearLocalStorageCache()
   })
 
+  it('increments listen count locally after playing an album', async () => {
+    window.matchMedia = vi.fn().mockImplementation(query => ({
+      matches: false,
+      media: query,
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+    }))
+
+    const TEST_ALBUMS = [
+      { service_id: 'play-test-1', name: 'Playable Album', artists: ['Artist'], image_url: null, release_date: '2020', total_tracks: 10, added_at: '2021-01-01T00:00:00Z' },
+    ]
+    seedLocalStorageCache(TEST_ALBUMS)
+
+    let historyLogCalled = false
+    global.fetch = vi.fn().mockImplementation((url, options) => {
+      if (url.includes('/library/listen-counts')) {
+        return Promise.resolve({ ok: true, json: () => Promise.resolve({ counts: { 'play-test-1': 3 } }) })
+      }
+      if (url.includes('/home/history/log') && options?.method === 'POST') {
+        historyLogCalled = true
+        return Promise.resolve({ ok: true, json: () => Promise.resolve({}) })
+      }
+      if (url.includes('/library/sync-complete') && options?.method === 'POST') {
+        return Promise.resolve({ ok: true, json: () => Promise.resolve({ ok: true }) })
+      }
+      if (url.includes('/library/sync') && !url.includes('/sync-complete') && options?.method === 'POST') {
+        return Promise.resolve({ ok: true, json: () => Promise.resolve(SYNC_DONE) })
+      }
+      if (url.includes('/library/albums') && !url.includes('/tracks')) {
+        return Promise.resolve({ ok: true, json: () => Promise.resolve({ albums: TEST_ALBUMS, total: 1 }) })
+      }
+      if (url.includes('/tracks')) {
+        return Promise.resolve({ ok: true, json: () => Promise.resolve({ tracks: [] }) })
+      }
+      if (url.includes('/playback/state')) {
+        return Promise.resolve({ ok: true, json: () => Promise.resolve({ is_playing: false, track: null, device: null }) })
+      }
+      if (url.includes('/playback/play')) {
+        return Promise.resolve({ ok: true, json: () => Promise.resolve({}) })
+      }
+      if (url.includes('/collections')) {
+        return Promise.resolve({ ok: true, json: () => Promise.resolve(COLLECTIONS_OK) })
+      }
+      if (url.includes('/home') && !url.includes('/history')) {
+        return Promise.resolve({ ok: true, json: () => Promise.resolve(HOME_OK) })
+      }
+      return Promise.resolve({ ok: true, json: () => Promise.resolve({}) })
+    })
+
+    render(<App />)
+
+    // Navigate to Library and wait for albums to render
+    await userEvent.click(await screen.findByRole('button', { name: /^library( syncing)?$/i }))
+    expect(await screen.findByText('Playable Album')).toBeInTheDocument()
+
+    // Wait for listen counts to load — the count should show "3"
+    await waitFor(() => {
+      expect(screen.getByText('3')).toBeInTheDocument()
+    })
+
+    // Double-click the album row to trigger play
+    const albumRow = document.getElementById('row-album-play-test-1')
+    await userEvent.dblClick(albumRow)
+
+    // After playing, the listen count should increment from 3 to 4
+    await waitFor(() => {
+      expect(historyLogCalled).toBe(true)
+    })
+    await waitFor(() => {
+      expect(screen.getByText('4')).toBeInTheDocument()
+    })
+
+    clearLocalStorageCache()
+  })
+
   it('does not block library loading if listen-counts fails', async () => {
     seedLocalStorageCache()
 

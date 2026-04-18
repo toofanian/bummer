@@ -395,6 +395,10 @@ export default function App() {
           method: 'POST',
           body: JSON.stringify({ album_id: albumId }),
         }, sessionRef.current).catch(() => {})
+        setListenCounts(prev => ({
+          ...prev,
+          [albumId]: (prev[albumId] || 0) + 1,
+        }))
       }
       return err
     }
