@@ -364,6 +364,7 @@ export default function AlbumTable({
       onToggleSelect,
       collectionCount: (albumCollectionMap?.[album.service_id] || []).length,
       onArtistClick,
+      listenCount: (listenCounts || {})[album.service_id] || 0,
     }
 
     if (reorderable) {
