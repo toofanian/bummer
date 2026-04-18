@@ -81,12 +81,12 @@ export default function CollectionsPane({ collections, onEnter, onDelete, onCrea
             return (
               <div
                 key={col.id}
-                className="border-b border-border cursor-pointer hover:bg-hover transition-colors duration-150 group px-4 py-3"
+                className="border-b border-border cursor-pointer hover:bg-hover transition-colors duration-150 group"
                 onClick={() => onEnter(col)}
               >
                 {isMobile ? (
                   <>
-                    <div className="flex items-center justify-between">
+                    <div className="flex items-center justify-between px-4 py-2">
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-2">
                           <span className="text-sm font-medium text-text">{col.name}</span>
@@ -110,21 +110,23 @@ export default function CollectionsPane({ collections, onEnter, onDelete, onCrea
                       </div>
                     </div>
                     {artAlbums.length > 0 && (
-                      <div className="mt-2">
-                        <AlbumArtStrip albums={artAlbums} size={40} />
-                      </div>
+                      <AlbumArtStrip albums={artAlbums} size={40} />
                     )}
                   </>
                 ) : (
-                  <div className="flex items-center">
-                    <div className="min-w-0 flex-1">
-                      <div className="text-sm font-medium text-text">{col.name}</div>
-                      {col.description && (
-                        <div className="text-xs text-text-dim mt-0.5 truncate max-w-xs">{col.description}</div>
-                      )}
+                  <div className="flex items-stretch">
+                    <div className="w-48 flex-shrink-0 flex items-center px-4">
+                      <div className="min-w-0">
+                        <div className="text-sm font-medium text-text truncate">{col.name}</div>
+                        {col.description && (
+                          <div className="text-xs text-text-dim mt-0.5 truncate">{col.description}</div>
+                        )}
+                      </div>
                     </div>
-                    <div className="flex items-center gap-3 flex-shrink-0">
+                    <div className="flex-1 min-w-0 flex items-center">
                       <AlbumArtStrip albums={artAlbums} size={40} />
+                    </div>
+                    <div className="flex items-center gap-3 flex-shrink-0 px-3">
                       {col.album_count != null && (
                         <span className="text-xs text-text-dim tabular-nums">{col.album_count}</span>
                       )}
