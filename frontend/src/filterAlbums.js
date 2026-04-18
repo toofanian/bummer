@@ -1,4 +1,5 @@
 export function filterAlbums(albums, query) {
+  if (!albums) return []
   if (!query) return albums
   const q = query.toLowerCase()
   return albums.filter(a =>
