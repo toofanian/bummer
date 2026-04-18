@@ -38,7 +38,7 @@ export default function SignupScreen() {
   return (
     <div className="flex flex-col items-center justify-center min-h-screen gap-6 p-8">
       <h1 className="text-3xl font-bold">Bummer</h1>
-      <p className="text-gray-400">Your music library, organized.</p>
+      <p className="text-gray-400">the death of shuffle</p>
       <form onSubmit={handleGoogleSignIn} className="flex flex-col gap-4 w-full max-w-sm">
         {!isReturnUser && (
           <input type="text" placeholder="Invite code" value={inviteCode}
