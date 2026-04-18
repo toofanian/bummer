@@ -84,7 +84,6 @@ export default function DevicePicker({
 
   function handleDeviceClick(deviceId) {
     onDeviceSelected(deviceId)
-    onClose()
   }
 
   return (

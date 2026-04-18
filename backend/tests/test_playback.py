@@ -416,7 +416,35 @@ def test_transfer_playback_calls_spotify_transfer():
     response = client.put("/playback/transfer", json={"device_id": "abc123"})
 
     assert response.status_code == 204
-    sp.transfer_playback.assert_called_once_with("abc123", force_play=False)
+    sp.transfer_playback.assert_called_once_with("abc123", force_play=True)
+
+    clear_overrides()
+
+
+def test_transfer_playback_with_context_uri_calls_transfer_then_start_playback():
+    sp = make_sp()
+    override_spotify(sp)
+
+    response = client.put(
+        "/playback/transfer",
+        json={"device_id": "abc123", "context_uri": "spotify:album:xyz789"},
+    )
+
+    assert response.status_code == 204
+    sp.transfer_playback.assert_called_once_with("abc123", force_play=True)
+    sp.start_playback.assert_called_once_with(context_uri="spotify:album:xyz789")
+
+    clear_overrides()
+
+
+def test_transfer_playback_without_context_uri_does_not_call_start_playback():
+    sp = make_sp()
+    override_spotify(sp)
+
+    response = client.put("/playback/transfer", json={"device_id": "abc123"})
+
+    assert response.status_code == 204
+    sp.start_playback.assert_not_called()
 
     clear_overrides()
 
