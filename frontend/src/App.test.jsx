@@ -1540,3 +1540,75 @@ describe('App — sync/loading bug fixes', () => {
     clearLocalStorageCache()
   })
 })
+
+describe('App — listen counts', () => {
+  it('fetches /library/listen-counts after library loads', async () => {
+    seedLocalStorageCache()
+
+    let listenCountsFetched = false
+    global.fetch = vi.fn().mockImplementation((url, options) => {
+      if (url.includes('/library/listen-counts')) {
+        listenCountsFetched = true
+        return Promise.resolve({ ok: true, json: () => Promise.resolve({ counts: { abc123: 5 } }) })
+      }
+      if (url.includes('/library/sync-complete') && options?.method === 'POST') {
+        return Promise.resolve({ ok: true, json: () => Promise.resolve({ ok: true }) })
+      }
+      if (url.includes('/library/sync') && !url.includes('/sync-complete') && options?.method === 'POST') {
+        return Promise.resolve({ ok: true, json: () => Promise.resolve(SYNC_DONE) })
+      }
+      if (url.includes('/library/albums') && !url.includes('/tracks')) {
+        return Promise.resolve({ ok: true, json: () => Promise.resolve({ albums: CACHED_ALBUMS, total: 1 }) })
+      }
+      if (url.includes('/collections')) {
+        return Promise.resolve({ ok: true, json: () => Promise.resolve(COLLECTIONS_OK) })
+      }
+      if (url.includes('/home')) {
+        return Promise.resolve({ ok: true, json: () => Promise.resolve(HOME_OK) })
+      }
+      return Promise.resolve({ ok: true, json: () => Promise.resolve({}) })
+    })
+
+    render(<App />)
+
+    await waitFor(() => {
+      expect(listenCountsFetched).toBe(true)
+    })
+
+    clearLocalStorageCache()
+  })
+
+  it('does not block library loading if listen-counts fails', async () => {
+    seedLocalStorageCache()
+
+    global.fetch = vi.fn().mockImplementation((url, options) => {
+      if (url.includes('/library/listen-counts')) {
+        return Promise.reject(new Error('listen-counts failed'))
+      }
+      if (url.includes('/library/sync-complete') && options?.method === 'POST') {
+        return Promise.resolve({ ok: true, json: () => Promise.resolve({ ok: true }) })
+      }
+      if (url.includes('/library/sync') && !url.includes('/sync-complete') && options?.method === 'POST') {
+        return Promise.resolve({ ok: true, json: () => Promise.resolve(SYNC_DONE) })
+      }
+      if (url.includes('/library/albums') && !url.includes('/tracks')) {
+        return Promise.resolve({ ok: true, json: () => Promise.resolve({ albums: CACHED_ALBUMS, total: 1 }) })
+      }
+      if (url.includes('/collections')) {
+        return Promise.resolve({ ok: true, json: () => Promise.resolve(COLLECTIONS_OK) })
+      }
+      if (url.includes('/home')) {
+        return Promise.resolve({ ok: true, json: () => Promise.resolve(HOME_OK) })
+      }
+      return Promise.resolve({ ok: true, json: () => Promise.resolve({}) })
+    })
+
+    render(<App />)
+
+    // Library should still load despite listen-counts failure
+    await userEvent.click(await screen.findByRole('button', { name: /^library( syncing)?$/i }))
+    expect(await screen.findByText('Cached Album')).toBeInTheDocument()
+
+    clearLocalStorageCache()
+  })
+})
