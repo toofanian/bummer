@@ -158,7 +158,7 @@ describe('CollectionsPane', () => {
     await waitFor(() => {
       const img = screen.getByAltText('In Rainbows')
       expect(img).toBeInTheDocument()
-      expect(img).toHaveAttribute('width', '40')
+      expect(img).toHaveAttribute('width', '48')
     })
   })
 

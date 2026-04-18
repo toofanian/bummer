@@ -110,7 +110,7 @@ export default function CollectionsPane({ collections, onEnter, onDelete, onCrea
                       </div>
                     </div>
                     {artAlbums.length > 0 && (
-                      <AlbumArtStrip albums={artAlbums} size={40} />
+                      <AlbumArtStrip albums={artAlbums} size={48} />
                     )}
                   </>
                 ) : (
@@ -124,7 +124,7 @@ export default function CollectionsPane({ collections, onEnter, onDelete, onCrea
                       </div>
                     </div>
                     <div className="flex-1 min-w-0 flex items-center">
-                      <AlbumArtStrip albums={artAlbums} size={40} />
+                      <AlbumArtStrip albums={artAlbums} size={48} />
                     </div>
                     <div className="flex items-center gap-3 flex-shrink-0 px-3">
                       {col.album_count != null && (
