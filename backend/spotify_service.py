@@ -93,9 +93,7 @@ class SpotifyService(MusicService):
     def _normalize_album(item: dict) -> dict:
         album = item["album"]
         images = album.get("images", [])
-        largest_image = max(
-            images, key=lambda i: i.get("height") or 0, default=None
-        )
+        largest_image = max(images, key=lambda i: i.get("height") or 0, default=None)
         return {
             "service_id": album["id"],
             "name": album["name"],

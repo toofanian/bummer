@@ -53,9 +53,7 @@ class AppleMusicService(MusicService):
         params = {"limit": 100, "include": "catalog"}
 
         while url:
-            resp = requests.get(
-                url, headers=self._headers(), params=params, timeout=30
-            )
+            resp = requests.get(url, headers=self._headers(), params=params, timeout=30)
             resp.raise_for_status()
             data = resp.json()
 
@@ -118,16 +116,12 @@ class AppleMusicService(MusicService):
         # Build image URL from artwork template
         image_url = None
         if artwork.get("url"):
-            image_url = (
-                artwork["url"].replace("{w}", "640").replace("{h}", "640")
-            )
+            image_url = artwork["url"].replace("{w}", "640").replace("{h}", "640")
 
         # Extract catalog ID from relationships (preferred — global, stable)
         library_id = item["id"]
         catalog_id = None
-        catalog_data = (
-            item.get("relationships", {}).get("catalog", {}).get("data", [])
-        )
+        catalog_data = item.get("relationships", {}).get("catalog", {}).get("data", [])
         if catalog_data:
             catalog_id = catalog_data[0].get("id")
 
@@ -141,8 +135,6 @@ class AppleMusicService(MusicService):
             "image_url": image_url,
             "added_at": attrs.get("dateAdded"),
             "catalog_url": (
-                f"https://music.apple.com/album/{catalog_id}"
-                if catalog_id
-                else None
+                f"https://music.apple.com/album/{catalog_id}" if catalog_id else None
             ),
         }

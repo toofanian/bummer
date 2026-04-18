@@ -1,6 +1,5 @@
 """Tests for Apple Music developer token generation."""
 
-import time
 from unittest.mock import patch
 
 import jwt
@@ -12,7 +11,11 @@ from cryptography.hazmat.primitives.serialization import (
     PrivateFormat,
 )
 
-from apple_music_token import TOKEN_EXPIRY_SECONDS, clear_token_cache, generate_developer_token
+from apple_music_token import (
+    TOKEN_EXPIRY_SECONDS,
+    clear_token_cache,
+    generate_developer_token,
+)
 
 
 def _generate_test_key():
