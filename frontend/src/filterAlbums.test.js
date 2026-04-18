@@ -25,3 +25,9 @@ test('matches partial words', () => {
 test('returns empty array when nothing matches', () => {
   expect(filterAlbums(ALBUMS, 'zzz')).toEqual([])
 })
+
+test('returns empty array when albums is null or undefined', () => {
+  expect(filterAlbums(null, 'sade')).toEqual([])
+  expect(filterAlbums(undefined, 'sade')).toEqual([])
+  expect(filterAlbums(null, '')).toEqual([])
+})
