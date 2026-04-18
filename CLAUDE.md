@@ -55,7 +55,7 @@ bummer/
 - Preview deploys short-circuit authentication: frontend synthesizes a fake Supabase session for the hardcoded preview user (`00000000-0000-0000-0000-000000000001`), and backend `get_current_user` returns the same UUID without validating tokens when `VERCEL_ENV=preview`
 - The preview short-circuit is defined in `backend/auth_middleware.py` and `frontend/src/previewMode.js` — both reference the same UUID, which matches the `auth.users` row seeded into prod by `supabase/seed.sql` (applied once as a one-time bootstrap, not per preview)
 - The preview user's data is isolated from real users by `user_id` — any writes made during preview smoke testing modify only the preview user's rows
-- Real Spotify API calls do NOT work on previews (seeded tokens are fake). Previews render seeded library data from the preview user's `library_cache` row; playback and live sync are expected to fail
+- Real Spotify API calls work on previews — Spotify OAuth callback proxy is set up so users can authenticate with their real Spotify account on preview deploys
 - Google OAuth is never invoked on previews — the frontend auto-logs in as the preview user
 - Prod (`VERCEL_ENV=production`) is unaffected: the preview code paths never activate because Vercel injects `VERCEL_ENV=production` for prod deploys, which cannot be overridden from the Vercel env-var UI in the Production scope
 
