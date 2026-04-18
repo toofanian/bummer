@@ -107,26 +107,31 @@ def get_history(
     grouped = defaultdict(list)
     for row in result_rows:
         day = row["played_at"][:10]  # extract YYYY-MM-DD
-        album_meta = meta_lookup.get(row["album_id"], {
-            "service_id": row["album_id"],
-            "name": None,
-            "artists": None,
-            "image_url": None,
-        })
-        grouped[day].append({
-            "album": album_meta,
-            "played_at": row["played_at"],
-        })
+        album_meta = meta_lookup.get(
+            row["album_id"],
+            {
+                "service_id": row["album_id"],
+                "name": None,
+                "artists": None,
+                "image_url": None,
+            },
+        )
+        grouped[day].append(
+            {
+                "album": album_meta,
+                "played_at": row["played_at"],
+            }
+        )
 
     # Build days list, sorted newest first (rows are already ordered desc)
     days = []
-    for day_date in dict.fromkeys(
-        row["played_at"][:10] for row in result_rows
-    ):
-        days.append({
-            "date": day_date,
-            "plays": grouped[day_date],
-        })
+    for day_date in dict.fromkeys(row["played_at"][:10] for row in result_rows):
+        days.append(
+            {
+                "date": day_date,
+                "plays": grouped[day_date],
+            }
+        )
 
     return {"days": days, "has_more": has_more, "next_cursor": next_cursor}
 
@@ -139,7 +144,6 @@ def get_stats(
 ):
     from datetime import timedelta
 
-    cutoff = datetime.now().isoformat()
     thirty_days_ago = (datetime.now() - timedelta(days=30)).isoformat()
 
     rows = (
@@ -163,10 +167,12 @@ def get_stats(
     for aid in top_album_ids:
         album_meta = meta_lookup.get(aid)
         if album_meta:
-            top_albums.append({
-                "album": album_meta,
-                "play_count": play_counts[aid],
-            })
+            top_albums.append(
+                {
+                    "album": album_meta,
+                    "play_count": play_counts[aid],
+                }
+            )
 
     # Top artists: map album plays to artists
     artist_counts = Counter()
@@ -287,11 +293,13 @@ def get_changelog(
         added_ids = list(newer_ids - older_ids)
         removed_ids = list(older_ids - newer_ids)
         if added_ids or removed_ids:
-            raw_entries.append({
-                "date": newer["snapshot_date"],
-                "added_ids": added_ids,
-                "removed_ids": removed_ids,
-            })
+            raw_entries.append(
+                {
+                    "date": newer["snapshot_date"],
+                    "added_ids": added_ids,
+                    "removed_ids": removed_ids,
+                }
+            )
 
     # Resolve metadata for all referenced album IDs
     all_ids = set()
@@ -305,11 +313,19 @@ def get_changelog(
 
     entries = []
     for entry in raw_entries:
-        entries.append({
-            "date": entry["date"],
-            "added": [meta_lookup[aid] for aid in entry["added_ids"] if aid in meta_lookup],
-            "removed": [meta_lookup[aid] for aid in entry["removed_ids"] if aid in meta_lookup],
-        })
+        entries.append(
+            {
+                "date": entry["date"],
+                "added": [
+                    meta_lookup[aid] for aid in entry["added_ids"] if aid in meta_lookup
+                ],
+                "removed": [
+                    meta_lookup[aid]
+                    for aid in entry["removed_ids"]
+                    if aid in meta_lookup
+                ],
+            }
+        )
 
     # Pagination: if we fetched limit+1 snapshots and used all pairs, there may be more
     has_more = len(snapshots) > limit
