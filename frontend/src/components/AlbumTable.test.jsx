@@ -894,6 +894,39 @@ describe('Equalizer animation GPU compositing', () => {
   })
 })
 
+describe('AlbumTable — listens column', () => {
+  afterEach(() => useIsMobile.mockReturnValue(false))
+
+  it('renders Listens column header', () => {
+    render(<AlbumTable albums={ALBUMS} />)
+    expect(screen.getByRole('columnheader', { name: /listens/i })).toBeInTheDocument()
+  })
+
+  it('displays listen count for each album', () => {
+    const counts = { id1: 5, id2: 12 }
+    render(<AlbumTable albums={ALBUMS} listenCounts={counts} />)
+    expect(screen.getByText('5')).toBeInTheDocument()
+    expect(screen.getByText('12')).toBeInTheDocument()
+  })
+
+  it('displays 0 for albums with no listens', () => {
+    render(<AlbumTable albums={ALBUMS} listenCounts={{}} />)
+    const zeroCells = screen.getAllByText('0')
+    expect(zeroCells.length).toBe(2)
+  })
+
+  it('sorts by listens descending on first click', async () => {
+    const counts = { id1: 3, id2: 10 }
+    render(<AlbumTable albums={ALBUMS} listenCounts={counts} />)
+    const user = userEvent.setup()
+    await user.click(screen.getByRole('columnheader', { name: /listens/i }))
+    const rows = screen.getAllByRole('row').filter(r => r.classList.contains('album-row'))
+    // id2 (10) should come before id1 (3) when sorted desc
+    expect(rows[0]).toHaveTextContent('Room On Fire')
+    expect(rows[1]).toHaveTextContent('Love Deluxe')
+  })
+})
+
 describe('AlbumTable — artist click navigation', () => {
   it('calls onArtistClick with artist name when artist text is clicked (desktop)', async () => {
     const onArtistClick = vi.fn()
