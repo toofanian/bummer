@@ -279,6 +279,23 @@ export default function App() {
     }
   }
 
+  async function handleRenameCollection(id, newName) {
+    const prev = collections
+    setCollections(cs => cs.map(c => c.id === id ? { ...c, name: newName } : c))
+    // Also update the view if we're inside this collection
+    setView(v => typeof v === 'object' && v.id === id ? { ...v, name: newName } : v)
+    try {
+      const res = await apiFetch(`/collections/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: newName }),
+      }, sessionRef.current)
+      if (!res.ok) throw new Error('Failed to rename collection')
+    } catch {
+      setCollections(prev)
+    }
+  }
+
   async function handleDeleteCollection(id) {
     // Optimistic update: remove the collection and its album memberships from
     // state immediately. Keep a snapshot of both for rollback if the API call
@@ -814,6 +831,7 @@ export default function App() {
                 collections={collections}
                 onEnter={handleEnterCollection}
                 onDelete={handleDeleteCollection}
+                onRename={handleRenameCollection}
                 onCreate={handleCreateCollection}
                 onFetchAlbums={handleFetchCollectionAlbums}
               />
@@ -835,6 +853,7 @@ export default function App() {
                 albumCount={collectionAlbums.length}
                 onBack={() => setView('collections')}
                 onDescriptionChange={(desc) => handleUpdateCollectionDescription(view.id, desc)}
+                onRename={(newName) => handleRenameCollection(view.id, newName)}
                 onPlay={handlePlayCollection}
               />
               <div className="flex-1 overflow-y-auto">
@@ -1089,6 +1108,7 @@ export default function App() {
               }) : collections}
               onEnter={handleEnterCollection}
               onDelete={handleDeleteCollection}
+              onRename={handleRenameCollection}
               onCreate={handleCreateCollection}
               onFetchAlbums={handleFetchCollectionAlbums}
             />
@@ -1110,6 +1130,7 @@ export default function App() {
               albumCount={filterAlbums(collectionAlbums, search).length}
               onBack={() => setView('collections')}
               onDescriptionChange={(desc) => handleUpdateCollectionDescription(view.id, desc)}
+              onRename={(newName) => handleRenameCollection(view.id, newName)}
               onPlay={handlePlayCollection}
             />
             <div className="flex-1 overflow-y-auto pb-16">
