@@ -4,7 +4,7 @@ import CollectionsPane from './components/CollectionsPane'
 import CollectionDetailHeader from './components/CollectionDetailHeader'
 import PlaybackBar from './components/PlaybackBar'
 import NowPlayingPane from './components/NowPlayingPane'
-import DigestPanel from './components/DigestPanel'
+import ChangelogView from './components/ChangelogView'
 import { filterAlbums } from './filterAlbums'
 import { usePlayback } from './usePlayback'
 import DevicePicker from './components/DevicePicker'
@@ -20,6 +20,7 @@ import { useSpotifyAuth } from './hooks/useSpotifyAuth'
 import SignupScreen from './components/SignupScreen'
 import OnboardingWizard from './components/OnboardingWizard'
 import BulkAddBar from './components/BulkAddBar'
+import SearchOverlay from './components/SearchOverlay'
 import CollectionPicker from './components/CollectionPicker'
 import SettingsPage from './components/SettingsPage'
 import { apiFetch } from './api'
@@ -38,6 +39,7 @@ export default function App() {
   const [syncing, setSyncing] = useState(false)
   const [error, setError] = useState(null)
   const [search, setSearch] = useState('')
+  const [searchOpen, setSearchOpen] = useState(false)
   const [librarySubView, setLibrarySubViewRaw] = useState(() => {
     try {
       const stored = localStorage.getItem('library_view')
@@ -52,7 +54,7 @@ export default function App() {
   }
   const [playingId, setPlayingId] = useState(null)
   const [paneOpen, setPaneOpen] = useState(false)
-  const [digestOpen, setDigestOpen] = useState(false)
+
   const [playbackMessage, setPlaybackMessage] = useState(null)
   const [nowPlayingOpen, setNowPlayingOpen] = useState(false)
   const { session, loading: authLoading, logout } = useAuth()
@@ -79,7 +81,7 @@ export default function App() {
   const [collectionPlayback, setCollectionPlayback] = useState(null)
   const collectionPlaybackRef = useRef(null)
   collectionPlaybackRef.current = collectionPlayback
-  const isInCollection = view !== 'home' && view !== 'library' && view !== 'collections' && view !== 'settings'
+  const isInCollection = view !== 'home' && view !== 'library' && view !== 'collections' && view !== 'changelog' && view !== 'settings'
   const artistCount = useMemo(() => {
     const artists = new Set()
     for (const album of albums) {
@@ -716,9 +718,9 @@ export default function App() {
   if (isMobile) {
     return (
       <div className="app flex flex-col h-dvh">
-        <header className="bg-surface border-b border-border flex items-center px-4 py-2 gap-3" style={{ paddingTop: 'env(safe-area-inset-top, 0px)' }}>
+        <header className="sticky top-0 z-[100] bg-surface border-b border-border flex items-center px-4 py-2 gap-3" style={{ paddingTop: 'env(safe-area-inset-top, 0px)' }}>
           <h1>
-            {view === 'home' ? 'Home' : view === 'library' ? 'Library' : view === 'collections' ? 'Collections' : view === 'settings' ? 'Settings' : view?.name ?? 'Collection'}
+            {view === 'home' ? 'Home' : view === 'library' ? 'Library' : view === 'collections' ? 'Collections' : view === 'changelog' ? 'Changelog' : view === 'settings' ? 'Settings' : view?.name ?? 'Collection'}
             {' '}<span style={{ fontSize: '10px', fontWeight: 400, opacity: 0.35, letterSpacing: '0.05em' }}>{__APP_VERSION__}</span>
           </h1>
           {view === 'library' && (
@@ -729,13 +731,18 @@ export default function App() {
               artistCount={artistCount}
             />
           )}
-          {(view === 'library' || view === 'collections' || isInCollection) && (
-            <input
-              className="flex-1 bg-surface-2 text-text border border-border rounded px-2.5 py-1 text-sm"
-              placeholder="Search…"
-              value={search}
-              onChange={e => setSearch(e.target.value)}
-            />
+          {(view === 'library' || view === 'collections') && (
+            <button
+              onClick={() => setSearchOpen(true)}
+              aria-label="Search"
+              className="bg-transparent border-none p-1.5 cursor-pointer transition-colors duration-150 text-text-dim hover:text-text"
+              title="Search"
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <circle cx="11" cy="11" r="8" />
+                <path d="m21 21-4.3-4.3" />
+              </svg>
+            </button>
           )}
           <button
             onClick={() => setView('settings')}
@@ -765,7 +772,7 @@ export default function App() {
                 </div>
               ) : librarySubView === 'albums' ? (
                 <AlbumTable
-                  albums={filterAlbums(albums, search)}
+                  albums={albums}
                   loading={albumsLoading}
                   onFetchTracks={handleFetchTracks}
                   onPlay={handlePlay}
@@ -780,7 +787,7 @@ export default function App() {
               ) : (
                 <ArtistsView
                   albums={albums}
-                  search={search}
+                  search=""
                   onFetchTracks={handleFetchTracks}
                   onPlay={handlePlay}
                   onPlayTrack={handlePlayTrack}
@@ -804,15 +811,7 @@ export default function App() {
                 </div>
               ) : (
               <CollectionsPane
-                collections={search ? collections.filter(c => {
-                  const q = search.toLowerCase()
-                  if (c.name.toLowerCase().includes(q)) return true
-                  return albums.some(a =>
-                    (albumCollectionMap[a.service_id] || []).includes(c.id) &&
-                    (a.name.toLowerCase().includes(q) ||
-                     a.artists.some(artist => artist.toLowerCase().includes(q)))
-                  )
-                }) : collections}
+                collections={collections}
                 onEnter={handleEnterCollection}
                 onDelete={handleDeleteCollection}
                 onCreate={handleCreateCollection}
@@ -822,19 +821,25 @@ export default function App() {
             </div>
           )}
 
+          {view === 'changelog' && (
+            <div className="flex-1 overflow-y-auto">
+              <ChangelogView onPlay={handlePlay} session={session} />
+            </div>
+          )}
+
           {isInCollection && (
             <div className="flex flex-col flex-1 overflow-hidden">
               <CollectionDetailHeader
                 name={view.name}
                 description={view.description ?? null}
-                albumCount={filterAlbums(collectionAlbums, search).length}
+                albumCount={collectionAlbums.length}
                 onBack={() => setView('collections')}
                 onDescriptionChange={(desc) => handleUpdateCollectionDescription(view.id, desc)}
                 onPlay={handlePlayCollection}
               />
               <div className="flex-1 overflow-y-auto">
                 <AlbumTable
-                  albums={filterAlbums(collectionAlbums, search)}
+                  albums={collectionAlbums}
                   loading={false}
                   onFetchTracks={handleFetchTracks}
                   onPlay={handlePlay}
@@ -909,20 +914,35 @@ export default function App() {
         />
 
         <BottomTabBar
-          activeTab={view === 'home' || view === 'library' || view === 'collections' ? view : view === 'settings' ? null : 'collections'}
+          activeTab={view === 'home' || view === 'library' || view === 'collections' || view === 'changelog' ? view : view === 'settings' ? null : 'collections'}
           onTabChange={(tab) => {
-            if (tab === 'digest') {
-              setDigestOpen(d => !d)
-            } else {
-              setView(tab)
-              setSearch('')
-            }
+            setView(tab)
+            setSearch('')
+            setSearchOpen(false)
           }}
           syncing={albumsLoading || syncing}
           collectionsLoading={collectionsLoading}
         />
 
-        <DigestPanel open={digestOpen} onClose={() => setDigestOpen(false)} onPlay={handlePlay} session={session} />
+        {searchOpen && (
+          <SearchOverlay
+            mode={view === 'collections' ? 'collections' : librarySubView === 'artists' ? 'artists' : 'albums'}
+            albums={albums}
+            collections={collections}
+            onClose={() => { setSearchOpen(false); setSearch('') }}
+            onPlay={handlePlay}
+            onPlayTrack={handlePlayTrack}
+            onFetchTracks={handleFetchTracks}
+            playback={playback}
+            albumCollectionMap={albumCollectionMap}
+            selectedIds={selectedAlbumIdSet}
+            onToggleSelect={handleToggleSelect}
+            onArtistClick={handleArtistClick}
+            onSelectArtist={(name) => { setTargetArtist(name); setSearchOpen(false) }}
+            onEnterCollection={(col) => { handleEnterCollection(col); setSearchOpen(false) }}
+            bottomOffset="calc(106px + env(safe-area-inset-bottom, 0px))"
+          />
+        )}
         {(devicePickerOpen || pendingPlayIntent) && (
           <div className="fixed inset-0 z-[400] flex items-center justify-center">
             <div className="fixed inset-0 bg-black/50" onClick={() => { setDevicePickerOpen(false); setPendingPlayIntent(null); setPickerRestrictedDevice(false) }} />
@@ -942,7 +962,7 @@ export default function App() {
 
   // Desktop layout
   return (
-    <div className="app flex flex-col h-dvh" style={(paneOpen || digestOpen) && !isMobile ? { paddingRight: digestOpen ? '340px' : '300px' } : {}}>
+    <div className="app flex flex-col h-dvh" style={paneOpen && !isMobile ? { paddingRight: '300px' } : {}}>
       <header className="h-14 bg-surface border-b border-border flex items-center px-5 gap-6">
         <h1>Bummer<span style={{ fontSize: '10px', fontWeight: 400, opacity: 0.35, letterSpacing: '0.05em' }}>{__APP_VERSION__}</span></h1>
         <nav className="flex gap-1">
@@ -980,15 +1000,10 @@ export default function App() {
           onChange={e => setSearch(e.target.value)}
         />
         <button
-          onClick={() => {
-            setDigestOpen(d => {
-              if (!d) setPaneOpen(false) // close NowPlaying when opening digest
-              return !d
-            })
-          }}
-          aria-label="Library digest"
-          className="bg-transparent border-none text-text-dim p-1.5 cursor-pointer hover:text-text transition-colors duration-150"
-          title="Library Digest"
+          onClick={() => { setView('changelog'); setSearch('') }}
+          aria-label="Library changelog"
+          className={`bg-transparent border-none p-1.5 cursor-pointer transition-colors duration-150 ${view === 'changelog' ? 'text-text' : 'text-text-dim hover:text-text'}`}
+          title="Library Changelog"
         >
           <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
             <rect x="2" y="1" width="12" height="14" rx="1" fill="none" stroke="currentColor" strokeWidth="1.5" />
@@ -1082,6 +1097,12 @@ export default function App() {
           </div>
         )}
 
+        {view === 'changelog' && (
+          <div className="flex-1 overflow-y-auto pb-16">
+            <ChangelogView onPlay={handlePlay} session={session} />
+          </div>
+        )}
+
         {isInCollection && (
           <div className="flex flex-col flex-1 overflow-hidden">
             <CollectionDetailHeader
@@ -1146,12 +1167,6 @@ export default function App() {
         onPlayTrack={handlePlayTrack}
         onFetchQueue={fetchQueue}
       />
-      <DigestPanel
-        open={digestOpen}
-        onClose={() => setDigestOpen(false)}
-        onPlay={handlePlay}
-        session={session}
-      />
       <PlaybackBar
         state={playback}
         onPlay={play}
@@ -1161,12 +1176,7 @@ export default function App() {
         onSetVolume={setVolume}
         onSeek={seek}
         paneOpen={paneOpen}
-        onTogglePane={() => {
-          setPaneOpen(p => {
-            if (!p) setDigestOpen(false) // close digest when opening NowPlaying
-            return !p
-          })
-        }}
+        onTogglePane={() => setPaneOpen(p => !p)}
         albumImageUrl={nowPlayingImageUrl}
         message={playbackMessage}
         nowPlayingServiceId={nowPlayingServiceId}

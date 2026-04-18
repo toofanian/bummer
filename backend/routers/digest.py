@@ -1,9 +1,9 @@
 import os
-from collections import Counter
-from datetime import date
+from collections import Counter, defaultdict
+from datetime import date, datetime
 
 import spotipy
-from fastapi import APIRouter, Depends, Header, HTTPException
+from fastapi import APIRouter, Depends, Header, HTTPException, Query
 from supabase import Client
 
 from auth_middleware import get_authed_db, get_current_user
@@ -69,6 +69,131 @@ def _resolve_album_metadata(
     return resolved
 
 
+@router.get("/history")
+def get_history(
+    limit: int = Query(default=50, ge=1, le=200),
+    before: datetime | None = None,
+    sp: spotipy.Spotify = Depends(get_user_spotify),
+    db: Client = Depends(get_authed_db),
+    user: dict = Depends(get_current_user),
+):
+    query = (
+        db.table("play_history")
+        .select("album_id, played_at")
+        .order("played_at", desc=True)
+        .limit(limit + 1)
+    )
+    if before:
+        query = query.lt("played_at", str(before))
+
+    rows = query.execute().data
+
+    has_more = len(rows) > limit
+    # Keep only `limit` rows for the response
+    result_rows = rows[:limit]
+
+    if not result_rows:
+        return {"days": [], "has_more": False, "next_cursor": None}
+
+    next_cursor = result_rows[-1]["played_at"] if has_more else None
+
+    # Resolve album metadata
+    unique_ids = list({r["album_id"] for r in result_rows})
+    album_cache = get_album_cache(db, user_id=user["user_id"])
+    metadata = _resolve_album_metadata(unique_ids, album_cache, sp)
+    meta_lookup = {m["service_id"]: m for m in metadata}
+
+    # Group by date
+    grouped = defaultdict(list)
+    for row in result_rows:
+        day = row["played_at"][:10]  # extract YYYY-MM-DD
+        album_meta = meta_lookup.get(
+            row["album_id"],
+            {
+                "service_id": row["album_id"],
+                "name": None,
+                "artists": None,
+                "image_url": None,
+            },
+        )
+        grouped[day].append(
+            {
+                "album": album_meta,
+                "played_at": row["played_at"],
+            }
+        )
+
+    # Build days list, sorted newest first (rows are already ordered desc)
+    days = []
+    for day_date in dict.fromkeys(row["played_at"][:10] for row in result_rows):
+        days.append(
+            {
+                "date": day_date,
+                "plays": grouped[day_date],
+            }
+        )
+
+    return {"days": days, "has_more": has_more, "next_cursor": next_cursor}
+
+
+@router.get("/stats")
+def get_stats(
+    sp: spotipy.Spotify = Depends(get_user_spotify),
+    db: Client = Depends(get_authed_db),
+    user: dict = Depends(get_current_user),
+):
+    from datetime import timedelta
+
+    thirty_days_ago = (datetime.now() - timedelta(days=30)).isoformat()
+
+    rows = (
+        db.table("play_history")
+        .select("album_id, played_at")
+        .gte("played_at", thirty_days_ago)
+        .execute()
+    ).data
+
+    if not rows:
+        return {"period_days": 30, "top_albums": [], "top_artists": []}
+
+    play_counts = Counter(row["album_id"] for row in rows)
+    top_album_ids = [aid for aid, _ in play_counts.most_common(10)]
+
+    album_cache = get_album_cache(db, user_id=user["user_id"])
+    metadata = _resolve_album_metadata(top_album_ids, album_cache, sp)
+    meta_lookup = {m["service_id"]: m for m in metadata}
+
+    top_albums = []
+    for aid in top_album_ids:
+        album_meta = meta_lookup.get(aid)
+        if album_meta:
+            top_albums.append(
+                {
+                    "album": album_meta,
+                    "play_count": play_counts[aid],
+                }
+            )
+
+    # Top artists: map album plays to artists
+    artist_counts = Counter()
+    for aid in top_album_ids:
+        album_meta = meta_lookup.get(aid)
+        if album_meta and album_meta.get("artists"):
+            for artist in album_meta["artists"]:
+                artist_counts[artist] += play_counts[aid]
+
+    top_artists = [
+        {"artist": name, "play_count": count}
+        for name, count in artist_counts.most_common(10)
+    ]
+
+    return {
+        "period_days": 30,
+        "top_albums": top_albums,
+        "top_artists": top_artists,
+    }
+
+
 @router.get("")
 def get_digest(
     start: date,
@@ -128,6 +253,85 @@ def get_digest(
         "removed": enrich(removed_ids),
         "listened": enrich_listened(listened_ids),
     }
+
+
+@router.get("/changelog")
+def get_changelog(
+    limit: int = 50,
+    before: date | None = None,
+    sp: spotipy.Spotify = Depends(get_user_spotify),
+    db: Client = Depends(get_authed_db),
+    user: dict = Depends(get_current_user),
+):
+    if limit < 1:
+        limit = 1
+    if limit > 200:
+        limit = 200
+
+    # Fetch limit+1 snapshots to compute `limit` diffs (need pairs)
+    query = (
+        db.table("library_snapshots")
+        .select("snapshot_date, album_ids")
+        .order("snapshot_date", desc=True)
+        .limit(limit + 1)
+    )
+    if before:
+        query = query.lt("snapshot_date", str(before))
+
+    snapshots = query.execute().data
+
+    if len(snapshots) < 2:
+        return {"entries": [], "has_more": False, "next_cursor": None}
+
+    # Compute diffs between consecutive pairs
+    raw_entries = []
+    for i in range(len(snapshots) - 1):
+        newer = snapshots[i]
+        older = snapshots[i + 1]
+        newer_ids = set(newer["album_ids"])
+        older_ids = set(older["album_ids"])
+        added_ids = list(newer_ids - older_ids)
+        removed_ids = list(older_ids - newer_ids)
+        if added_ids or removed_ids:
+            raw_entries.append(
+                {
+                    "date": newer["snapshot_date"],
+                    "added_ids": added_ids,
+                    "removed_ids": removed_ids,
+                }
+            )
+
+    # Resolve metadata for all referenced album IDs
+    all_ids = set()
+    for entry in raw_entries:
+        all_ids.update(entry["added_ids"])
+        all_ids.update(entry["removed_ids"])
+
+    album_cache = get_album_cache(db, user_id=user["user_id"])
+    metadata = _resolve_album_metadata(list(all_ids), album_cache, sp)
+    meta_lookup = {m["service_id"]: m for m in metadata}
+
+    entries = []
+    for entry in raw_entries:
+        entries.append(
+            {
+                "date": entry["date"],
+                "added": [
+                    meta_lookup[aid] for aid in entry["added_ids"] if aid in meta_lookup
+                ],
+                "removed": [
+                    meta_lookup[aid]
+                    for aid in entry["removed_ids"]
+                    if aid in meta_lookup
+                ],
+            }
+        )
+
+    # Pagination: if we fetched limit+1 snapshots and used all pairs, there may be more
+    has_more = len(snapshots) > limit
+    next_cursor = snapshots[-2]["snapshot_date"] if has_more else None
+
+    return {"entries": entries, "has_more": has_more, "next_cursor": next_cursor}
 
 
 @router.post("/snapshot")

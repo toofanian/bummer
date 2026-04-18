@@ -41,7 +41,9 @@ def _build_signed_state(payload_dict, secret=PROXY_SECRET):
     """Build a signed state string the same way the endpoint does."""
     payload_json = json.dumps(payload_dict, separators=(",", ":"), sort_keys=True)
     payload_b64 = base64.urlsafe_b64encode(payload_json.encode()).rstrip(b"=").decode()
-    sig = hmac_mod.new(secret.encode(), payload_json.encode(), hashlib.sha256).hexdigest()
+    sig = hmac_mod.new(
+        secret.encode(), payload_json.encode(), hashlib.sha256
+    ).hexdigest()
     return f"{payload_b64}.{sig}"
 
 
@@ -179,7 +181,9 @@ class TestCallbackProxy:
         mock_token_response.raise_for_status = MagicMock()
 
         mock_db = MagicMock()
-        mock_db.table.return_value.upsert.return_value.execute.return_value = MagicMock()
+        mock_db.table.return_value.upsert.return_value.execute.return_value = (
+            MagicMock()
+        )
 
         with (
             patch("routers.auth_proxy.requests.post", return_value=mock_token_response),

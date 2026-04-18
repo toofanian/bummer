@@ -55,9 +55,7 @@ def test_apple_music_get_library_albums(mock_get):
                     "dateAdded": "2023-11-01T00:00:00Z",
                 },
                 "relationships": {
-                    "catalog": {
-                        "data": [{"id": "1440857781", "type": "albums"}]
-                    }
+                    "catalog": {"data": [{"id": "1440857781", "type": "albums"}]}
                 },
             }
         ],

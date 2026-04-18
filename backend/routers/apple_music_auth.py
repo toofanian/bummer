@@ -52,12 +52,6 @@ def store_music_user_token(
     db = get_service_db()
     now = datetime.now(timezone.utc)
 
-    # Get the developer token to store alongside
-    try:
-        dev_token = generate_developer_token()
-    except RuntimeError:
-        dev_token = None
-
     db.table("music_tokens").upsert(
         {
             "user_id": user["user_id"],
@@ -70,9 +64,9 @@ def store_music_user_token(
     ).execute()
 
     # Update profile service type
-    db.table("profiles").update(
-        {"service_type": "apple_music"}
-    ).eq("id", user["user_id"]).execute()
+    db.table("profiles").update({"service_type": "apple_music"}).eq(
+        "id", user["user_id"]
+    ).execute()
 
     return {"status": "ok"}
 
@@ -84,10 +78,7 @@ def apple_music_status(user: dict = Depends(get_current_user)):
 
     # Check profile service type
     profile = (
-        db.table("profiles")
-        .select("service_type")
-        .eq("id", user["user_id"])
-        .execute()
+        db.table("profiles").select("service_type").eq("id", user["user_id"]).execute()
     )
 
     if not profile.data or profile.data[0].get("service_type") != "apple_music":
@@ -114,8 +105,8 @@ def delete_music_user_token(user: dict = Depends(get_current_user)):
     db.table("music_tokens").delete().eq("user_id", user["user_id"]).execute()
 
     # Reset profile service type
-    db.table("profiles").update(
-        {"service_type": "spotify"}
-    ).eq("id", user["user_id"]).execute()
+    db.table("profiles").update({"service_type": "spotify"}).eq(
+        "id", user["user_id"]
+    ).execute()
 
     return {"status": "ok"}
