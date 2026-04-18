@@ -55,32 +55,35 @@ describe('CollectionsPane', () => {
     expect(onEnter).toHaveBeenCalledWith(COLLECTIONS[0])
   })
 
-  it('calls onDelete with collection id when Delete is confirmed (two-click flow)', async () => {
+  it('calls onDelete with collection id when Delete is confirmed (three-click flow)', async () => {
     const onDelete = vi.fn()
     render(
       <CollectionsPane
         collections={COLLECTIONS}
         onEnter={() => {}}
         onDelete={onDelete}
+        onRename={() => {}}
         onFetchAlbums={() => Promise.resolve([])}
       />
     )
-    await userEvent.click(screen.getAllByRole('button', { name: /^delete$/i })[0])
+    await userEvent.click(screen.getAllByRole('button', { name: /more options/i })[0])
+    await userEvent.click(screen.getByRole('button', { name: /^delete$/i }))
     await userEvent.click(screen.getByRole('button', { name: /confirm delete/i }))
     expect(onDelete).toHaveBeenCalledWith('col-1')
   })
 
-  it('does not call onEnter when the delete button is clicked', async () => {
+  it('does not call onEnter when the menu button is clicked', async () => {
     const onEnter = vi.fn()
     render(
       <CollectionsPane
         collections={COLLECTIONS}
         onEnter={onEnter}
         onDelete={() => {}}
+        onRename={() => {}}
         onFetchAlbums={() => Promise.resolve([])}
       />
     )
-    await userEvent.click(screen.getAllByRole('button', { name: /delete/i })[0])
+    await userEvent.click(screen.getAllByRole('button', { name: /more options/i })[0])
     expect(onEnter).not.toHaveBeenCalled()
   })
 
@@ -261,19 +264,139 @@ describe('CollectionsPane', () => {
     expect(gridEl).not.toBeInTheDocument()
   })
 
-  // --- Delete confirmation ---
+  // --- Three-dot menu ---
 
-  it('delete button shows confirmation on first click', async () => {
+  it('shows a three-dot menu button on each collection row', () => {
     render(
       <CollectionsPane
         collections={COLLECTIONS}
         onEnter={() => {}}
         onDelete={() => {}}
+        onRename={() => {}}
         onFetchAlbums={() => Promise.resolve([])}
       />
     )
-    const deleteBtns = screen.getAllByRole('button', { name: /^delete$/i })
-    await userEvent.click(deleteBtns[0])
+    const menuBtns = screen.getAllByRole('button', { name: /more options/i })
+    expect(menuBtns).toHaveLength(2)
+  })
+
+  it('opens menu with Rename and Delete options on click', async () => {
+    render(
+      <CollectionsPane
+        collections={COLLECTIONS}
+        onEnter={() => {}}
+        onDelete={() => {}}
+        onRename={() => {}}
+        onFetchAlbums={() => Promise.resolve([])}
+      />
+    )
+    await userEvent.click(screen.getAllByRole('button', { name: /more options/i })[0])
+    expect(screen.getByRole('button', { name: /^rename$/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /^delete$/i })).toBeInTheDocument()
+  })
+
+  it('enters inline rename mode when Rename is clicked from menu', async () => {
+    render(
+      <CollectionsPane
+        collections={COLLECTIONS}
+        onEnter={() => {}}
+        onDelete={() => {}}
+        onRename={() => {}}
+        onFetchAlbums={() => Promise.resolve([])}
+      />
+    )
+    await userEvent.click(screen.getAllByRole('button', { name: /more options/i })[0])
+    await userEvent.click(screen.getByRole('button', { name: /^rename$/i }))
+    expect(screen.getByDisplayValue('Road trip')).toBeInTheDocument()
+  })
+
+  it('calls onRename with new name on Enter', async () => {
+    const onRename = vi.fn()
+    render(
+      <CollectionsPane
+        collections={COLLECTIONS}
+        onEnter={() => {}}
+        onDelete={() => {}}
+        onRename={onRename}
+        onFetchAlbums={() => Promise.resolve([])}
+      />
+    )
+    await userEvent.click(screen.getAllByRole('button', { name: /more options/i })[0])
+    await userEvent.click(screen.getByRole('button', { name: /^rename$/i }))
+    const input = screen.getByDisplayValue('Road trip')
+    await userEvent.clear(input)
+    await userEvent.type(input, 'Summer vibes{Enter}')
+    expect(onRename).toHaveBeenCalledWith('col-1', 'Summer vibes')
+  })
+
+  it('cancels rename on Escape without calling onRename', async () => {
+    const onRename = vi.fn()
+    render(
+      <CollectionsPane
+        collections={COLLECTIONS}
+        onEnter={() => {}}
+        onDelete={() => {}}
+        onRename={onRename}
+        onFetchAlbums={() => Promise.resolve([])}
+      />
+    )
+    await userEvent.click(screen.getAllByRole('button', { name: /more options/i })[0])
+    await userEvent.click(screen.getByRole('button', { name: /^rename$/i }))
+    await userEvent.keyboard('{Escape}')
+    expect(onRename).not.toHaveBeenCalled()
+    expect(screen.getByText('Road trip')).toBeInTheDocument()
+  })
+
+  it('does not call onRename if name is unchanged', async () => {
+    const onRename = vi.fn()
+    render(
+      <CollectionsPane
+        collections={COLLECTIONS}
+        onEnter={() => {}}
+        onDelete={() => {}}
+        onRename={onRename}
+        onFetchAlbums={() => Promise.resolve([])}
+      />
+    )
+    await userEvent.click(screen.getAllByRole('button', { name: /more options/i })[0])
+    await userEvent.click(screen.getByRole('button', { name: /^rename$/i }))
+    await userEvent.keyboard('{Enter}')
+    expect(onRename).not.toHaveBeenCalled()
+  })
+
+  it('does not call onRename if name is empty', async () => {
+    const onRename = vi.fn()
+    render(
+      <CollectionsPane
+        collections={COLLECTIONS}
+        onEnter={() => {}}
+        onDelete={() => {}}
+        onRename={onRename}
+        onFetchAlbums={() => Promise.resolve([])}
+      />
+    )
+    await userEvent.click(screen.getAllByRole('button', { name: /more options/i })[0])
+    await userEvent.click(screen.getByRole('button', { name: /^rename$/i }))
+    const input = screen.getByDisplayValue('Road trip')
+    await userEvent.clear(input)
+    await userEvent.keyboard('{Enter}')
+    expect(onRename).not.toHaveBeenCalled()
+  })
+
+  // --- Delete confirmation ---
+
+  it('delete button shows confirmation via menu', async () => {
+    render(
+      <CollectionsPane
+        collections={COLLECTIONS}
+        onEnter={() => {}}
+        onDelete={() => {}}
+        onRename={() => {}}
+        onFetchAlbums={() => Promise.resolve([])}
+      />
+    )
+    await userEvent.click(screen.getAllByRole('button', { name: /more options/i })[0])
+    await userEvent.click(screen.getByRole('button', { name: /^delete$/i }))
     expect(screen.getByRole('button', { name: /confirm delete/i })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /cancel/i })).toBeInTheDocument()
   })
@@ -285,11 +408,12 @@ describe('CollectionsPane', () => {
         collections={COLLECTIONS}
         onEnter={() => {}}
         onDelete={onDelete}
+        onRename={() => {}}
         onFetchAlbums={() => Promise.resolve([])}
       />
     )
-    const deleteBtns = screen.getAllByRole('button', { name: /^delete$/i })
-    await userEvent.click(deleteBtns[0])
+    await userEvent.click(screen.getAllByRole('button', { name: /more options/i })[0])
+    await userEvent.click(screen.getByRole('button', { name: /^delete$/i }))
     const confirmBtn = screen.getByRole('button', { name: /confirm delete/i })
     await userEvent.click(confirmBtn)
     expect(onDelete).toHaveBeenCalledWith('col-1')
@@ -302,11 +426,12 @@ describe('CollectionsPane', () => {
         collections={COLLECTIONS}
         onEnter={() => {}}
         onDelete={onDelete}
+        onRename={() => {}}
         onFetchAlbums={() => Promise.resolve([])}
       />
     )
-    const deleteBtns = screen.getAllByRole('button', { name: /^delete$/i })
-    await userEvent.click(deleteBtns[0])
+    await userEvent.click(screen.getAllByRole('button', { name: /more options/i })[0])
+    await userEvent.click(screen.getByRole('button', { name: /^delete$/i }))
     const cancelBtn = screen.getByRole('button', { name: /cancel/i })
     await userEvent.click(cancelBtn)
     expect(onDelete).not.toHaveBeenCalled()
