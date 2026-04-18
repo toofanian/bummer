@@ -77,6 +77,8 @@ export default function App() {
   const selectedAlbumIdSet = useMemo(() => new Set(selectedAlbumIds), [selectedAlbumIds])
   const [pickerAlbumIds, setPickerAlbumIds] = useState(null)
   const [targetArtist, setTargetArtist] = useState(null)
+  const [showCollectionCreate, setShowCollectionCreate] = useState(false)
+  const [collectionCreateName, setCollectionCreateName] = useState('')
   // Collection playback: null | { collectionId: string, albumIds: string[], currentIndex: number }
   const [collectionPlayback, setCollectionPlayback] = useState(null)
   const collectionPlaybackRef = useRef(null)
@@ -244,6 +246,12 @@ export default function App() {
       apiFetch('/digest/ensure-snapshot', { method: 'POST' }, sessionRef.current).catch(() => {})
     }
   }, [albumsLoading, albums.length])
+
+  // Reset create-collection inline form when navigating away
+  useEffect(() => {
+    setShowCollectionCreate(false)
+    setCollectionCreateName('')
+  }, [view])
 
   // Escape key clears selection
   useEffect(() => {
@@ -731,6 +739,39 @@ export default function App() {
               artistCount={artistCount}
             />
           )}
+          {view === 'collections' && (
+            showCollectionCreate ? (
+              <input
+                autoFocus
+                className="bg-surface-2 text-text border border-border rounded-full px-3 py-1 text-sm flex-1 min-w-0"
+                placeholder="Collection name\u2026"
+                value={collectionCreateName}
+                onChange={e => setCollectionCreateName(e.target.value)}
+                onKeyDown={e => {
+                  if (e.key === 'Enter' && collectionCreateName.trim()) {
+                    handleCreateCollection(collectionCreateName.trim())
+                    setCollectionCreateName('')
+                    setShowCollectionCreate(false)
+                  } else if (e.key === 'Escape') {
+                    setCollectionCreateName('')
+                    setShowCollectionCreate(false)
+                  }
+                }}
+                onBlur={() => {
+                  setCollectionCreateName('')
+                  setShowCollectionCreate(false)
+                }}
+              />
+            ) : (
+              <button
+                className="bg-surface-2 border-none text-text-dim text-sm cursor-pointer px-2.5 py-1 rounded-full hover:text-text hover:bg-hover transition-colors duration-150"
+                onClick={() => setShowCollectionCreate(true)}
+                aria-label="Create collection"
+              >
+                +
+              </button>
+            )
+          )}
           {(view === 'library' || view === 'collections') && (
             <button
               onClick={() => setSearchOpen(true)}
@@ -992,6 +1033,39 @@ export default function App() {
           >
             <span className={collectionsLoading ? 'animate-pulse' : undefined}>Collections</span>
           </button>
+          {view === 'collections' && (
+            showCollectionCreate ? (
+              <input
+                autoFocus
+                className="bg-surface-2 text-text border border-border rounded-full px-3 py-1 text-sm w-48"
+                placeholder="Collection name&#x2026;"
+                value={collectionCreateName}
+                onChange={e => setCollectionCreateName(e.target.value)}
+                onKeyDown={e => {
+                  if (e.key === 'Enter' && collectionCreateName.trim()) {
+                    handleCreateCollection(collectionCreateName.trim())
+                    setCollectionCreateName('')
+                    setShowCollectionCreate(false)
+                  } else if (e.key === 'Escape') {
+                    setCollectionCreateName('')
+                    setShowCollectionCreate(false)
+                  }
+                }}
+                onBlur={() => {
+                  setCollectionCreateName('')
+                  setShowCollectionCreate(false)
+                }}
+              />
+            ) : (
+              <button
+                className="bg-surface-2 border-none text-text-dim text-sm cursor-pointer px-2.5 py-1 rounded-full hover:text-text hover:bg-hover transition-colors duration-150"
+                onClick={() => setShowCollectionCreate(true)}
+                aria-label="Create collection"
+              >
+                +
+              </button>
+            )
+          )}
         </nav>
         <input
           className="ml-auto w-48 bg-surface-2 text-text border border-border rounded px-2.5 py-1 text-sm"

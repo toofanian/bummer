@@ -3,7 +3,6 @@ import { useIsMobile } from '../hooks/useIsMobile'
 import AlbumArtStrip from './AlbumArtStrip'
 
 export default function CollectionsPane({ collections, onEnter, onDelete, onCreate, onFetchAlbums }) {
-  const [newName, setNewName] = useState('')
   const [artMap, setArtMap] = useState({})
   const [confirmingId, setConfirmingId] = useState(null)
   const isMobile = useIsMobile()
@@ -33,12 +32,6 @@ export default function CollectionsPane({ collections, onEnter, onDelete, onCrea
     }
   }, [confirmingId])
 
-  function handleCreate() {
-    if (!newName.trim()) return
-    onCreate(newName.trim())
-    setNewName('')
-  }
-
   function handleDeleteClick(e, colId) {
     e.stopPropagation()
     if (confirmingId !== colId) {
@@ -59,16 +52,6 @@ export default function CollectionsPane({ collections, onEnter, onDelete, onCrea
 
   return (
     <div className="w-full flex flex-col h-full overflow-hidden">
-      <div className="flex gap-2 px-4 py-3 border-b border-border bg-bg flex-shrink-0 sticky top-0 z-10 opacity-70 hover:opacity-100 focus-within:opacity-100 transition-opacity duration-150">
-        <input
-          placeholder="New collection name"
-          value={newName}
-          onChange={e => setNewName(e.target.value)}
-          onKeyDown={e => e.key === 'Enter' && handleCreate()}
-        />
-        <button onClick={handleCreate}>Create</button>
-      </div>
-
       {collections.length === 0 ? (
         <p className="p-4 text-sm text-text-dim italic">No collections yet.</p>
       ) : (
