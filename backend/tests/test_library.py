@@ -483,7 +483,17 @@ def test_sync_complete_writes_synced_at_timestamp():
     db = mock_db_empty()
     override_db(db)
 
-    albums = [{"service_id": "abc123", "name": "Test", "artists": [], "release_date": "2020", "total_tracks": 10, "image_url": None, "added_at": "2021-01-01T00:00:00Z"}]
+    albums = [
+        {
+            "service_id": "abc123",
+            "name": "Test",
+            "artists": [],
+            "release_date": "2020",
+            "total_tracks": 10,
+            "image_url": None,
+            "added_at": "2021-01-01T00:00:00Z",
+        }
+    ]
     response = client.post("/library/sync-complete", json={"albums": albums})
 
     assert response.status_code == 200

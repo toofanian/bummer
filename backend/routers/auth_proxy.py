@@ -71,7 +71,9 @@ def _sign_state(payload_dict: dict, secret: str) -> str:
     """JSON-serialize, HMAC-sign, and encode state as base64url.sig."""
     payload_json = json.dumps(payload_dict, separators=(",", ":"), sort_keys=True)
     payload_b64 = _b64url_encode(payload_json.encode())
-    sig = hmac_mod.new(secret.encode(), payload_json.encode(), hashlib.sha256).hexdigest()
+    sig = hmac_mod.new(
+        secret.encode(), payload_json.encode(), hashlib.sha256
+    ).hexdigest()
     return f"{payload_b64}.{sig}"
 
 
@@ -113,6 +115,7 @@ def verify_supabase_jwt(token: str) -> str:
     Reuses the JWKS client from auth_middleware.
     """
     import jwt as pyjwt
+
     from auth_middleware import _get_jwks_client
 
     try:
