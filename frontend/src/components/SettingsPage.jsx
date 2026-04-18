@@ -1,25 +1,29 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState } from 'react'
 import supabase from '../supabaseClient'
 import { apiFetch } from '../api'
 
-export default function SettingsMenu({ onLogout, session }) {
-  const [open, setOpen] = useState(false)
+function getInstallInstructions() {
+  const ua = navigator.userAgent
+  if (/iPad|iPhone|iPod/.test(ua)) {
+    return 'In Safari, tap the Share button then "Add to Home Screen".'
+  }
+  if (/Android/.test(ua)) {
+    return 'Tap the browser menu (three dots) and select "Add to Home Screen" or "Install App".'
+  }
+  if (/Chrome/.test(ua)) {
+    return 'Click the install icon in your browser\'s address bar.'
+  }
+  if (/Firefox/.test(ua)) {
+    return 'Firefox doesn\'t support PWA install yet. Try opening this page in Chrome or Edge.'
+  }
+  return 'Look for an "Install" or "Add to Home Screen" option in your browser\'s menu.'
+}
+
+export default function SettingsPage({ onLogout, session }) {
   const [deleteModalOpen, setDeleteModalOpen] = useState(false)
   const [confirmText, setConfirmText] = useState('')
   const [deleting, setDeleting] = useState(false)
   const [deleteError, setDeleteError] = useState('')
-  const menuRef = useRef(null)
-
-  useEffect(() => {
-    if (!open) return
-    function handleClickOutside(e) {
-      if (menuRef.current && !menuRef.current.contains(e.target)) {
-        setOpen(false)
-      }
-    }
-    document.addEventListener('mousedown', handleClickOutside)
-    return () => document.removeEventListener('mousedown', handleClickOutside)
-  }, [open])
 
   async function handleDeleteConfirm() {
     setDeleting(true)
@@ -46,47 +50,43 @@ export default function SettingsMenu({ onLogout, session }) {
   }
 
   return (
-    <div ref={menuRef} className="relative">
-      <button
-        onClick={() => setOpen(o => !o)}
-        aria-label="Settings"
-        className="bg-transparent border-none text-text-dim p-1.5 cursor-pointer hover:text-text transition-colors duration-150"
-        title="Settings"
-      >
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-          <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z" />
-          <circle cx="12" cy="12" r="3" />
-        </svg>
-      </button>
+    <div className="flex-1 overflow-y-auto">
+      <div className="max-w-lg mx-auto px-4 py-6 flex flex-col gap-6">
+        <section className="flex flex-col gap-2">
+          <h2 className="text-sm font-semibold text-text-dim uppercase tracking-wider">Install App</h2>
+          <p className="text-sm text-text">
+            Bummer works best as an installed app. {getInstallInstructions()}
+          </p>
+        </section>
 
-      {open && (
-        <div className="absolute right-0 top-full mt-1 bg-surface border border-border rounded shadow-lg z-50 min-w-[160px]">
+        <section className="flex flex-col gap-2">
+          <h2 className="text-sm font-semibold text-text-dim uppercase tracking-wider">Feedback</h2>
           <a
-            href="mailto:steels_tastier_8r@icloud.com?subject=Bummer%20Feedback&body=Hey%20Alex%2C%0A%0A"
-            className="block px-4 py-2 text-sm text-text hover:bg-hover transition-colors duration-150 no-underline"
+            href="https://github.com/toofanian/bummer/discussions"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="block text-sm text-text bg-surface-2 border border-border rounded-lg px-4 py-3 no-underline hover:bg-hover transition-colors duration-150"
           >
             Send Feedback
           </a>
+        </section>
+
+        <section className="flex flex-col gap-2">
+          <h2 className="text-sm font-semibold text-text-dim uppercase tracking-wider">Account</h2>
           <button
-            onClick={() => {
-              setOpen(false)
-              onLogout()
-            }}
-            className="w-full text-left px-4 py-2 text-sm text-text bg-transparent border-none cursor-pointer hover:bg-hover transition-colors duration-150"
+            onClick={onLogout}
+            className="text-left text-sm text-text bg-surface-2 border border-border rounded-lg px-4 py-3 cursor-pointer hover:bg-hover transition-colors duration-150"
           >
             Log Out
           </button>
           <button
-            onClick={() => {
-              setOpen(false)
-              setDeleteModalOpen(true)
-            }}
-            className="w-full text-left px-4 py-2 text-sm text-red-400 bg-transparent border-none cursor-pointer hover:bg-hover transition-colors duration-150"
+            onClick={() => setDeleteModalOpen(true)}
+            className="text-left text-sm text-red-400 bg-surface-2 border border-border rounded-lg px-4 py-3 cursor-pointer hover:bg-hover transition-colors duration-150"
           >
             Delete account
           </button>
-        </div>
-      )}
+        </section>
+      </div>
 
       {deleteModalOpen && (
         <div
@@ -125,7 +125,7 @@ export default function SettingsMenu({ onLogout, session }) {
                 disabled={confirmText !== 'DELETE' || deleting}
                 className="px-4 py-2 text-sm text-white bg-red-600 border-none rounded hover:bg-red-500 transition-colors duration-150 disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                {deleting ? 'Deleting…' : 'Permanently delete'}
+                {deleting ? 'Deleting\u2026' : 'Permanently delete'}
               </button>
             </div>
           </div>

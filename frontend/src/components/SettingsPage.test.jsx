@@ -8,78 +8,73 @@ vi.mock('../supabaseClient', () => ({
 
 vi.stubGlobal('fetch', vi.fn())
 
-import SettingsMenu from './SettingsMenu'
+import SettingsPage from './SettingsPage'
 
 const fakeSession = { access_token: 'supabase-jwt' }
 
-describe('SettingsMenu', () => {
+describe('SettingsPage', () => {
   beforeEach(() => {
     vi.clearAllMocks()
   })
 
-  it('renders a settings button', () => {
-    render(<SettingsMenu onLogout={vi.fn()} />)
-    expect(screen.getByRole('button', { name: /settings/i })).toBeInTheDocument()
+  it('shows install app section', () => {
+    render(<SettingsPage onLogout={vi.fn()} session={fakeSession} />)
+    expect(screen.getByText(/install app/i)).toBeInTheDocument()
   })
 
-  it('shows dropdown menu when clicked', () => {
-    render(<SettingsMenu onLogout={vi.fn()} />)
-    fireEvent.click(screen.getByRole('button', { name: /settings/i }))
-    expect(screen.getByText(/send feedback/i)).toBeInTheDocument()
-    expect(screen.getByText(/log out/i)).toBeInTheDocument()
+  it('shows iOS instructions when user agent contains iPhone', () => {
+    const original = navigator.userAgent
+    Object.defineProperty(navigator, 'userAgent', { value: 'iPhone', configurable: true })
+    render(<SettingsPage onLogout={vi.fn()} session={fakeSession} />)
+    expect(screen.getByText(/add to home screen/i)).toBeInTheDocument()
+    Object.defineProperty(navigator, 'userAgent', { value: original, configurable: true })
   })
 
-  it('hides dropdown when clicked again', () => {
-    render(<SettingsMenu onLogout={vi.fn()} />)
-    const btn = screen.getByRole('button', { name: /settings/i })
-    fireEvent.click(btn)
-    fireEvent.click(btn)
-    expect(screen.queryByText(/send feedback/i)).not.toBeInTheDocument()
+  it('shows Chrome instructions when user agent contains Chrome', () => {
+    const original = navigator.userAgent
+    Object.defineProperty(navigator, 'userAgent', { value: 'Chrome/100', configurable: true })
+    render(<SettingsPage onLogout={vi.fn()} session={fakeSession} />)
+    expect(screen.getByText(/install.*address bar/i)).toBeInTheDocument()
+    Object.defineProperty(navigator, 'userAgent', { value: original, configurable: true })
+  })
+
+  it('has a GitHub Discussions link for feedback', () => {
+    render(<SettingsPage onLogout={vi.fn()} session={fakeSession} />)
+    const link = screen.getByRole('link', { name: /send feedback/i })
+    expect(link).toHaveAttribute('href', 'https://github.com/toofanian/bummer/discussions')
   })
 
   it('calls onLogout when Log Out is clicked', () => {
     const onLogout = vi.fn()
-    render(<SettingsMenu onLogout={onLogout} />)
-    fireEvent.click(screen.getByRole('button', { name: /settings/i }))
-    fireEvent.click(screen.getByText(/log out/i))
+    render(<SettingsPage onLogout={onLogout} session={fakeSession} />)
+    fireEvent.click(screen.getByRole('button', { name: /log out/i }))
     expect(onLogout).toHaveBeenCalled()
   })
 
-  it('has a mailto link for feedback', () => {
-    render(<SettingsMenu onLogout={vi.fn()} />)
-    fireEvent.click(screen.getByRole('button', { name: /settings/i }))
-    const link = screen.getByText(/send feedback/i)
-    expect(link.closest('a')).toHaveAttribute('href', expect.stringContaining('mailto:'))
-  })
-
-  it('shows a Delete account menu item when open', () => {
-    render(<SettingsMenu onLogout={vi.fn()} session={fakeSession} />)
-    fireEvent.click(screen.getByRole('button', { name: /settings/i }))
+  it('shows delete account button', () => {
+    render(<SettingsPage onLogout={vi.fn()} session={fakeSession} />)
     expect(screen.getByRole('button', { name: /delete account/i })).toBeInTheDocument()
   })
 
-  it('opens a confirmation modal with a disabled confirm button until the user types DELETE', () => {
-    render(<SettingsMenu onLogout={vi.fn()} session={fakeSession} />)
-    fireEvent.click(screen.getByRole('button', { name: /settings/i }))
+  it('opens delete confirmation modal and requires typing DELETE', () => {
+    render(<SettingsPage onLogout={vi.fn()} session={fakeSession} />)
     fireEvent.click(screen.getByRole('button', { name: /delete account/i }))
     const confirm = screen.getByRole('button', { name: /permanently delete/i })
     expect(confirm).toBeDisabled()
     const input = screen.getByPlaceholderText(/DELETE/)
     fireEvent.change(input, { target: { value: 'delete' } })
-    expect(confirm).toBeDisabled() // case-sensitive
+    expect(confirm).toBeDisabled()
     fireEvent.change(input, { target: { value: 'DELETE' } })
     expect(confirm).not.toBeDisabled()
   })
 
   it('calls DELETE /auth/account and signs out on confirm', async () => {
     fetch.mockResolvedValueOnce({ ok: true, json: async () => ({ status: 'ok' }) })
-    // Stub reload to avoid jsdom nav
     const origLocation = window.location
     delete window.location
     window.location = { ...origLocation, reload: vi.fn(), assign: vi.fn() }
 
-    render(<SettingsMenu onLogout={vi.fn()} session={fakeSession} />)
-    fireEvent.click(screen.getByRole('button', { name: /settings/i }))
+    render(<SettingsPage onLogout={vi.fn()} session={fakeSession} />)
     fireEvent.click(screen.getByRole('button', { name: /delete account/i }))
     fireEvent.change(screen.getByPlaceholderText(/DELETE/), { target: { value: 'DELETE' } })
     fireEvent.click(screen.getByRole('button', { name: /permanently delete/i }))
@@ -94,10 +89,9 @@ describe('SettingsMenu', () => {
     window.location = origLocation
   })
 
-  it('shows error message and does not sign out when DELETE request fails', async () => {
+  it('shows error when delete request fails', async () => {
     fetch.mockResolvedValueOnce({ ok: false, json: async () => ({ detail: 'Server error' }) })
-    render(<SettingsMenu onLogout={vi.fn()} session={fakeSession} />)
-    fireEvent.click(screen.getByRole('button', { name: /settings/i }))
+    render(<SettingsPage onLogout={vi.fn()} session={fakeSession} />)
     fireEvent.click(screen.getByRole('button', { name: /delete account/i }))
     fireEvent.change(screen.getByPlaceholderText(/DELETE/), { target: { value: 'DELETE' } })
     fireEvent.click(screen.getByRole('button', { name: /permanently delete/i }))
