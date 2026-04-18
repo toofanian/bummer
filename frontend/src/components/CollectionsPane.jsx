@@ -148,8 +148,8 @@ export default function CollectionsPane({ collections, onEnter, onDelete, onCrea
                       <div className="flex gap-0.5 justify-end">
                         {artAlbums.slice(0, 5).map(album => (
                           album.image_url
-                            ? <img key={album.spotify_id} src={album.image_url} alt={album.name} width={24} height={24} className="w-6 h-6 rounded-sm object-cover flex-shrink-0 block" />
-                            : <span key={album.spotify_id} className="w-6 h-6 rounded-sm bg-surface-2 flex-shrink-0 block" aria-hidden="true" />
+                            ? <img key={album.service_id} src={album.image_url} alt={album.name} width={24} height={24} className="w-6 h-6 rounded-sm object-cover flex-shrink-0 block" />
+                            : <span key={album.service_id} className="w-6 h-6 rounded-sm bg-surface-2 flex-shrink-0 block" aria-hidden="true" />
                         ))}
                       </div>
                     </td>

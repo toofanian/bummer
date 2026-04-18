@@ -1,12 +1,8 @@
-import { useState, useRef } from 'react'
-import DevicePicker, { SpeakerIndicatorIcon } from './DevicePicker'
+import { SpeakerIndicatorIcon } from './DevicePicker'
 import { PlayIcon, PauseIcon } from './icons'
 
-export default function MiniPlaybackBar({ state, albumImageUrl, onPlayPause, onExpand, onFetchDevices, onDeviceSelected, onOpenDevicePicker }) {
+export default function MiniPlaybackBar({ state, albumImageUrl, onPlayPause, onExpand, onOpenDevicePicker }) {
   const { is_playing, track, device } = state
-  const [pickerOpen, setPickerOpen] = useState(false)
-  const [deviceBtnRect, setDeviceBtnRect] = useState(null)
-  const deviceBtnRef = useRef(null)
 
   // Show "Connect a device" state when no track, no device, not playing, and picker callback provided
   if (!track && !device && !is_playing) {
@@ -46,33 +42,19 @@ export default function MiniPlaybackBar({ state, albumImageUrl, onPlayPause, onE
         <span className="text-xs text-text-dim truncate">{track.artists.join(', ')}</span>
       </div>
 
-      {device && onFetchDevices && (
-        <>
-          <button
-            ref={deviceBtnRef}
-            data-testid="mini-device-indicator"
-            aria-label="Select playback device"
-            className="bg-transparent border-none cursor-pointer p-1 rounded flex items-center justify-center"
-            style={{ color: device.type !== 'Computer' ? 'var(--accent)' : 'var(--text-dim)' }}
-            onClick={e => {
-              e.stopPropagation()
-              if (!pickerOpen && deviceBtnRef.current) {
-                setDeviceBtnRect(deviceBtnRef.current.getBoundingClientRect())
-              }
-              setPickerOpen(o => !o)
-            }}
-          >
-            <SpeakerIndicatorIcon />
-          </button>
-          {pickerOpen && (
-            <DevicePicker
-              onClose={() => setPickerOpen(false)}
-              onFetchDevices={onFetchDevices}
-              onDeviceSelected={onDeviceSelected}
-              triggerRect={deviceBtnRect}
-            />
-          )}
-        </>
+      {device && onOpenDevicePicker && (
+        <button
+          data-testid="mini-device-indicator"
+          aria-label="Select playback device"
+          className="bg-transparent border-none cursor-pointer p-1 rounded flex items-center justify-center"
+          style={{ color: device.type !== 'Computer' ? 'var(--accent)' : 'var(--text-dim)' }}
+          onClick={e => {
+            e.stopPropagation()
+            onOpenDevicePicker()
+          }}
+        >
+          <SpeakerIndicatorIcon />
+        </button>
       )}
 
       <button

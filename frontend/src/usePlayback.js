@@ -147,10 +147,12 @@ export function usePlayback(session = null) {
     return res.json()
   }, [])
 
-  const transferPlayback = useCallback(async (deviceId) => {
+  const transferPlayback = useCallback(async (deviceId, contextUri = null) => {
+    const payload = { device_id: deviceId }
+    if (contextUri) payload.context_uri = contextUri
     await apiFetch('/playback/transfer', {
       method: 'PUT',
-      body: JSON.stringify({ device_id: deviceId }),
+      body: JSON.stringify(payload),
     }, sessionRef.current)
     // Refresh state so device name in PlaybackBar updates immediately
     const res = await apiFetch('/playback/state', {}, sessionRef.current)

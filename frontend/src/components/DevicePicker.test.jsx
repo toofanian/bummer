@@ -81,10 +81,25 @@ describe('DevicePicker — main view', () => {
     await screen.findByText("Alex's iPhone")
     await user.click(screen.getByText("Alex's iPhone"))
     expect(onDeviceSelected).toHaveBeenCalledWith('phone-id')
-    expect(onClose).toHaveBeenCalled()
   })
 
-  it('does not call onDeviceSelected when clicking active device', async () => {
+  it('does not call onClose when clicking a device (parent manages close)', async () => {
+    const user = userEvent.setup()
+    const onFetchDevices = vi.fn().mockResolvedValue(DEVICES)
+    const onClose = vi.fn()
+    render(
+      <DevicePicker
+        onClose={onClose}
+        onFetchDevices={onFetchDevices}
+        onDeviceSelected={vi.fn()}
+      />
+    )
+    await screen.findByText("Alex's iPhone")
+    await user.click(screen.getByText("Alex's iPhone"))
+    expect(onClose).not.toHaveBeenCalled()
+  })
+
+  it('calls onDeviceSelected when clicking active device (re-transfer)', async () => {
     const user = userEvent.setup()
     const onFetchDevices = vi.fn().mockResolvedValue(DEVICES)
     const onDeviceSelected = vi.fn()
@@ -97,7 +112,7 @@ describe('DevicePicker — main view', () => {
     )
     await screen.findByText('My Mac')
     await user.click(screen.getByTestId('device-row-mac-id'))
-    expect(onDeviceSelected).not.toHaveBeenCalled()
+    expect(onDeviceSelected).toHaveBeenCalledWith('mac-id')
   })
 
   it('closes on Escape key', async () => {

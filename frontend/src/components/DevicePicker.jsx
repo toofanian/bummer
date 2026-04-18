@@ -84,7 +84,6 @@ export default function DevicePicker({
 
   function handleDeviceClick(deviceId) {
     onDeviceSelected(deviceId)
-    onClose()
   }
 
   return (
@@ -151,12 +150,10 @@ export default function DevicePicker({
             data-testid={`device-row-${d.id}`}
             role="option"
             aria-selected={d.is_active}
-            className={`flex items-center gap-2.5 py-2 px-3 text-sm select-none ${
-              d.is_active
-                ? 'text-accent cursor-default'
-                : 'text-text cursor-pointer hover:bg-surface-2'
+            className={`flex items-center gap-2.5 py-2 px-3 text-sm select-none cursor-pointer hover:bg-surface-2 ${
+              d.is_active ? 'text-accent' : 'text-text'
             }`}
-            onClick={d.is_active ? undefined : () => handleDeviceClick(d.id)}
+            onClick={() => handleDeviceClick(d.id)}
           >
             <span className="flex-shrink-0 flex items-center" style={{ color: d.is_active ? 'var(--accent)' : 'var(--text-dim)' }}>
               {deviceTypeIcon(d.type)}

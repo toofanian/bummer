@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
-import DevicePicker, { SpeakerIndicatorIcon } from './DevicePicker'
+import { SpeakerIndicatorIcon } from './DevicePicker'
 import { PlayIcon, PauseIcon, PreviousIcon, NextIcon, VolumeIcon } from './icons'
 import { formatTime, useDebouncedCallback } from '../utils/playback'
 
@@ -131,9 +131,7 @@ function VolumeSlider({ value, onChange }) {
  *   message             — { code: string, text: string } | null
  *   nowPlayingServiceId — string | null
  *   onFocusAlbum        — (albumId: string) => void
- *   onFetchDevices      — () => Promise<Device[]>
- *   onDeviceSelected    — (deviceId: string) => void
- *   onOpenDevicePicker  — () => void   called when "Connect a device" is clicked
+ *   onOpenDevicePicker  — () => void   called when "Connect a device" or device indicator is clicked
  */
 export default function PlaybackBar({
   state,
@@ -149,15 +147,10 @@ export default function PlaybackBar({
   message,
   nowPlayingServiceId,
   onFocusAlbum,
-  onFetchDevices,
-  onDeviceSelected,
   onOpenDevicePicker,
 }) {
   const { is_playing, track, device } = state
   const [volume, setVolume] = useState(50)
-  const [pickerOpen, setPickerOpen] = useState(false)
-  const [deviceBtnRect, setDeviceBtnRect] = useState(null)
-  const deviceBtnRef = useRef(null)
 
   const artistLine = track ? track.artists.join(', ') : null
 
@@ -292,32 +285,16 @@ export default function PlaybackBar({
           />
         )}
 
-        {onFetchDevices && (
-          <>
-            <button
-              ref={deviceBtnRef}
-              data-testid="device-indicator"
-              aria-label="Select playback device"
-              className="bg-transparent border-none cursor-pointer p-1 rounded flex items-center justify-center"
-              style={{ color: device?.type && device.type !== 'Computer' ? 'var(--accent)' : 'var(--text-dim)' }}
-              onClick={() => {
-                if (!pickerOpen && deviceBtnRef.current) {
-                  setDeviceBtnRect(deviceBtnRef.current.getBoundingClientRect())
-                }
-                setPickerOpen(o => !o)
-              }}
-            >
-              <SpeakerIndicatorIcon />
-            </button>
-            {pickerOpen && (
-              <DevicePicker
-                onClose={() => setPickerOpen(false)}
-                onFetchDevices={onFetchDevices}
-                onDeviceSelected={onDeviceSelected}
-                triggerRect={deviceBtnRect}
-              />
-            )}
-          </>
+        {onOpenDevicePicker && (
+          <button
+            data-testid="device-indicator"
+            aria-label="Select playback device"
+            className="bg-transparent border-none cursor-pointer p-1 rounded flex items-center justify-center"
+            style={{ color: device?.type && device.type !== 'Computer' ? 'var(--accent)' : 'var(--text-dim)' }}
+            onClick={() => onOpenDevicePicker()}
+          >
+            <SpeakerIndicatorIcon />
+          </button>
         )}
 
         <button

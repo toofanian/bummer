@@ -7,7 +7,7 @@ vi.mock('../hooks/useIsMobile', () => ({ useIsMobile: vi.fn().mockReturnValue(fa
 
 const ALBUMS = [
   {
-    spotify_id: 'id1',
+    service_id: 'id1',
     service_id: 'id1',
     name: 'Love Deluxe',
     artists: ['Sade'],
@@ -17,7 +17,7 @@ const ALBUMS = [
     added_at: '2021-03-15T00:00:00Z',
   },
   {
-    spotify_id: 'id2',
+    service_id: 'id2',
     service_id: 'id2',
     name: 'Room On Fire',
     artists: ['The Strokes'],
@@ -139,7 +139,7 @@ describe('AlbumTable', () => {
     expect(fontSize).toBeGreaterThanOrEqual(20)
   })
 
-  it('calls onFetchTracks with spotify_id when expand is clicked', async () => {
+  it('calls onFetchTracks with service_id when expand is clicked', async () => {
     const onFetchTracks = vi.fn().mockResolvedValue([])
     render(<AlbumTable albums={ALBUMS} onFetchTracks={onFetchTracks} />)
 
@@ -150,8 +150,8 @@ describe('AlbumTable', () => {
 
   it('shows tracks after expansion', async () => {
     const tracks = [
-      { track_number: 1, name: 'No Ordinary Love', duration: '4:25', spotify_id: 'tid1', service_id: 'tid1' },
-      { track_number: 2, name: 'Feel No Pain',     duration: '5:42', spotify_id: 'tid2', service_id: 'tid2' },
+      { track_number: 1, name: 'No Ordinary Love', duration: '4:25', service_id: 'tid1', service_id: 'tid1' },
+      { track_number: 2, name: 'Feel No Pain',     duration: '5:42', service_id: 'tid2', service_id: 'tid2' },
     ]
     const onFetchTracks = vi.fn().mockResolvedValue(tracks)
     render(<AlbumTable albums={ALBUMS} onFetchTracks={onFetchTracks} />)
@@ -165,7 +165,7 @@ describe('AlbumTable', () => {
 
   it('collapses tracks on second click', async () => {
     const onFetchTracks = vi.fn().mockResolvedValue([
-      { track_number: 1, name: 'No Ordinary Love', duration: '4:25', spotify_id: 'tid1', service_id: 'tid1' },
+      { track_number: 1, name: 'No Ordinary Love', duration: '4:25', service_id: 'tid1', service_id: 'tid1' },
     ])
     render(<AlbumTable albums={ALBUMS} onFetchTracks={onFetchTracks} />)
 
@@ -198,7 +198,7 @@ describe('AlbumTable', () => {
 
   it('expanded row has rotate class on expand-chevron when expanded', async () => {
     const onFetchTracks = vi.fn().mockResolvedValue([
-      { track_number: 1, name: 'No Ordinary Love', duration: '4:25', spotify_id: 'tid1', service_id: 'tid1' },
+      { track_number: 1, name: 'No Ordinary Love', duration: '4:25', service_id: 'tid1', service_id: 'tid1' },
     ])
     render(<AlbumTable albums={[ALBUMS[0]]} onFetchTracks={onFetchTracks} />)
 
@@ -216,7 +216,7 @@ describe('AlbumTable', () => {
 
   it('does not render track play buttons when onPlayTrack is not provided', async () => {
     const tracks = [
-      { track_number: 1, name: 'No Ordinary Love', duration: '4:25', spotify_id: 'tid1', service_id: 'tid1' },
+      { track_number: 1, name: 'No Ordinary Love', duration: '4:25', service_id: 'tid1', service_id: 'tid1' },
     ]
     const onFetchTracks = vi.fn().mockResolvedValue(tracks)
     render(<AlbumTable albums={[ALBUMS[0]]} onFetchTracks={onFetchTracks} />)
@@ -237,7 +237,7 @@ describe('AlbumTable', () => {
     expect(screen.queryByRole('button', { name: /^pause$/i })).not.toBeInTheDocument()
   })
 
-  it('clicking an album row calls onPlay with that album spotify_id', async () => {
+  it('clicking an album row calls onPlay with that album service_id', async () => {
     const onPlay = vi.fn().mockResolvedValue(null)
     render(<AlbumTable albums={ALBUMS} onPlay={onPlay} onFetchTracks={() => {}} />)
 
@@ -257,7 +257,7 @@ describe('AlbumTable', () => {
 
   it('clicking a track row calls onPlayTrack with track URI', async () => {
     const tracks = [
-      { track_number: 1, name: 'No Ordinary Love', duration: '4:25', spotify_id: 'tid1', service_id: 'tid1' },
+      { track_number: 1, name: 'No Ordinary Love', duration: '4:25', service_id: 'tid1', service_id: 'tid1' },
     ]
     const onFetchTracks = vi.fn().mockResolvedValue(tracks)
     const onPlayTrack = vi.fn()
@@ -298,8 +298,8 @@ describe('AlbumTable', () => {
 
   it('shows now-playing indicator on track row when playingTrackId matches', async () => {
     const tracks = [
-      { track_number: 1, name: 'No Ordinary Love', duration: '4:25', spotify_id: 'tid1', service_id: 'tid1' },
-      { track_number: 2, name: 'Feel No Pain',     duration: '5:42', spotify_id: 'tid2', service_id: 'tid2' },
+      { track_number: 1, name: 'No Ordinary Love', duration: '4:25', service_id: 'tid1', service_id: 'tid1' },
+      { track_number: 2, name: 'Feel No Pain',     duration: '5:42', service_id: 'tid2', service_id: 'tid2' },
     ]
     const onFetchTracks = vi.fn().mockResolvedValue(tracks)
     render(
@@ -338,7 +338,7 @@ describe('AlbumTable', () => {
 
   it('pressing ArrowRight on a focused album row expands it', async () => {
     const onFetchTracks = vi.fn().mockResolvedValue([
-      { track_number: 1, name: 'No Ordinary Love', duration: '4:25', spotify_id: 'tid1', service_id: 'tid1' },
+      { track_number: 1, name: 'No Ordinary Love', duration: '4:25', service_id: 'tid1', service_id: 'tid1' },
     ])
     render(<AlbumTable albums={[ALBUMS[0]]} onFetchTracks={onFetchTracks} />)
 
@@ -351,7 +351,7 @@ describe('AlbumTable', () => {
 
   it('pressing ArrowLeft on a focused expanded album row collapses it', async () => {
     const onFetchTracks = vi.fn().mockResolvedValue([
-      { track_number: 1, name: 'No Ordinary Love', duration: '4:25', spotify_id: 'tid1', service_id: 'tid1' },
+      { track_number: 1, name: 'No Ordinary Love', duration: '4:25', service_id: 'tid1', service_id: 'tid1' },
     ])
     render(<AlbumTable albums={[ALBUMS[0]]} onFetchTracks={onFetchTracks} />)
 
@@ -390,8 +390,8 @@ describe('AlbumTable', () => {
 
   it('track rows have tabIndex=0 so they are focusable', async () => {
     const tracks = [
-      { track_number: 1, name: 'No Ordinary Love', duration: '4:25', spotify_id: 'tid1', service_id: 'tid1' },
-      { track_number: 2, name: 'Feel No Pain',     duration: '5:42', spotify_id: 'tid2', service_id: 'tid2' },
+      { track_number: 1, name: 'No Ordinary Love', duration: '4:25', service_id: 'tid1', service_id: 'tid1' },
+      { track_number: 2, name: 'Feel No Pain',     duration: '5:42', service_id: 'tid2', service_id: 'tid2' },
     ]
     const onFetchTracks = vi.fn().mockResolvedValue(tracks)
     render(<AlbumTable albums={[ALBUMS[0]]} onFetchTracks={onFetchTracks} onPlayTrack={() => {}} />)
@@ -407,7 +407,7 @@ describe('AlbumTable', () => {
 
   it('pressing Enter on a focused track row calls onPlayTrack', async () => {
     const tracks = [
-      { track_number: 1, name: 'No Ordinary Love', duration: '4:25', spotify_id: 'tid1', service_id: 'tid1' },
+      { track_number: 1, name: 'No Ordinary Love', duration: '4:25', service_id: 'tid1', service_id: 'tid1' },
     ]
     const onFetchTracks = vi.fn().mockResolvedValue(tracks)
     const onPlayTrack = vi.fn()
@@ -425,7 +425,7 @@ describe('AlbumTable', () => {
 
   it('pressing Escape on a focused track row blurs it', async () => {
     const tracks = [
-      { track_number: 1, name: 'No Ordinary Love', duration: '4:25', spotify_id: 'tid1', service_id: 'tid1' },
+      { track_number: 1, name: 'No Ordinary Love', duration: '4:25', service_id: 'tid1', service_id: 'tid1' },
     ]
     const onFetchTracks = vi.fn().mockResolvedValue(tracks)
     render(<AlbumTable albums={[ALBUMS[0]]} onFetchTracks={onFetchTracks} onPlayTrack={() => {}} />)
@@ -446,7 +446,7 @@ describe('AlbumTable', () => {
 
   it('renders a header row inside the expanded section with Name, Artists, Duration labels', async () => {
     const tracks = [
-      { track_number: 1, name: 'No Ordinary Love', duration: '4:25', spotify_id: 'tid1', service_id: 'tid1', artists: ['Sade'] },
+      { track_number: 1, name: 'No Ordinary Love', duration: '4:25', service_id: 'tid1', service_id: 'tid1', artists: ['Sade'] },
     ]
     const onFetchTracks = vi.fn().mockResolvedValue(tracks)
     render(<AlbumTable albums={[ALBUMS[0]]} onFetchTracks={onFetchTracks} />)
@@ -461,8 +461,8 @@ describe('AlbumTable', () => {
 
   it('renders artists cell with artist names in track rows', async () => {
     const tracks = [
-      { track_number: 1, name: 'No Ordinary Love', duration: '4:25', spotify_id: 'tid1', service_id: 'tid1', artists: ['Sade', 'Extra Artist'] },
-      { track_number: 2, name: 'Feel No Pain',     duration: '5:42', spotify_id: 'tid2', service_id: 'tid2', artists: ['Sade'] },
+      { track_number: 1, name: 'No Ordinary Love', duration: '4:25', service_id: 'tid1', service_id: 'tid1', artists: ['Sade', 'Extra Artist'] },
+      { track_number: 2, name: 'Feel No Pain',     duration: '5:42', service_id: 'tid2', service_id: 'tid2', artists: ['Sade'] },
     ]
     const onFetchTracks = vi.fn().mockResolvedValue(tracks)
     render(<AlbumTable albums={[ALBUMS[0]]} onFetchTracks={onFetchTracks} />)
@@ -476,7 +476,7 @@ describe('AlbumTable', () => {
 
   it('renders artists cell gracefully when artists is missing from track', async () => {
     const tracks = [
-      { track_number: 1, name: 'No Ordinary Love', duration: '4:25', spotify_id: 'tid1', service_id: 'tid1' },
+      { track_number: 1, name: 'No Ordinary Love', duration: '4:25', service_id: 'tid1', service_id: 'tid1' },
     ]
     const onFetchTracks = vi.fn().mockResolvedValue(tracks)
     render(<AlbumTable albums={[ALBUMS[0]]} onFetchTracks={onFetchTracks} />)
@@ -491,8 +491,8 @@ describe('AlbumTable', () => {
 
   it('highlights the currently playing track row with now-playing background when expanded', async () => {
     const tracks = [
-      { track_number: 1, name: 'No Ordinary Love', duration: '4:25', spotify_id: 'tid1', service_id: 'tid1', artists: ['Sade'] },
-      { track_number: 2, name: 'Feel No Pain',     duration: '5:42', spotify_id: 'tid2', service_id: 'tid2', artists: ['Sade'] },
+      { track_number: 1, name: 'No Ordinary Love', duration: '4:25', service_id: 'tid1', service_id: 'tid1', artists: ['Sade'] },
+      { track_number: 2, name: 'Feel No Pain',     duration: '5:42', service_id: 'tid2', service_id: 'tid2', artists: ['Sade'] },
     ]
     const onFetchTracks = vi.fn().mockResolvedValue(tracks)
     render(
@@ -563,7 +563,7 @@ describe('AlbumTable', () => {
 
   it('now-playing indicator on an active track row contains .eq-bar elements and not a music note emoji', async () => {
     const tracks = [
-      { track_number: 1, name: 'No Ordinary Love', duration: '4:25', spotify_id: 'tid1', service_id: 'tid1', artists: ['Sade'] },
+      { track_number: 1, name: 'No Ordinary Love', duration: '4:25', service_id: 'tid1', service_id: 'tid1', artists: ['Sade'] },
     ]
     const onFetchTracks = vi.fn().mockResolvedValue(tracks)
     render(
@@ -609,7 +609,7 @@ describe('AlbumTable mobile card list', () => {
     expect(screen.getByText('The Strokes')).toBeInTheDocument()
   })
 
-  it('tapping a card calls onPlay with the album spotify_id', () => {
+  it('tapping a card calls onPlay with the album service_id', () => {
     const onPlay = vi.fn()
     render(<AlbumTable albums={ALBUMS} loading={false} onPlay={onPlay} />)
     const card = document.querySelector('[data-testid="album-card-id1"]')
@@ -628,7 +628,7 @@ describe('AlbumTable mobile card list', () => {
 
   it('tapping a track row calls onPlayTrack', async () => {
     const tracks = [
-      { track_number: 1, name: 'No Ordinary Love', duration: '4:25', spotify_id: 'tid1', service_id: 'tid1', artists: ['Sade'] },
+      { track_number: 1, name: 'No Ordinary Love', duration: '4:25', service_id: 'tid1', service_id: 'tid1', artists: ['Sade'] },
     ]
     const onFetchTracks = vi.fn().mockResolvedValue(tracks)
     const onPlayTrack = vi.fn()

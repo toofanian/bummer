@@ -403,19 +403,21 @@ export default function App() {
 
   const handleModalDeviceSelected = useCallback(async (deviceId) => {
     const intent = pendingPlayIntent
-    if (!intent) return
-
-    await transferPlayback(deviceId)
+    if (!intent) {
+      await transferPlayback(deviceId)
+      setDevicePickerOpen(false)
+      return
+    }
 
     let err
     if (intent.type === 'album') {
-      const prevPlayingId = playingIdRef.current
       setPlayingId(intent.albumId)
-      err = await play(intent.contextUri)
-      if (err) {
-        setPlayingId(prevPlayingId)
-      }
+      await transferPlayback(deviceId, intent.contextUri)
+      // transferPlayback with context_uri is atomic — no separate play() needed
     } else if (intent.type === 'track') {
+      await transferPlayback(deviceId)
+      // Small delay to let the device activate before playing a track
+      await new Promise(resolve => setTimeout(resolve, 500))
       err = await playTrack(intent.trackUri)
     }
 
@@ -903,8 +905,6 @@ export default function App() {
           albumImageUrl={nowPlayingImageUrl}
           onPlayPause={() => playback.is_playing ? pause() : play()}
           onExpand={() => setNowPlayingOpen(true)}
-          onFetchDevices={fetchDevices}
-          onTransferPlayback={transferPlayback}
           onOpenDevicePicker={() => { setDevicePickerOpen(true); setPickerRestrictedDevice(false) }}
         />
 
@@ -1171,8 +1171,6 @@ export default function App() {
         message={playbackMessage}
         nowPlayingServiceId={nowPlayingServiceId}
         onFocusAlbum={handleFocusAlbum}
-        onFetchDevices={fetchDevices}
-        onTransferPlayback={transferPlayback}
         onOpenDevicePicker={() => { setDevicePickerOpen(true); setPickerRestrictedDevice(false) }}
       />
       {(devicePickerOpen || pendingPlayIntent) && (

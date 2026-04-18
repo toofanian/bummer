@@ -4,10 +4,10 @@ import { describe, it, expect, vi } from 'vitest'
 import ArtistsView from './ArtistsView'
 
 const ALBUMS = [
-  { spotify_id: 'a1', name: 'OK Computer', artists: ['Radiohead'], image_url: '/rc1.jpg', release_date: '1997', added_at: '2024-01-01', total_tracks: 12 },
-  { spotify_id: 'a2', name: 'Kid A', artists: ['Radiohead'], image_url: '/rc2.jpg', release_date: '2000', added_at: '2024-02-01', total_tracks: 10 },
-  { spotify_id: 'a3', name: 'Blue Train', artists: ['John Coltrane'], image_url: '/jc1.jpg', release_date: '1958', added_at: '2024-03-01', total_tracks: 5 },
-  { spotify_id: 'a4', name: 'Dummy', artists: ['Portishead'], image_url: '/ph1.jpg', release_date: '1994', added_at: '2024-04-01', total_tracks: 11 },
+  { service_id: 'a1', name: 'OK Computer', artists: ['Radiohead'], image_url: '/rc1.jpg', release_date: '1997', added_at: '2024-01-01', total_tracks: 12 },
+  { service_id: 'a2', name: 'Kid A', artists: ['Radiohead'], image_url: '/rc2.jpg', release_date: '2000', added_at: '2024-02-01', total_tracks: 10 },
+  { service_id: 'a3', name: 'Blue Train', artists: ['John Coltrane'], image_url: '/jc1.jpg', release_date: '1958', added_at: '2024-03-01', total_tracks: 5 },
+  { service_id: 'a4', name: 'Dummy', artists: ['Portishead'], image_url: '/ph1.jpg', release_date: '1994', added_at: '2024-04-01', total_tracks: 11 },
 ]
 
 const defaultProps = {

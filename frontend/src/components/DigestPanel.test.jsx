@@ -8,13 +8,13 @@ const API = 'http://127.0.0.1:8000'
 const mockDigestData = {
   period: { start: '2026-03-05', end: '2026-03-12' },
   added: [
-    { spotify_id: 'a1', name: 'New Album', artists: ['Artist A'], image_url: 'https://img/1.jpg' },
+    { service_id: 'a1', name: 'New Album', artists: ['Artist A'], image_url: 'https://img/1.jpg' },
   ],
   removed: [
-    { spotify_id: 'a2', name: 'Old Album', artists: ['Artist B'], image_url: 'https://img/2.jpg' },
+    { service_id: 'a2', name: 'Old Album', artists: ['Artist B'], image_url: 'https://img/2.jpg' },
   ],
   listened: [
-    { spotify_id: 'a3', name: 'Played Album', artists: ['Artist C'], image_url: 'https://img/3.jpg', play_count: 5 },
+    { service_id: 'a3', name: 'Played Album', artists: ['Artist C'], image_url: 'https://img/3.jpg', play_count: 5 },
   ],
 }
 

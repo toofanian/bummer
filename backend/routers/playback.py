@@ -23,6 +23,7 @@ class SeekRequest(BaseModel):
 
 class TransferRequest(BaseModel):
     device_id: str
+    context_uri: str | None = None
 
 
 def _is_no_active_device(exc: spotipy.exceptions.SpotifyException) -> bool:
@@ -190,4 +191,6 @@ def transfer_playback(
     body: TransferRequest, sp: spotipy.Spotify = Depends(get_user_spotify)
 ):
     sp.transfer_playback(body.device_id, force_play=True)
+    if body.context_uri:
+        sp.start_playback(context_uri=body.context_uri)
     return Response(status_code=204)

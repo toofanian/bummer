@@ -105,7 +105,7 @@ function DigestSection({ title, albums, emptyText, onPlay, muted, showPlayCount 
         <div className="px-4 py-1 pb-3 text-xs text-text-dim italic">{emptyText}</div>
       ) : (
         albums.map(album => (
-          <div key={album.spotify_id} onClick={() => onPlay(album.spotify_id)}
+          <div key={album.service_id} onClick={() => onPlay(album.service_id)}
             className="flex items-center gap-2.5 px-4 py-1.5 cursor-pointer transition-colors duration-150 hover:bg-surface-2"
             style={muted ? { opacity: 0.5 } : undefined}>
             {album.image_url && (

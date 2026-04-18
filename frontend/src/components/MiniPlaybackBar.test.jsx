@@ -101,21 +101,20 @@ describe('MiniPlaybackBar', () => {
     expect(onExpand).toHaveBeenCalled()
   })
 
-  it('shows device indicator icon when device and onFetchDevices are provided', () => {
+  it('shows device indicator icon when device and onOpenDevicePicker are provided', () => {
     render(
       <MiniPlaybackBar
         state={{ is_playing: true, track, device: { name: 'My Mac', type: 'Computer' } }}
         albumImageUrl="https://example.com/art.jpg"
         onPlayPause={vi.fn()}
         onExpand={vi.fn()}
-        onFetchDevices={vi.fn()}
-        onDeviceSelected={vi.fn()}
+        onOpenDevicePicker={vi.fn()}
       />
     )
     expect(screen.getByTestId('mini-device-indicator')).toBeInTheDocument()
   })
 
-  it('does not show device indicator when onFetchDevices is not provided', () => {
+  it('does not show device indicator when onOpenDevicePicker is not provided', () => {
     render(
       <MiniPlaybackBar
         state={{ is_playing: true, track, device: { name: 'My Mac', type: 'Computer' } }}
@@ -126,35 +125,30 @@ describe('MiniPlaybackBar', () => {
     expect(screen.queryByTestId('mini-device-indicator')).toBeNull()
   })
 
-  it('opens device picker when device indicator is clicked', async () => {
+  it('calls onOpenDevicePicker when device indicator is clicked', async () => {
     const user = userEvent.setup()
-    const onFetchDevices = vi.fn().mockResolvedValue([
-      { id: 'mac-id', name: 'My Mac', type: 'Computer', is_active: true },
-    ])
+    const onOpenDevicePicker = vi.fn()
     render(
       <MiniPlaybackBar
         state={{ is_playing: true, track, device: { name: 'My Mac', type: 'Computer' } }}
         onPlayPause={vi.fn()}
         onExpand={vi.fn()}
-        onFetchDevices={onFetchDevices}
-        onDeviceSelected={vi.fn()}
+        onOpenDevicePicker={onOpenDevicePicker}
       />
     )
     await user.click(screen.getByTestId('mini-device-indicator'))
-    expect(await screen.findByText('Connect to a device')).toBeInTheDocument()
+    expect(onOpenDevicePicker).toHaveBeenCalledTimes(1)
   })
 
   it('clicking device indicator does not trigger onExpand', async () => {
     const user = userEvent.setup()
     const onExpand = vi.fn()
-    const onFetchDevices = vi.fn().mockResolvedValue([])
     render(
       <MiniPlaybackBar
         state={{ is_playing: true, track, device: { name: 'My Mac', type: 'Computer' } }}
         onPlayPause={vi.fn()}
         onExpand={onExpand}
-        onFetchDevices={onFetchDevices}
-        onDeviceSelected={vi.fn()}
+        onOpenDevicePicker={vi.fn()}
       />
     )
     await user.click(screen.getByTestId('mini-device-indicator'))
