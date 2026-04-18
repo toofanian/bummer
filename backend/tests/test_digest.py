@@ -571,3 +571,200 @@ def test_changelog_before_cursor():
         snapshots_mock.select.return_value.order.return_value.limit.return_value.lt.assert_called()
     finally:
         clear_overrides()
+
+
+# --- GET /digest/history ---
+
+
+def test_history_returns_plays_grouped_by_day():
+    """3 plays across 2 days, verify grouping and ordering (newest first)."""
+    plays = [
+        {"album_id": "a1", "played_at": "2026-04-18T15:30:00+00:00"},
+        {"album_id": "a2", "played_at": "2026-04-18T10:00:00+00:00"},
+        {"album_id": "a1", "played_at": "2026-04-17T20:00:00+00:00"},
+    ]
+
+    db = MagicMock()
+
+    def table_router(table_name):
+        mock_table = MagicMock()
+        if table_name == "play_history":
+            mock_table.select.return_value.order.return_value.limit.return_value.execute.return_value = MagicMock(
+                data=plays
+            )
+        elif table_name == "library_cache":
+            mock_table.select.return_value.eq.return_value.execute.return_value = (
+                MagicMock(data=[{"albums": ALBUM_CACHE}])
+            )
+        return mock_table
+
+    db.table.side_effect = table_router
+    setup_overrides(db=db)
+    try:
+        res = client.get("/digest/history")
+        assert res.status_code == 200
+        data = res.json()
+        days = data["days"]
+        assert len(days) == 2
+        # Newest day first
+        assert days[0]["date"] == "2026-04-18"
+        assert len(days[0]["plays"]) == 2
+        # Within a day, newest first
+        assert days[0]["plays"][0]["played_at"] == "2026-04-18T15:30:00+00:00"
+        assert days[0]["plays"][0]["album"]["service_id"] == "a1"
+        assert days[0]["plays"][1]["played_at"] == "2026-04-18T10:00:00+00:00"
+        assert days[0]["plays"][1]["album"]["service_id"] == "a2"
+        # Older day
+        assert days[1]["date"] == "2026-04-17"
+        assert len(days[1]["plays"]) == 1
+        assert data["has_more"] is False
+        assert data["next_cursor"] is None
+    finally:
+        clear_overrides()
+
+
+def test_history_empty_when_no_plays():
+    """No play_history rows returns empty days."""
+    db = MagicMock()
+
+    def table_router(table_name):
+        mock_table = MagicMock()
+        if table_name == "play_history":
+            mock_table.select.return_value.order.return_value.limit.return_value.execute.return_value = MagicMock(
+                data=[]
+            )
+        elif table_name == "library_cache":
+            mock_table.select.return_value.eq.return_value.execute.return_value = (
+                MagicMock(data=[])
+            )
+        return mock_table
+
+    db.table.side_effect = table_router
+    setup_overrides(db=db)
+    try:
+        res = client.get("/digest/history")
+        assert res.status_code == 200
+        data = res.json()
+        assert data["days"] == []
+        assert data["has_more"] is False
+        assert data["next_cursor"] is None
+    finally:
+        clear_overrides()
+
+
+def test_history_before_cursor():
+    """Verify .lt is called when before param is provided."""
+    plays = [
+        {"album_id": "a1", "played_at": "2026-04-15T10:00:00+00:00"},
+    ]
+
+    db = MagicMock()
+    play_history_mock = None
+
+    def table_router(table_name):
+        nonlocal play_history_mock
+        mock_table = MagicMock()
+        if table_name == "play_history":
+            play_history_mock = mock_table
+            mock_table.select.return_value.order.return_value.limit.return_value.lt.return_value.execute.return_value = MagicMock(
+                data=plays
+            )
+        elif table_name == "library_cache":
+            mock_table.select.return_value.eq.return_value.execute.return_value = (
+                MagicMock(data=[{"albums": ALBUM_CACHE}])
+            )
+        return mock_table
+
+    db.table.side_effect = table_router
+    setup_overrides(db=db)
+    try:
+        res = client.get(
+            "/digest/history",
+            params={"before": "2026-04-16T00:00:00+00:00"},
+        )
+        assert res.status_code == 200
+        # Verify .lt was called on the query chain
+        play_history_mock.select.return_value.order.return_value.limit.return_value.lt.assert_called()
+    finally:
+        clear_overrides()
+
+
+# --- GET /digest/stats ---
+
+
+def test_stats_returns_top_albums_and_artists():
+    """5 plays across 2 albums, verify top albums sorted by count and top artists."""
+    plays = [
+        {"album_id": "a1", "played_at": "2026-04-10T10:00:00+00:00"},
+        {"album_id": "a1", "played_at": "2026-04-11T10:00:00+00:00"},
+        {"album_id": "a1", "played_at": "2026-04-12T10:00:00+00:00"},
+        {"album_id": "a2", "played_at": "2026-04-13T10:00:00+00:00"},
+        {"album_id": "a2", "played_at": "2026-04-14T10:00:00+00:00"},
+    ]
+
+    db = MagicMock()
+
+    def table_router(table_name):
+        mock_table = MagicMock()
+        if table_name == "play_history":
+            mock_table.select.return_value.gte.return_value.execute.return_value = (
+                MagicMock(data=plays)
+            )
+        elif table_name == "library_cache":
+            mock_table.select.return_value.eq.return_value.execute.return_value = (
+                MagicMock(data=[{"albums": ALBUM_CACHE}])
+            )
+        return mock_table
+
+    db.table.side_effect = table_router
+    setup_overrides(db=db)
+    try:
+        res = client.get("/digest/stats")
+        assert res.status_code == 200
+        data = res.json()
+        assert data["period_days"] == 30
+        # Top albums: a1 (3 plays) then a2 (2 plays)
+        top_albums = data["top_albums"]
+        assert len(top_albums) == 2
+        assert top_albums[0]["album"]["service_id"] == "a1"
+        assert top_albums[0]["play_count"] == 3
+        assert top_albums[1]["album"]["service_id"] == "a2"
+        assert top_albums[1]["play_count"] == 2
+        # Top artists: Artist A (3 plays from a1), Artist B (2 plays from a2)
+        top_artists = data["top_artists"]
+        assert len(top_artists) == 2
+        assert top_artists[0]["artist"] == "Artist A"
+        assert top_artists[0]["play_count"] == 3
+        assert top_artists[1]["artist"] == "Artist B"
+        assert top_artists[1]["play_count"] == 2
+    finally:
+        clear_overrides()
+
+
+def test_stats_empty_when_no_plays():
+    """No plays in last 30 days returns empty lists."""
+    db = MagicMock()
+
+    def table_router(table_name):
+        mock_table = MagicMock()
+        if table_name == "play_history":
+            mock_table.select.return_value.gte.return_value.execute.return_value = (
+                MagicMock(data=[])
+            )
+        elif table_name == "library_cache":
+            mock_table.select.return_value.eq.return_value.execute.return_value = (
+                MagicMock(data=[])
+            )
+        return mock_table
+
+    db.table.side_effect = table_router
+    setup_overrides(db=db)
+    try:
+        res = client.get("/digest/stats")
+        assert res.status_code == 200
+        data = res.json()
+        assert data["period_days"] == 30
+        assert data["top_albums"] == []
+        assert data["top_artists"] == []
+    finally:
+        clear_overrides()
