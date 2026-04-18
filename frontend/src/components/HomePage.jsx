@@ -17,7 +17,7 @@ function AlwaysRow({ title, albums, onPlay }) {
 function mergeRecentlyPlayed(today, thisWeek) {
   const seen = new Set()
   const merged = []
-  for (const album of [...today, ...thisWeek]) {
+  for (const album of [...(today ?? []), ...(thisWeek ?? [])]) {
     if (!seen.has(album.service_id)) {
       seen.add(album.service_id)
       merged.push(album)
@@ -43,11 +43,14 @@ export default function HomePage({ onPlay, session }) {
   const recentlyPlayed = data ? mergeRecentlyPlayed(data.today, data.this_week) : []
   const recentlyAdded = data?.recently_added ?? []
 
+  const rediscover = data?.rediscover ?? []
+  const recommended = data?.recommended ?? []
+
   const isEmpty = data &&
     recentlyPlayed.length === 0 &&
     recentlyAdded.length === 0 &&
-    data.rediscover.length === 0 &&
-    data.recommended.length === 0
+    rediscover.length === 0 &&
+    recommended.length === 0
 
   if (!data || isEmpty) {
     return (
@@ -61,8 +64,8 @@ export default function HomePage({ onPlay, session }) {
     <div className="p-4 md:px-6 md:py-4">
       <AlwaysRow title="Recently Played" albums={recentlyPlayed} onPlay={onPlay} />
       <AlwaysRow title="Recently Added" albums={recentlyAdded} onPlay={onPlay} />
-      <AlbumRow title="You Might Like" albums={data.recommended} onPlay={onPlay} />
-      <AlbumRow title="Rediscover" albums={data.rediscover} onPlay={onPlay} />
+      <AlbumRow title="You Might Like" albums={recommended} onPlay={onPlay} />
+      <AlbumRow title="Rediscover" albums={rediscover} onPlay={onPlay} />
     </div>
   )
 }

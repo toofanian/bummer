@@ -247,7 +247,9 @@ def bulk_add_albums_to_collection(
         }
         for i, sid in enumerate(body.service_ids)
     ]
-    db.table("collection_albums").upsert(rows, on_conflict="collection_id,service_id").execute()
+    db.table("collection_albums").upsert(
+        rows, on_conflict="collection_id,service_id"
+    ).execute()
     # Return actual count so frontend can use authoritative number
     count = (
         db.table("collection_albums")

@@ -206,9 +206,7 @@ def test_delete_account_removes_user_data():
     assert response.json()["status"] == "ok"
 
     # Verify deletes happened across user-owned tables
-    called_tables = [
-        call_args[0][0] for call_args in mock_db.table.call_args_list
-    ]
+    called_tables = [call_args[0][0] for call_args in mock_db.table.call_args_list]
     for t in [
         "music_tokens",
         "album_metadata",
@@ -261,6 +259,7 @@ def test_delete_account_rate_limited():
     # Reset the limiter state so this test is deterministic regardless of
     # earlier tests hitting /auth/account.
     from routers.auth import limiter as _auth_limiter
+
     _auth_limiter.reset()
 
     with patch("routers.auth.get_service_db", return_value=mock_db):

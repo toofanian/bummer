@@ -69,7 +69,11 @@ async def get_user_spotify(
     # Spotify API will fail at the call site, which is the expected
     # limitation of the preview auth bypass.
     import os
-    if os.getenv("VERCEL_ENV") == "preview" and os.getenv("PREVIEW_REAL_AUTH") != "true":
+
+    if (
+        os.getenv("VERCEL_ENV") == "preview"
+        and os.getenv("PREVIEW_REAL_AUTH") != "true"
+    ):
         return spotipy.Spotify(auth="PREVIEW_FAKE_ACCESS")
 
     db = get_service_db()
