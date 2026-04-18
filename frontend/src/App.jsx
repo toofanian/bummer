@@ -66,7 +66,7 @@ export default function App() {
   }
   const sessionRef = useRef(session)
   sessionRef.current = session
-  const { state: playback, play, playTrack, pause, previousTrack, nextTrack, setVolume, fetchDevices, fetchQueue, seek, transferPlayback } = usePlayback(session)
+  const { state: playback, play, playTrack, pause, previousTrack, nextTrack, setVolume, fetchDevices, seek, transferPlayback } = usePlayback(session)
   const [pendingPlayIntent, setPendingPlayIntent] = useState(null)
   // Shape: null | { type: 'album'|'track', contextUri?, trackUri?, albumId? }
   const [devicePickerOpen, setDevicePickerOpen] = useState(false)
@@ -902,7 +902,6 @@ export default function App() {
           onTransferPlayback={transferPlayback}
           onOpenDevicePicker={() => { setDevicePickerOpen(true); setPickerRestrictedDevice(false) }}
           onSeek={seek}
-          onFetchQueue={fetchQueue}
         />
 
         <MiniPlaybackBar
@@ -962,7 +961,7 @@ export default function App() {
 
   // Desktop layout
   return (
-    <div className="app flex flex-col h-dvh" style={paneOpen && !isMobile ? { paddingRight: '300px' } : {}}>
+    <div className="app flex flex-col h-dvh">
       <header className="h-14 bg-surface border-b border-border flex items-center px-5 gap-6">
         <h1>Bummer<span style={{ fontSize: '10px', fontWeight: 400, opacity: 0.35, letterSpacing: '0.05em' }}>{__APP_VERSION__}</span></h1>
         <nav className="flex gap-1">
@@ -1165,7 +1164,6 @@ export default function App() {
         albumServiceId={nowPlayingServiceId}
         albumImageUrl={nowPlayingImageUrl}
         onPlayTrack={handlePlayTrack}
-        onFetchQueue={fetchQueue}
       />
       <PlaybackBar
         state={playback}
