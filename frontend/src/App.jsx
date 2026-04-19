@@ -777,7 +777,6 @@ export default function App() {
         <header className="sticky top-0 z-[100] bg-surface border-b border-border flex items-center px-4 py-2 gap-3" style={{ paddingTop: 'env(safe-area-inset-top, 0px)' }}>
           <h1>
             {view === 'home' ? 'Home' : view === 'library' ? 'Library' : view === 'collections' ? 'Collections' : view === 'digest' ? 'Digest' : view === 'settings' ? 'Settings' : view?.name ?? 'Collection'}
-            {' '}<span style={{ fontSize: '10px', fontWeight: 400, opacity: 0.35, letterSpacing: '0.05em' }}>{__APP_VERSION__}</span>
           </h1>
           {view === 'library' && (
             <LibraryViewToggle
@@ -1085,7 +1084,7 @@ export default function App() {
   return (
     <div className="app flex flex-col h-dvh">
       <header className="h-14 bg-surface border-b border-border flex items-center px-5 gap-6">
-        <h1>Bummer<span style={{ fontSize: '10px', fontWeight: 400, opacity: 0.35, letterSpacing: '0.05em' }}>{__APP_VERSION__}</span></h1>
+        <h1>Bummer</h1>
         <nav className="flex gap-1">
           <button
             className={`bg-transparent border-none text-sm cursor-pointer px-3 py-1.5 rounded transition-colors duration-150 hover:text-text hover:bg-hover${view === 'home' ? ' active text-text border-b-2 border-accent' : ' text-text-dim'}`}

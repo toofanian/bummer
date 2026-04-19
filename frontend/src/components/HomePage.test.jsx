@@ -9,10 +9,8 @@ vi.mock('../hooks/useIsMobile', () => ({
 }))
 
 const HOME_DATA = {
-  today: [
+  recently_played: [
     { service_id: 'a1', name: 'Today Album', artists: ['Artist A'], image_url: 'https://img/1.jpg' },
-  ],
-  this_week: [
     { service_id: 'a2', name: 'Week Album', artists: ['Artist B'], image_url: 'https://img/2.jpg' },
   ],
   recently_added: [
@@ -92,24 +90,6 @@ describe('HomePage', () => {
     })
   })
 
-  it('deduplicates albums in Recently Played (keeps first occurrence)', async () => {
-    const duped = {
-      ...HOME_DATA,
-      this_week: [
-        { service_id: 'a1', name: 'Today Album', artists: ['Artist A'], image_url: 'https://img/1.jpg' },
-        { service_id: 'a2', name: 'Week Album', artists: ['Artist B'], image_url: 'https://img/2.jpg' },
-      ],
-    }
-    global.fetch.mockImplementation(() =>
-      Promise.resolve({ ok: true, json: () => Promise.resolve(duped) })
-    )
-    render(<HomePage onPlay={() => {}} />)
-    await waitFor(() => {
-      const items = screen.getAllByAltText('Today Album')
-      expect(items).toHaveLength(1)
-    })
-  })
-
   it('calls onPlay when an album is clicked', async () => {
     const onPlay = vi.fn()
     render(<HomePage onPlay={onPlay} />)
@@ -122,7 +102,7 @@ describe('HomePage', () => {
 
   it('shows per-section empty state when a section has no albums', async () => {
     const sparse = {
-      today: [], this_week: [], recently_added: [],
+      recently_played: [], recently_added: [],
       rediscover: HOME_DATA.rediscover, recommended: [],
     }
     global.fetch.mockImplementation(() =>
@@ -136,7 +116,7 @@ describe('HomePage', () => {
   })
 
   it('shows global empty state when all sections are empty', async () => {
-    const empty = { today: [], this_week: [], recently_added: [], rediscover: [], recommended: [] }
+    const empty = { recently_played: [], recently_added: [], rediscover: [], recommended: [] }
     global.fetch.mockImplementation(() =>
       Promise.resolve({ ok: true, json: () => Promise.resolve(empty) })
     )

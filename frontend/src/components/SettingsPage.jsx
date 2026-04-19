@@ -123,6 +123,8 @@ export default function SettingsPage({ onLogout, session }) {
             Delete account
           </button>
         </section>
+
+        <p className="text-center text-[10px] text-text-dim opacity-40 pt-4">{__APP_VERSION__}</p>
       </div>
 
       {deleteModalOpen && (

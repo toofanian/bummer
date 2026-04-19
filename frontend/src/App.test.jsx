@@ -55,7 +55,7 @@ function mockFetchSuccess(data) {
 // Default successful responses for library + collections
 const LIBRARY_OK = { albums: [], total: 0, last_synced: null }
 const COLLECTIONS_OK = []
-const HOME_OK = { today: [], this_week: [], rediscover: [], recommended: [] }
+const HOME_OK = { recently_played: [], rediscover: [], recommended: [] }
 
 // Default /library/sync response — empty library, done immediately.
 // Individual tests can override with their own sync page sequences.

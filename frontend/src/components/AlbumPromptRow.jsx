@@ -1,17 +1,36 @@
+import { useRef, useState, useEffect } from 'react'
+
 export default function AlbumPromptRow({ label, albums, albumCollectionMap, selectedIds, onToggleSelect }) {
   const hasAlbums = albums && albums.length > 0
+  const containerRef = useRef(null)
+  const [visibleCount, setVisibleCount] = useState(null)
+
+  useEffect(() => {
+    if (!containerRef.current || !hasAlbums) return
+    function measure() {
+      const el = containerRef.current
+      if (!el) return
+      const cardSize = 56
+      const gap = 8
+      const padding = 24 // px-3 = 12px * 2
+      const available = el.clientWidth - padding
+      if (available <= 0) return
+      const count = Math.max(1, Math.floor((available + gap) / (cardSize + gap)))
+      setVisibleCount(count)
+    }
+    measure()
+    const observer = new ResizeObserver(measure)
+    observer.observe(containerRef.current)
+    return () => observer.disconnect()
+  }, [hasAlbums])
+
+  const display = hasAlbums ? (visibleCount != null ? albums.slice(0, visibleCount) : albums) : []
 
   return (
-    <div className="overflow-visible">
-      <div className="text-[10px] font-medium text-text-dim uppercase tracking-wider px-3 py-1">{label}</div>
-      {!hasAlbums ? (
-        <div className="px-3 pb-2 pt-1 text-xs text-text-dim italic">Nothing yet</div>
-      ) : (
-      <div
-        className="flex gap-2 px-3 pb-2 pt-1 overflow-x-auto prompt-row-scroll"
-        style={{ WebkitOverflowScrolling: 'touch', scrollbarWidth: 'none', msOverflowStyle: 'none' }}
-      >
-        {albums.map(album => {
+    <div ref={containerRef} className="overflow-hidden">
+      {!hasAlbums ? null : (
+      <div className="flex gap-2 px-3 py-1 justify-center">
+        {display.map(album => {
           const collectionIds = albumCollectionMap[album.service_id] || []
           const count = collectionIds.length
           const isSelected = selectedIds.has(album.service_id)

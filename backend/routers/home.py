@@ -1,9 +1,8 @@
 import random
 from datetime import datetime, timedelta, timezone
-from zoneinfo import ZoneInfo
 
 import spotipy
-from fastapi import APIRouter, Depends, Query, Response
+from fastapi import APIRouter, Depends, Response
 from pydantic import BaseModel
 from supabase import Client
 
@@ -49,7 +48,6 @@ def _dedup_album_ids(rows):
 
 @router.get("")
 def get_home(
-    tz: str = Query(default="UTC"),
     db: Client = Depends(get_authed_db),
     sp: spotipy.Spotify = Depends(get_user_spotify),
     user: dict = Depends(get_current_user),
@@ -57,31 +55,16 @@ def get_home(
     album_cache = get_album_cache(db, user_id=user["user_id"])
     lookup = _build_album_lookup(album_cache)
 
-    try:
-        user_tz = ZoneInfo(tz)
-    except (KeyError, ValueError):
-        user_tz = ZoneInfo("UTC")
-
-    now_local = datetime.now(user_tz)
-    today_start = now_local.replace(hour=0, minute=0, second=0, microsecond=0)
-    week_start = today_start - timedelta(days=7)
-
-    today_start_utc = today_start.astimezone(timezone.utc).isoformat()
-    week_start_utc = week_start.astimezone(timezone.utc).isoformat()
-
-    rows = (
+    # Recently played: last 30 unique albums by most recent play
+    recent_rows = (
         db.table("play_history")
         .select("album_id, played_at")
-        .gte("played_at", week_start_utc)
         .order("played_at", desc=True)
+        .limit(300)
         .execute()
     ).data
 
-    today_rows = [r for r in rows if r["played_at"] >= today_start_utc]
-    week_rows = [r for r in rows if r["played_at"] < today_start_utc]
-
-    today_ids = _dedup_album_ids(today_rows)
-    week_ids = _dedup_album_ids(week_rows)
+    recent_ids = _dedup_album_ids(recent_rows)[:30]
 
     def resolve(ids):
         return [lookup[aid] for aid in ids if aid in lookup]
@@ -99,11 +82,11 @@ def get_home(
         a for a in album_cache if a["service_id"] not in recently_played_ids
     ]
     rediscover = random.sample(
-        rediscover_candidates, min(20, len(rediscover_candidates))
+        rediscover_candidates, min(30, len(rediscover_candidates))
     )
 
     # Recommended: shuffled albums by artists from recently played
-    recently_played_home = set(today_ids) | set(week_ids)
+    recently_played_home = set(recent_ids)
     recent_artists = set()
     for aid in recently_played_home:
         album = lookup.get(aid)
@@ -118,24 +101,18 @@ def get_home(
         and any(artist in recent_artists for artist in a.get("artists", []))
     ]
     recommended = random.sample(
-        recommended_candidates, min(20, len(recommended_candidates))
+        recommended_candidates, min(30, len(recommended_candidates))
     )
 
-    # Recently added: albums added within the last 14 days, sorted by added_at descending
-    fourteen_days_ago = (datetime.now(timezone.utc) - timedelta(days=14)).isoformat()
+    # Recently added: albums sorted by added_at descending, capped at 30
     recently_added = sorted(
-        [
-            a
-            for a in album_cache
-            if a.get("added_at") and a["added_at"] >= fourteen_days_ago
-        ],
+        [a for a in album_cache if a.get("added_at")],
         key=lambda a: a["added_at"],
         reverse=True,
-    )
+    )[:30]
 
     return {
-        "today": resolve(today_ids),
-        "this_week": resolve(week_ids),
+        "recently_played": resolve(recent_ids),
         "rediscover": rediscover,
         "recommended": recommended,
         "recently_added": recently_added,
