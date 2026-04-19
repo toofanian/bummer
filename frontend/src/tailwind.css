@@ -143,4 +143,7 @@
   .expand-chevron.expanded {
     transform: rotate(90deg);
   }
+  .prompt-row-scroll::-webkit-scrollbar {
+    display: none;
+  }
 }

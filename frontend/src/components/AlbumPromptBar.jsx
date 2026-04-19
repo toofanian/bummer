@@ -57,7 +57,19 @@ export default function AlbumPromptBar({ albumCollectionMap, collections, sessio
   if (recentlyAdded.length === 0 && recentlyPlayed.length === 0) return null
 
   return (
-    <div data-testid="album-prompt-bar" className="border-t border-border bg-surface">
+    <div data-testid="album-prompt-bar" className="relative border-t border-border bg-surface">
+      {selectedIds.size > 0 && (
+        <div className="absolute left-1/2 -translate-x-1/2 -top-10 z-10">
+          <button
+            className="px-4 py-1.5 text-sm font-medium bg-text text-bg rounded-full shadow-lg"
+            aria-label="Add to Collection"
+            onClick={() => setPickerOpen(true)}
+          >
+            Add to Collection
+          </button>
+        </div>
+      )}
+
       <AlbumPromptRow
         label="Recently Added"
         albums={recentlyAdded}
@@ -72,18 +84,6 @@ export default function AlbumPromptBar({ albumCollectionMap, collections, sessio
         selectedIds={selectedIds}
         onToggleSelect={handleToggleSelect}
       />
-
-      {selectedIds.size > 0 && (
-        <div className="flex justify-center py-2">
-          <button
-            className="px-4 py-1.5 text-sm font-medium bg-text text-bg rounded-lg"
-            aria-label="Add to Collection"
-            onClick={() => setPickerOpen(true)}
-          >
-            Add to Collection
-          </button>
-        </div>
-      )}
 
       {pickerOpen && (
         <CollectionPicker

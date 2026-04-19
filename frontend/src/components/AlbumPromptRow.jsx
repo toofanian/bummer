@@ -4,7 +4,10 @@ export default function AlbumPromptRow({ label, albums, albumCollectionMap, sele
   return (
     <div>
       <div className="text-[10px] font-medium text-text-dim uppercase tracking-wider px-3 py-1">{label}</div>
-      <div className="flex gap-2 px-3 pb-2 overflow-x-auto" style={{ WebkitOverflowScrolling: 'touch' }}>
+      <div
+        className="flex gap-2 px-3 pb-2 overflow-x-auto prompt-row-scroll"
+        style={{ WebkitOverflowScrolling: 'touch', scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+      >
         {albums.map(album => {
           const collectionIds = albumCollectionMap[album.service_id] || []
           const count = collectionIds.length
@@ -13,10 +16,10 @@ export default function AlbumPromptRow({ label, albums, albumCollectionMap, sele
           return (
             <button
               key={album.service_id}
-              className={`relative flex-shrink-0 rounded-md overflow-hidden border-2 transition-all duration-150 ${
+              className={`relative flex-shrink-0 rounded-md overflow-hidden transition-all duration-150 ${
                 isSelected
-                  ? 'border-accent shadow-[0_0_8px_rgba(var(--accent-rgb,99,102,241),0.4)]'
-                  : 'border-transparent'
+                  ? 'ring-2 ring-accent shadow-[0_0_8px_rgba(var(--accent-rgb,99,102,241),0.4)]'
+                  : ''
               }`}
               style={{ width: 56, height: 56 }}
               onClick={() => onToggleSelect(album.service_id)}
