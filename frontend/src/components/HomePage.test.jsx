@@ -41,7 +41,7 @@ describe('HomePage', () => {
     await waitFor(() => {
       expect(screen.getByText('Recently Played')).toBeInTheDocument()
       expect(screen.getByText('Recently Added')).toBeInTheDocument()
-      expect(screen.getByText('You Might Like')).toBeInTheDocument()
+      expect(screen.getByText('Related')).toBeInTheDocument()
       expect(screen.getByText('Rediscover')).toBeInTheDocument()
     })
   })

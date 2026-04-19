@@ -45,7 +45,7 @@ function AlbumList({ albums, onPlay }) {
 const TABS = [
   { id: 'played', label: 'Recently Played' },
   { id: 'added', label: 'Recently Added' },
-  { id: 'recommended', label: 'You Might Like' },
+  { id: 'recommended', label: 'Related' },
   { id: 'rediscover', label: 'Rediscover' },
 ]
 
