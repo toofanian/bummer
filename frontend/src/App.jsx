@@ -1022,17 +1022,13 @@ export default function App() {
           />
         )}
         {(devicePickerOpen || pendingPlayIntent) && (
-          <div className="fixed inset-0 z-[400] flex items-center justify-center">
-            <div className="fixed inset-0 bg-black/50" onClick={() => { setDevicePickerOpen(false); setPendingPlayIntent(null); setPickerRestrictedDevice(false) }} />
-            <div className="relative z-[401] w-[280px]">
-              <DevicePicker
-                onClose={() => { setDevicePickerOpen(false); setPendingPlayIntent(null); setPickerRestrictedDevice(false) }}
-                onFetchDevices={fetchDevices}
-                onDeviceSelected={handleModalDeviceSelected}
-                restrictedDevice={pickerRestrictedDevice}
-              />
-            </div>
-          </div>
+          <DevicePicker
+            onClose={() => { setDevicePickerOpen(false); setPendingPlayIntent(null); setPickerRestrictedDevice(false) }}
+            onFetchDevices={fetchDevices}
+            onDeviceSelected={handleModalDeviceSelected}
+            restrictedDevice={pickerRestrictedDevice}
+            bottom="calc(114px + env(safe-area-inset-bottom, 0px))"
+          />
         )}
       </div>
     )
@@ -1303,17 +1299,12 @@ export default function App() {
         onOpenDevicePicker={() => { setDevicePickerOpen(true); setPickerRestrictedDevice(false) }}
       />
       {(devicePickerOpen || pendingPlayIntent) && (
-        <div className="fixed inset-0 z-[400] flex items-center justify-center">
-          <div className="fixed inset-0 bg-black/50" onClick={() => { setDevicePickerOpen(false); setPendingPlayIntent(null); setPickerRestrictedDevice(false) }} />
-          <div className="relative z-[401] w-[280px]">
-            <DevicePicker
-              onClose={() => { setDevicePickerOpen(false); setPendingPlayIntent(null); setPickerRestrictedDevice(false) }}
-              onFetchDevices={fetchDevices}
-              onDeviceSelected={handleModalDeviceSelected}
-              restrictedDevice={pickerRestrictedDevice}
-            />
-          </div>
-        </div>
+        <DevicePicker
+          onClose={() => { setDevicePickerOpen(false); setPendingPlayIntent(null); setPickerRestrictedDevice(false) }}
+          onFetchDevices={fetchDevices}
+          onDeviceSelected={handleModalDeviceSelected}
+          restrictedDevice={pickerRestrictedDevice}
+        />
       )}
     </div>
   )

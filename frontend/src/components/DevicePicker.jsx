@@ -53,6 +53,7 @@ export default function DevicePicker({
   onFetchDevices,
   onDeviceSelected,
   restrictedDevice,
+  bottom = '68px',
 }) {
   const [devices, setDevices] = useState([])
   const [loading, setLoading] = useState(true)
@@ -87,10 +88,21 @@ export default function DevicePicker({
   }
 
   return (
+    <>
+      <div
+        data-testid="device-picker-backdrop"
+        aria-hidden="true"
+        style={{ position: 'fixed', inset: 0, zIndex: 9998 }}
+        onClick={(e) => {
+          e.stopPropagation()
+          onClose()
+        }}
+      />
       <div
         role="listbox"
         aria-label="Select device"
         className="bg-surface border border-border rounded-lg min-w-[240px] shadow-[0_4px_16px_rgba(0,0,0,0.3)]"
+        style={{ position: 'fixed', bottom, right: '16px', zIndex: 9999 }}
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
@@ -153,5 +165,6 @@ export default function DevicePicker({
         ))
       )}
     </div>
+    </>
   )
 }
