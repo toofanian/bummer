@@ -19,9 +19,12 @@ function AlbumList({ albums, onPlay }) {
     return <div className="px-4 py-6 text-text-dim text-sm italic">Nothing yet</div>
   }
 
+  const cols = 3
+  const display = albums.slice(0, albums.length - (albums.length % cols) || albums.length)
+
   return (
     <div className="grid grid-cols-3 gap-1 p-2">
-      {albums.map(album => (
+      {display.map(album => (
         <div
           key={album.service_id}
           data-testid={`album-item-${album.service_id}`}
