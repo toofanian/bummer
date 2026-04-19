@@ -8,7 +8,7 @@ function AlbumList({ albums, onPlay }) {
   }
 
   return (
-    <div className="grid grid-cols-3 gap-1 p-2">
+    <div className="grid grid-cols-3 gap-1 pt-0 px-2 pb-2">
       {albums.map(album => (
         <div
           key={album.service_id}
