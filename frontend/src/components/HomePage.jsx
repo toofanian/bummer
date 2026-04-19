@@ -107,9 +107,11 @@ export default function HomePage({ onPlay, session }) {
   return (
     <div className="flex h-full">
       {TABS.map((tab, i) => (
-        <div key={tab.id} className={`flex-1 overflow-y-auto${i < TABS.length - 1 ? ' border-r border-border' : ''}`}>
-          <div className="px-4 pt-3 pb-2 text-xs font-bold tracking-wider uppercase text-text-dim">{tab.label}</div>
-          <AlbumList albums={sections[tab.id]} onPlay={onPlay} />
+        <div key={tab.id} className={`flex-1 flex flex-col${i < TABS.length - 1 ? ' border-r border-border' : ''}`}>
+          <div className="px-4 py-3 text-sm font-bold tracking-wider uppercase text-text text-center border-b border-border flex-shrink-0">{tab.label}</div>
+          <div className="flex-1 overflow-y-auto">
+            <AlbumList albums={sections[tab.id]} onPlay={onPlay} />
+          </div>
         </div>
       ))}
     </div>
