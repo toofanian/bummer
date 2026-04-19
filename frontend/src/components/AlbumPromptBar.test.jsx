@@ -18,10 +18,8 @@ const HOME_DATA = {
   recently_added: [
     { service_id: 'ra1', name: 'New Album', image_url: 'https://example.com/new.jpg' },
   ],
-  today: [
+  recently_played: [
     { service_id: 'rp1', name: 'Played Today', image_url: 'https://example.com/today.jpg' },
-  ],
-  this_week: [
     { service_id: 'rp2', name: 'Played This Week', image_url: 'https://example.com/week.jpg' },
   ],
 }
@@ -84,8 +82,7 @@ describe('AlbumPromptBar', () => {
     apiFetch.mockResolvedValue({
       json: () => Promise.resolve({
         recently_added: [],
-        today: [],
-        this_week: [],
+        recently_played: [],
       }),
     })
     renderBar()
@@ -104,10 +101,9 @@ describe('AlbumPromptBar', () => {
         recently_added: [
           { service_id: 'shared1', name: 'Shared Album', image_url: 'https://example.com/s.jpg' },
         ],
-        today: [
+        recently_played: [
           { service_id: 'shared1', name: 'Shared Album', image_url: 'https://example.com/s.jpg' },
         ],
-        this_week: [],
       }),
     })
     renderBar()

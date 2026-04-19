@@ -5,7 +5,7 @@ import CollectionsPane from './CollectionsPane'
 // Mock apiFetch so AlbumPromptBar's home-data fetch doesn't fail
 vi.mock('../api', () => ({
   apiFetch: vi.fn(() => Promise.resolve({
-    json: () => Promise.resolve({ recently_added: [], today: [], this_week: [] }),
+    json: () => Promise.resolve({ recently_added: [], recently_played: [] }),
   })),
 }))
 
@@ -460,8 +460,7 @@ describe('CollectionsPane', () => {
     apiFetch.mockResolvedValue({
       json: () => Promise.resolve({
         recently_added: [{ service_id: 'ra1', name: 'New Album', image_url: 'https://example.com/new.jpg' }],
-        today: [],
-        this_week: [],
+        recently_played: [],
       }),
     })
     render(
