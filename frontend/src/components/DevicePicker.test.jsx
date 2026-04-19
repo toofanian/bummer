@@ -271,7 +271,7 @@ describe('DevicePicker — no auto-polling', () => {
     vi.useRealTimers()
   })
 
-  it('polls device list every 3 seconds while mounted', async () => {
+  it('calls onFetchDevices once on mount (no repeat polling)', async () => {
     const onFetchDevices = vi.fn().mockResolvedValue([])
 
     render(
@@ -286,20 +286,15 @@ describe('DevicePicker — no auto-polling', () => {
     await act(async () => {
       await Promise.resolve()
     })
-    const initialCount = onFetchDevices.mock.calls.length
+    expect(onFetchDevices).toHaveBeenCalledTimes(1)
 
-    // Advance 3 seconds — should poll again
+    // Advance well past any former polling interval
     await act(async () => {
-      vi.advanceTimersByTime(3000)
+      vi.advanceTimersByTime(9000)
       await Promise.resolve()
     })
-    expect(onFetchDevices).toHaveBeenCalledTimes(initialCount + 1)
 
-    // Advance 3 more — should poll again
-    await act(async () => {
-      vi.advanceTimersByTime(3000)
-      await Promise.resolve()
-    })
-    expect(onFetchDevices).toHaveBeenCalledTimes(initialCount + 2)
+    // Should still be 1 — no polling interval
+    expect(onFetchDevices).toHaveBeenCalledTimes(1)
   })
 })
