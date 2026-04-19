@@ -64,8 +64,7 @@ def pause_playback(sp: spotipy.Spotify = Depends(get_user_spotify)):
         sp.pause_playback()
     except spotipy.exceptions.SpotifyException as e:
         if _is_no_active_device(e):
-            # Nothing to pause — return 204 silently
-            return Response(status_code=204)
+            raise HTTPException(status_code=409, detail="no_device")
         raise
     return Response(status_code=204)
 
@@ -95,7 +94,7 @@ def previous_track(sp: spotipy.Spotify = Depends(get_user_spotify)):
         sp.previous_track()
     except spotipy.exceptions.SpotifyException as e:
         if _is_no_active_device(e):
-            return Response(status_code=204)
+            raise HTTPException(status_code=409, detail="no_device")
         raise
     return Response(status_code=204)
 
@@ -106,7 +105,7 @@ def next_track(sp: spotipy.Spotify = Depends(get_user_spotify)):
         sp.next_track()
     except spotipy.exceptions.SpotifyException as e:
         if _is_no_active_device(e):
-            return Response(status_code=204)
+            raise HTTPException(status_code=409, detail="no_device")
         raise
     return Response(status_code=204)
 
@@ -117,7 +116,7 @@ def set_volume(body: VolumeRequest, sp: spotipy.Spotify = Depends(get_user_spoti
         sp.volume(body.volume_percent)
     except spotipy.exceptions.SpotifyException as e:
         if _is_no_active_device(e):
-            return Response(status_code=204)
+            raise HTTPException(status_code=409, detail="no_device")
         raise
     return Response(status_code=204)
 

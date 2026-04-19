@@ -210,15 +210,16 @@ def test_play_with_track_uri_no_device_returns_409():
 # --- pause: no active device ---
 
 
-def test_pause_no_active_device_returns_204_silently():
-    """When pause raises 404 'No active device', return 204 silently — nothing to pause."""
+def test_pause_no_active_device_returns_409():
+    """When pause raises 404 'No active device', return 409 with detail 'no_device'."""
     sp = make_sp()
     sp.pause_playback.side_effect = make_no_device_error()
     override_spotify(sp)
 
     response = client.put("/playback/pause")
 
-    assert response.status_code == 204
+    assert response.status_code == 409
+    assert response.json()["detail"] == "no_device"
 
     clear_overrides()
 
@@ -238,14 +239,15 @@ def test_previous_calls_spotify_previous_track():
     clear_overrides()
 
 
-def test_previous_no_active_device_returns_204_silently():
+def test_previous_no_active_device_returns_409():
     sp = make_sp()
     sp.previous_track.side_effect = make_no_device_error()
     override_spotify(sp)
 
     response = client.post("/playback/previous")
 
-    assert response.status_code == 204
+    assert response.status_code == 409
+    assert response.json()["detail"] == "no_device"
 
     clear_overrides()
 
@@ -265,14 +267,15 @@ def test_next_calls_spotify_next_track():
     clear_overrides()
 
 
-def test_next_no_active_device_returns_204_silently():
+def test_next_no_active_device_returns_409():
     sp = make_sp()
     sp.next_track.side_effect = make_no_device_error()
     override_spotify(sp)
 
     response = client.post("/playback/next")
 
-    assert response.status_code == 204
+    assert response.status_code == 409
+    assert response.json()["detail"] == "no_device"
 
     clear_overrides()
 
@@ -314,14 +317,15 @@ def test_volume_rejects_out_of_range_low():
     clear_overrides()
 
 
-def test_volume_no_active_device_returns_204_silently():
+def test_volume_no_active_device_returns_409():
     sp = make_sp()
     sp.volume.side_effect = make_no_device_error()
     override_spotify(sp)
 
     response = client.put("/playback/volume", json={"volume_percent": 50})
 
-    assert response.status_code == 204
+    assert response.status_code == 409
+    assert response.json()["detail"] == "no_device"
 
     clear_overrides()
 
