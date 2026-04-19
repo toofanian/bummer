@@ -40,4 +40,26 @@ describe('AlbumArtStrip', () => {
     expect(img).toHaveAttribute('width', '40')
     expect(img).toHaveAttribute('height', '40')
   })
+
+  it('container has overflow-x auto for horizontal scrolling', () => {
+    const { container } = render(<AlbumArtStrip albums={ALBUMS} />)
+    const wrapper = container.firstChild
+    expect(wrapper.style.overflowX).toBe('auto')
+  })
+
+  it('container hides scrollbar via scrollbar-width none', () => {
+    const { container } = render(<AlbumArtStrip albums={ALBUMS} />)
+    const wrapper = container.firstChild
+    expect(wrapper.style.scrollbarWidth).toBe('none')
+  })
+
+  it('albums still render correctly inside scrollable container', () => {
+    render(<AlbumArtStrip albums={ALBUMS} />)
+    const images = screen.getAllByRole('img')
+    expect(images).toHaveLength(2)
+    expect(images[0]).toHaveAttribute('alt', 'Album One')
+    expect(images[1]).toHaveAttribute('alt', 'Album Two')
+    const placeholders = document.querySelectorAll('[aria-hidden="true"]')
+    expect(placeholders).toHaveLength(1)
+  })
 })
