@@ -161,17 +161,20 @@ export default function PlaybackBar({
     300
   )
 
+  const playPauseInFlight = useRef(false)
+
   useEffect(() => {
     function handleKeyDown(e) {
       if (e.key !== ' ') return
       const tag = document.activeElement?.tagName?.toLowerCase()
       if (tag === 'input' || tag === 'textarea') return
       e.preventDefault()
-      if (is_playing) {
-        onPause()
-      } else {
-        onPlay()
-      }
+      if (playPauseInFlight.current) return
+      playPauseInFlight.current = true
+      const action = is_playing ? onPause() : onPlay()
+      Promise.resolve(action).finally(() => {
+        playPauseInFlight.current = false
+      })
     }
     document.addEventListener('keydown', handleKeyDown)
     return () => document.removeEventListener('keydown', handleKeyDown)
