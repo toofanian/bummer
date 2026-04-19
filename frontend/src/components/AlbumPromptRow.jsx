@@ -29,7 +29,7 @@ export default function AlbumPromptRow({ label, albums, albumCollectionMap, sele
   return (
     <div ref={containerRef} className="overflow-hidden">
       {!hasAlbums ? null : (
-      <div className="flex gap-2 px-3 py-2 justify-center">
+      <div className="flex gap-2 px-3 py-1 justify-center">
         {display.map(album => {
           const collectionIds = albumCollectionMap[album.service_id] || []
           const count = collectionIds.length
