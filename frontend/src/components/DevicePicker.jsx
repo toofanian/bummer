@@ -75,6 +75,11 @@ export default function DevicePicker({
   }, [fetchAndShow])
 
   useEffect(() => {
+    const interval = setInterval(fetchAndShow, 3000)
+    return () => clearInterval(interval)
+  }, [fetchAndShow])
+
+  useEffect(() => {
     function handleKeyDown(e) {
       if (e.key === 'Escape') onClose()
     }
