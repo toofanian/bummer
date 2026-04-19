@@ -117,7 +117,25 @@ export function usePlayback(session = null) {
 
   const pause = useCallback(async () => {
     setState(prev => ({ ...prev, is_playing: false }))
-    await apiFetch('/playback/pause', { method: 'PUT' }, sessionRef.current)
+    const res = await apiFetch('/playback/pause', { method: 'PUT' }, sessionRef.current)
+
+    if (res.status === 409) {
+      const data = await res.json()
+      return data.detail
+    }
+
+    // Reconciliation fetch — same pattern as play()
+    setTimeout(async () => {
+      try {
+        const stateRes = await apiFetch('/playback/state', {}, sessionRef.current)
+        if (stateRes.ok) {
+          const data = await stateRes.json()
+          lastPollDataRef.current = data
+          setState(prev => ({ ...prev, ...data }))
+        }
+      } catch {}
+    }, 500)
+    return null
   }, [])
 
   const previousTrack = useCallback(async () => {

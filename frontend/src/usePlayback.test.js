@@ -118,6 +118,57 @@ describe('usePlayback', () => {
     expect(result.current.state.is_playing).toBe(false)
   })
 
+  it('pause() does a reconciliation state fetch after API call', async () => {
+    vi.useFakeTimers()
+    const calls = []
+    fetchMock = vi.fn().mockImplementation((url) => {
+      calls.push(url)
+      if (url.includes('/playback/state')) {
+        return Promise.resolve({ ok: true, json: async () => PLAYBACK_STATE })
+      }
+      return Promise.resolve({ ok: true, status: 204 })
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    const { result } = renderHook(() => usePlayback({ access_token: 'test-jwt' }))
+    await act(async () => {}) // flush initial poll
+
+    await act(async () => {
+      await result.current.pause()
+    })
+
+    // Advance past the reconciliation delay
+    await act(async () => { await vi.advanceTimersByTimeAsync(600) })
+
+    const stateCallsAfterPause = calls.filter(
+      (u, i) => u.includes('/playback/state') && i > 0
+    )
+    expect(stateCallsAfterPause.length).toBeGreaterThanOrEqual(1)
+  })
+
+  it('pause() returns "no_device" when backend returns 409', async () => {
+    fetchMock = vi.fn().mockImplementation((url) => {
+      if (url.includes('/playback/state')) {
+        return Promise.resolve({ ok: true, json: async () => PLAYBACK_STATE })
+      }
+      if (url.includes('/playback/pause')) {
+        return Promise.resolve({ ok: false, status: 409, json: async () => ({ detail: 'no_device' }) })
+      }
+      return Promise.resolve({ ok: true, status: 204 })
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    const { result } = renderHook(() => usePlayback({ access_token: 'test-jwt' }))
+    await act(async () => {}) // flush initial poll
+
+    let returnValue
+    await act(async () => {
+      returnValue = await result.current.pause()
+    })
+
+    expect(returnValue).toBe('no_device')
+  })
+
   it('does not crash when fetch throws', async () => {
     fetchMock = vi.fn().mockRejectedValue(new Error('Network error'))
     vi.stubGlobal('fetch', fetchMock)
