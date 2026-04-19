@@ -12,6 +12,7 @@ const COLUMNS = [
   { key: 'artists',     label: 'Artist'     },
   { key: 'release_date',label: 'Year',       width: 64  },
   { key: 'added_at',    label: 'Date Added', width: 110 },
+  { key: 'listens',     label: 'Listens',    width: 80  },
 ]
 
 function formatYear(dateStr) {
@@ -25,12 +26,19 @@ function formatDateAdded(isoStr) {
   })
 }
 
-function sortAlbums(albums, key, direction) {
+function sortAlbums(albums, key, direction, listenCounts) {
   return [...albums].sort((a, b) => {
-    let aVal = key === 'artists' ? a.artists.join(', ') : a[key]
-    let bVal = key === 'artists' ? b.artists.join(', ') : b[key]
-    aVal = aVal ?? ''
-    bVal = bVal ?? ''
+    let aVal, bVal
+    if (key === 'artists') {
+      aVal = a.artists.join(', ')
+      bVal = b.artists.join(', ')
+    } else if (key === 'listens') {
+      aVal = (listenCounts || {})[a.service_id] || 0
+      bVal = (listenCounts || {})[b.service_id] || 0
+    } else {
+      aVal = a[key] ?? ''
+      bVal = b[key] ?? ''
+    }
     if (aVal < bVal) return direction === 'asc' ? -1 : 1
     if (aVal > bVal) return direction === 'asc' ? 1 : -1
     return 0
@@ -54,7 +62,7 @@ function buildNavList(sorted, expanded) {
 }
 
 
-const DesktopAlbumRow = memo(function DesktopAlbumRow({ album, isExpanded, isPlaying, expandedEntry, playingTrackId, playingTrackName, onPlay, onPlayTrack, onExpand, navigateRow, dragHandleProps, sortableRef, sortableStyle, isSelected, onToggleSelect, collectionCount, onArtistClick }) {
+const DesktopAlbumRow = memo(function DesktopAlbumRow({ album, isExpanded, isPlaying, expandedEntry, playingTrackId, playingTrackName, onPlay, onPlayTrack, onExpand, navigateRow, dragHandleProps, sortableRef, sortableStyle, isSelected, onToggleSelect, collectionCount, onArtistClick, listenCount }) {
   function handleAlbumKeyDown(e) {
     if (e.key === 'ArrowDown') {
       e.preventDefault()
@@ -124,6 +132,7 @@ const DesktopAlbumRow = memo(function DesktopAlbumRow({ album, isExpanded, isPla
       <td className="px-2 py-1.5 whitespace-nowrap overflow-hidden text-ellipsis align-middle"><ArtistLinks artists={album.artists} onArtistClick={onArtistClick} /></td>
       <td className="px-2 py-1.5 whitespace-nowrap overflow-hidden text-ellipsis align-middle">{formatYear(album.release_date)}</td>
       <td className="px-2 py-1.5 whitespace-nowrap overflow-hidden text-ellipsis align-middle">{formatDateAdded(album.added_at)}</td>
+      <td className="px-2 py-1.5 whitespace-nowrap overflow-hidden text-ellipsis align-middle text-center text-text-dim">{listenCount ?? 0}</td>
       <td className="px-2 py-1.5 whitespace-nowrap overflow-hidden text-ellipsis align-middle text-center">
         {onToggleSelect && (
           <button
@@ -156,7 +165,7 @@ const DesktopAlbumRow = memo(function DesktopAlbumRow({ album, isExpanded, isPla
 })
 
 function TrackList({ tracks, loading, onPlayTrack, playingTrackId, playingTrackName, navigateRow, onCollapseToAlbum, hasHandleColumn }) {
-  const totalColumns = hasHandleColumn ? 8 : 7
+  const totalColumns = hasHandleColumn ? 9 : 8
   if (loading) return (
     <tr>
       <td colSpan={totalColumns} className="px-2 py-2 text-text-dim" style={{ paddingLeft: 60 }}>Loading tracks…</td>
@@ -171,6 +180,7 @@ function TrackList({ tracks, loading, onPlayTrack, playingTrackId, playingTrackN
       <td>Artists</td>
       <td></td>
       <td className="text-text-dim">Duration</td>
+      <td></td>
       <td></td>
     </tr>,
     ...tracks.map(t => {
@@ -221,6 +231,7 @@ function TrackList({ tracks, loading, onPlayTrack, playingTrackId, playingTrackN
           <td></td>
           <td className="text-text-dim">{t.duration}</td>
           <td></td>
+          <td></td>
         </tr>
       )
     }),
@@ -270,6 +281,7 @@ export default function AlbumTable({
   selectedIds,
   onToggleSelect,
   onArtistClick,
+  listenCounts,
 }) {
   const [sortKey, setSortKey] = useState('added_at')
   const [sortDir, setSortDir] = useState('desc')
@@ -292,7 +304,7 @@ export default function AlbumTable({
       setSortDir(d => d === 'asc' ? 'desc' : 'asc')
     } else {
       setSortKey(key)
-      setSortDir('asc')
+      setSortDir(key === 'listens' ? 'desc' : 'asc')
     }
   }
 
@@ -311,8 +323,8 @@ export default function AlbumTable({
   }, [onFetchTracks])
 
   const sorted = useMemo(
-    () => reorderable ? albums : sortAlbums(albums, sortKey, sortDir),
-    [albums, sortKey, sortDir, reorderable],
+    () => reorderable ? albums : sortAlbums(albums, sortKey, sortDir, listenCounts),
+    [albums, sortKey, sortDir, reorderable, listenCounts],
   )
 
   const sortableIds = useMemo(() => sorted.map(a => a.service_id), [sorted])
@@ -378,6 +390,7 @@ export default function AlbumTable({
       onToggleSelect,
       collectionCount: (albumCollectionMap?.[album.service_id] || []).length,
       onArtistClick,
+      listenCount: (listenCounts || {})[album.service_id] || 0,
     }
 
     if (reorderable) {

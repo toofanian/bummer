@@ -56,6 +56,7 @@ export default function ArtistsView({
   onToggleSelect,
   targetArtist = null,
   onClearTargetArtist,
+  listenCounts = {},
 }) {
   const [selectedArtist, setSelectedArtist] = useState(null)
   const isMobile = useIsMobile()
@@ -98,6 +99,7 @@ export default function ArtistsView({
             albumCollectionMap={albumCollectionMap}
             selectedIds={selectedIds}
             onToggleSelect={onToggleSelect}
+            listenCounts={listenCounts}
           />
         </div>
       </div>

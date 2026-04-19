@@ -141,6 +141,20 @@ describe('SearchOverlay', () => {
       await user.type(screen.getByPlaceholderText(/search/i), 'zzzzz')
       expect(screen.getByText(/no results/i)).toBeInTheDocument()
     })
+
+    it('renders AlbumArtStrip instead of ArtistThumbnail', async () => {
+      const user = userEvent.setup()
+      render(<SearchOverlay {...artistProps} />)
+      await user.type(screen.getByPlaceholderText(/search/i), 'Sade')
+      const row = screen.getByTestId('artist-row-Sade')
+      // AlbumArtStrip renders album cover images directly
+      const images = row.querySelectorAll('img')
+      expect(images.length).toBe(2) // Sade has 2 albums
+      expect(images[0]).toHaveAttribute('alt', 'Love Deluxe')
+      expect(images[1]).toHaveAttribute('alt', 'Sahara')
+      // Should NOT have the old 2x2 thumbnail grid
+      expect(row.querySelector('.grid-cols-2')).not.toBeInTheDocument()
+    })
   })
 
   // --- Collections mode ---

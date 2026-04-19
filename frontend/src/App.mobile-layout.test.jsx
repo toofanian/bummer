@@ -70,12 +70,13 @@ describe('App layout', () => {
     expect(() => render(<App />)).not.toThrow()
   })
 
-  it('does not reserve MiniPlaybackBar padding when no track is playing', async () => {
+  it('reserves MiniPlaybackBar padding even when no track is playing (Connect a device state)', async () => {
     mockMatchMedia(true) // mobile
     render(<App />)
     // Wait for the app to finish loading and render the mobile layout
     const contentArea = await waitFor(() => screen.getByTestId('mobile-content-area'))
-    // Should only have BottomTabBar padding (50px + safe area), not the full 106px
-    expect(contentArea.style.paddingBottom).not.toContain('106px')
+    // MiniPlaybackBar shows "Connect a device" when no track/device/playing,
+    // so content area should reserve the full 106px (50px tab bar + 56px mini bar)
+    expect(contentArea.style.paddingBottom).toContain('106px')
   })
 })
