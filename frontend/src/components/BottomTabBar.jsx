@@ -16,7 +16,7 @@ const TABS = [
       <path d="M3 3h6v6H3V3zm8 0h6v6h-6V3zm-8 8h6v6H3v-6zm8 0h6v6h-6v-6z" />
     </svg>
   )},
-  { id: 'changelog', label: 'Changelog', icon: (
+  { id: 'digest', label: 'Digest', icon: (
     <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
       <path d="M4 4h12v2H4V4zm0 4h12v2H4V8zm0 4h8v2H4v-2z" />
     </svg>

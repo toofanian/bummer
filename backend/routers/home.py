@@ -102,34 +102,24 @@ def get_home(
         rediscover_candidates, min(20, len(rediscover_candidates))
     )
 
-    # Recommended: albums by frequently played artists, not played in 30 days
-    thirty_days_ago = (datetime.now(timezone.utc) - timedelta(days=30)).isoformat()
-    last_30_history = (
-        db.table("play_history")
-        .select("album_id")
-        .gte("played_at", thirty_days_ago)
-        .execute()
-    ).data
-
-    artist_play_counts = {}
-    played_in_30 = set()
-    for r in last_30_history:
-        played_in_30.add(r["album_id"])
-        album = lookup.get(r["album_id"])
+    # Recommended: shuffled albums by artists from recently played
+    recently_played_home = set(today_ids) | set(week_ids)
+    recent_artists = set()
+    for aid in recently_played_home:
+        album = lookup.get(aid)
         if album:
             for artist in album.get("artists", []):
-                artist_play_counts[artist] = artist_play_counts.get(artist, 0) + 1
+                recent_artists.add(artist)
 
-    top_artists = sorted(artist_play_counts, key=artist_play_counts.get, reverse=True)[
-        :5
-    ]
-
-    recommended = [
+    recommended_candidates = [
         a
         for a in album_cache
-        if a["service_id"] not in played_in_30
-        and any(artist in top_artists for artist in a.get("artists", []))
-    ][:20]
+        if a["service_id"] not in recently_played_home
+        and any(artist in recent_artists for artist in a.get("artists", []))
+    ]
+    recommended = random.sample(
+        recommended_candidates, min(20, len(recommended_candidates))
+    )
 
     # Recently added: albums added within the last 14 days, sorted by added_at descending
     fourteen_days_ago = (datetime.now(timezone.utc) - timedelta(days=14)).isoformat()

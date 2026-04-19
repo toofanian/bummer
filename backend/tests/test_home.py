@@ -184,7 +184,7 @@ def test_home_rediscover_excludes_recently_played(mock_cache):
 
 @patch("routers.home.get_album_cache", return_value=ALBUM_CACHE)
 def test_home_recommended_by_frequent_artists(mock_cache):
-    """Recommended should return albums by frequently played artists, not recently played."""
+    """Recommended should return albums by recently played artists, excluding those in recently played."""
     now = datetime.now(timezone.utc)
     rows = [
         {"album_id": "album1", "played_at": (now - timedelta(days=1)).isoformat()},
@@ -197,8 +197,8 @@ def test_home_recommended_by_frequent_artists(mock_cache):
         res = client.get("/home", params={"tz": "UTC"})
         data = res.json()
         rec_ids = [a["service_id"] for a in data["recommended"]]
-        assert "album3" in rec_ids  # by Artist A but not recently played
-        assert "album1" not in rec_ids  # was just played
+        assert "album3" in rec_ids  # by Artist A, not in recently played
+        assert "album1" not in rec_ids  # in recently played section, excluded
     finally:
         clear_overrides()
 

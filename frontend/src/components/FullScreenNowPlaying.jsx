@@ -1,6 +1,6 @@
 // FullScreenNowPlaying.jsx
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { SpeakerIndicatorIcon } from './DevicePicker'
+import { DeviceTypeIcon } from './DevicePicker'
 import { PlayIcon, PauseIcon, PreviousIcon, NextIcon, VolumeIcon } from './icons'
 import { formatTime, useDebouncedCallback } from '../utils/playback'
 
@@ -199,7 +199,7 @@ export default function FullScreenNowPlaying({
               style={{ color: 'var(--accent)' }}
               onClick={onOpenDevicePicker}
             >
-              <SpeakerIndicatorIcon />
+              <DeviceTypeIcon type={device.type} />
               <span>Listening on <strong>{device.name}</strong></span>
             </button>
           </div>

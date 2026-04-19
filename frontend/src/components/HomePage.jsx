@@ -1,18 +1,6 @@
 import { useState, useEffect } from 'react'
-import AlbumRow from './AlbumRow'
 import { apiFetch } from '../api'
-
-function AlwaysRow({ title, albums, onPlay }) {
-  if (albums && albums.length > 0) {
-    return <AlbumRow title={title} albums={albums} onPlay={onPlay} />
-  }
-  return (
-    <section className="mb-6 md:mb-8">
-      <h2 className="text-xl font-bold mb-4 text-text">{title}</h2>
-      <p className="text-sm text-text-dim italic">Nothing yet</p>
-    </section>
-  )
-}
+import { useIsMobile } from '../hooks/useIsMobile'
 
 function mergeRecentlyPlayed(today, thisWeek) {
   const seen = new Set()
@@ -26,9 +14,46 @@ function mergeRecentlyPlayed(today, thisWeek) {
   return merged
 }
 
+function AlbumList({ albums, onPlay }) {
+  if (!albums || albums.length === 0) {
+    return <div className="px-4 py-6 text-text-dim text-sm italic">Nothing yet</div>
+  }
+
+  const cols = 3
+  const display = albums.slice(0, albums.length - (albums.length % cols) || albums.length)
+
+  return (
+    <div className="grid grid-cols-3 gap-1 p-2">
+      {display.map(album => (
+        <div
+          key={album.service_id}
+          data-testid={`album-item-${album.service_id}`}
+          onClick={() => onPlay(album.service_id)}
+          className="cursor-pointer active:scale-95 active:opacity-80 transition-transform duration-150"
+        >
+          {album.image_url ? (
+            <img src={album.image_url} alt={album.name} className="w-full aspect-square rounded-md object-cover block" />
+          ) : (
+            <div className="w-full aspect-square rounded-md bg-surface-2" />
+          )}
+        </div>
+      ))}
+    </div>
+  )
+}
+
+const TABS = [
+  { id: 'played', label: 'Recently Played' },
+  { id: 'added', label: 'Recently Added' },
+  { id: 'recommended', label: 'Related' },
+  { id: 'rediscover', label: 'Rediscover' },
+]
+
 export default function HomePage({ onPlay, session }) {
+  const isMobile = useIsMobile()
   const [data, setData] = useState(null)
   const [loading, setLoading] = useState(true)
+  const [activeTab, setActiveTab] = useState('played')
 
   useEffect(() => {
     const tz = Intl.DateTimeFormat().resolvedOptions().timeZone
@@ -40,17 +65,14 @@ export default function HomePage({ onPlay, session }) {
 
   if (loading) return <p className="p-6 text-text-dim">Loading...</p>
 
-  const recentlyPlayed = data ? mergeRecentlyPlayed(data.today, data.this_week) : []
-  const recentlyAdded = data?.recently_added ?? []
+  const sections = data ? {
+    played: mergeRecentlyPlayed(data.today, data.this_week),
+    added: data.recently_added ?? [],
+    recommended: data.recommended ?? [],
+    rediscover: data.rediscover ?? [],
+  } : { played: [], added: [], recommended: [], rediscover: [] }
 
-  const rediscover = data?.rediscover ?? []
-  const recommended = data?.recommended ?? []
-
-  const isEmpty = data &&
-    recentlyPlayed.length === 0 &&
-    recentlyAdded.length === 0 &&
-    rediscover.length === 0 &&
-    recommended.length === 0
+  const isEmpty = Object.values(sections).every(s => s.length === 0)
 
   if (!data || isEmpty) {
     return (
@@ -60,12 +82,41 @@ export default function HomePage({ onPlay, session }) {
     )
   }
 
+  if (isMobile) {
+    return (
+      <div className="flex flex-col h-full">
+        <div className="flex border-b border-border flex-shrink-0" role="tablist">
+          {TABS.map(tab => (
+            <button
+              key={tab.id}
+              role="tab"
+              aria-selected={activeTab === tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              className={`flex-1 py-2 text-xs font-bold tracking-wider uppercase transition-colors duration-150 ${
+                activeTab === tab.id ? 'text-text border-b-2 border-accent' : 'text-text-dim hover:text-text'
+              }`}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
+        <div className="flex-1 overflow-y-auto">
+          <AlbumList albums={sections[activeTab]} onPlay={onPlay} />
+        </div>
+      </div>
+    )
+  }
+
   return (
-    <div className="p-4 md:px-6 md:py-4">
-      <AlwaysRow title="Recently Played" albums={recentlyPlayed} onPlay={onPlay} />
-      <AlwaysRow title="Recently Added" albums={recentlyAdded} onPlay={onPlay} />
-      <AlbumRow title="You Might Like" albums={recommended} onPlay={onPlay} />
-      <AlbumRow title="Rediscover" albums={rediscover} onPlay={onPlay} />
+    <div className="flex h-full">
+      {TABS.map((tab, i) => (
+        <div key={tab.id} className="flex-1 flex flex-col">
+          <div className="px-4 py-3 text-sm font-bold tracking-wider uppercase text-text text-center flex-shrink-0">{tab.label}</div>
+          <div className="flex-1 overflow-y-auto">
+            <AlbumList albums={sections[tab.id]} onPlay={onPlay} />
+          </div>
+        </div>
+      ))}
     </div>
   )
 }
