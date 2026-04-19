@@ -134,7 +134,11 @@ def get_home(
     # Recently added: albums added within the last 14 days, sorted by added_at descending
     fourteen_days_ago = (datetime.now(timezone.utc) - timedelta(days=14)).isoformat()
     recently_added = sorted(
-        [a for a in album_cache if a.get("added_at") and a["added_at"] >= fourteen_days_ago],
+        [
+            a
+            for a in album_cache
+            if a.get("added_at") and a["added_at"] >= fourteen_days_ago
+        ],
         key=lambda a: a["added_at"],
         reverse=True,
     )

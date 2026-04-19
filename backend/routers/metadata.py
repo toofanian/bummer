@@ -108,7 +108,12 @@ def list_collections(
     db=Depends(get_authed_db),
     user: dict = Depends(get_current_user),
 ):
-    result = db.table("collections").select("*, collection_albums(count)").order("position").execute()
+    result = (
+        db.table("collections")
+        .select("*, collection_albums(count)")
+        .order("position")
+        .execute()
+    )
     rows = []
     for row in result.data:
         count_data = row.pop("collection_albums", None)
@@ -152,9 +157,9 @@ def reorder_collections(
 ):
     user_id = user["user_id"]
     for i, collection_id in enumerate(body.collection_ids):
-        db.table("collections").update({"position": i}).eq(
-            "id", collection_id
-        ).eq("user_id", user_id).execute()
+        db.table("collections").update({"position": i}).eq("id", collection_id).eq(
+            "user_id", user_id
+        ).execute()
     return {"reordered": True}
 
 

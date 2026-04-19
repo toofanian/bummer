@@ -758,9 +758,11 @@ def test_reorder_collections_requires_collection_ids():
 
 def test_list_collections_orders_by_position():
     """GET /collections should call .order('position') on the query."""
-    db = mock_db(execute_data=[
-        {**COLLECTION, "position": 0},
-    ])
+    db = mock_db(
+        execute_data=[
+            {**COLLECTION, "position": 0},
+        ]
+    )
     override_db(db)
     override_spotify(mock_spotify())
 
