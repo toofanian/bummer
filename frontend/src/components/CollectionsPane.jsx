@@ -112,23 +112,21 @@ function CollectionRow({ col, isMobile, renamingId, renameValue, setRenameValue,
               )}
             </div>
           </div>
-          <div className="flex-1 min-w-0 flex items-center">
+          <div className="flex-1 min-w-0 flex items-center relative">
             <AlbumArtStrip albums={artAlbums} size={62} />
-          </div>
-          <div className="flex items-center gap-3 flex-shrink-0 px-3">
-            <div onClick={e => e.stopPropagation()} className="relative">
+            <div onClick={e => e.stopPropagation()} className="absolute right-0 top-0 bottom-0 flex items-center opacity-0 group-hover:opacity-100 transition-opacity duration-150">
               {renamingId === col.id ? null : confirmingId === col.id ? (
-                <>
-                  <button className="bg-delete-red border-none text-white cursor-pointer text-xs font-semibold px-1.5 py-0.5 rounded mr-0.5 whitespace-nowrap" aria-label="Confirm delete" onClick={e => handleConfirmDelete(e, col.id)}>Delete</button>
+                <div className="flex items-center gap-0.5 bg-surface/80 backdrop-blur-sm rounded-l px-2">
+                  <button className="bg-delete-red border-none text-white cursor-pointer text-xs font-semibold px-1.5 py-0.5 rounded whitespace-nowrap" aria-label="Confirm delete" onClick={e => handleConfirmDelete(e, col.id)}>Delete</button>
                   <button className="bg-transparent border border-border text-text-dim cursor-pointer text-xs px-1.5 py-0.5 rounded whitespace-nowrap" aria-label="Cancel" onClick={handleCancelDelete}>Cancel</button>
-                </>
+                </div>
               ) : menuOpenId === col.id ? (
-                <div className="flex gap-1">
+                <div className="flex items-center gap-1 bg-surface/80 backdrop-blur-sm rounded-l px-2">
                   <button className="bg-transparent border border-border text-text text-xs px-2 py-1 rounded cursor-pointer hover:bg-surface-2" onClick={() => { setMenuOpenId(null); setRenamingId(col.id); setRenameValue(col.name) }}>Rename</button>
                   <button className="bg-transparent border border-border text-delete-red text-xs px-2 py-1 rounded cursor-pointer hover:bg-surface-2" onClick={e => { setMenuOpenId(null); handleDeleteClick(e, col.id) }}>Delete</button>
                 </div>
               ) : (
-                <button className="bg-transparent border-none text-text-dim cursor-pointer text-lg p-1.5 rounded opacity-0 group-hover:opacity-50 hover:!opacity-100 hover:bg-surface-2 transition-opacity duration-150" aria-label="More options" onClick={() => setMenuOpenId(col.id)}>⋯</button>
+                <button className="bg-surface/80 backdrop-blur-sm border-none text-text-dim cursor-pointer text-lg p-1.5 rounded-l hover:text-text transition-colors duration-150" aria-label="More options" onClick={() => setMenuOpenId(col.id)}>⋯</button>
               )}
             </div>
           </div>
