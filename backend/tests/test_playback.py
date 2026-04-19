@@ -52,7 +52,7 @@ def test_get_playback_state_returns_simplified_shape():
     assert data["is_playing"] is True
     assert data["track"]["name"] == "Track One"
     assert data["track"]["album"] == "Some Album"
-    assert data["track"]["album_spotify_id"] == "album-spotify-id-123"
+    assert data["track"]["album_service_id"] == "album-spotify-id-123"
     assert data["track"]["artists"] == ["Artist A", "Artist B"]
     assert data["track"]["progress_ms"] == 45000
     assert data["track"]["duration_ms"] == 240000

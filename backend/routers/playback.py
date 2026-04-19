@@ -51,7 +51,7 @@ def get_playback_state(sp: spotipy.Spotify = Depends(get_user_spotify)):
         "track": {
             "name": item["name"],
             "album": item["album"]["name"],
-            "album_spotify_id": item["album"].get("id"),
+            "album_service_id": item["album"].get("id"),
             "artists": [a["name"] for a in item.get("artists", [])],
             "progress_ms": state.get("progress_ms"),
             "duration_ms": item.get("duration_ms"),
