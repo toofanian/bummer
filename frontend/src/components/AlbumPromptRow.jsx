@@ -38,16 +38,18 @@ export default function AlbumPromptRow({ label, albums, albumCollectionMap, sele
                 <div data-testid="album-placeholder" className="rounded-md bg-surface-2" style={{ width: 56, height: 56 }} />
               )}
 
-              {count > 0 && (
+              {(count > 0 || isSelected) && (
                 <div
                   data-testid="collection-count-overlay"
                   className={`absolute inset-0 bg-black/50 flex items-center justify-center ${
-                    isSelected ? 'items-end justify-end pb-1 pr-1' : ''
+                    isSelected && count > 0 ? 'items-end justify-end pb-1 pr-1' : ''
                   }`}
                 >
-                  <span className={`text-white font-bold ${isSelected ? 'text-[10px]' : 'text-sm'}`}>
-                    {count}
-                  </span>
+                  {count > 0 && (
+                    <span className={`text-white font-bold ${isSelected ? 'text-[10px]' : 'text-sm'}`}>
+                      {count}
+                    </span>
+                  )}
                 </div>
               )}
 
