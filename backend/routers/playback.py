@@ -43,6 +43,8 @@ def get_playback_state(sp: spotipy.Spotify = Depends(get_user_spotify)):
 
     item = state["item"]
     device = state.get("device")
+    images = item.get("album", {}).get("images") or []
+    image_url = images[0]["url"] if images else None
 
     return {
         "is_playing": state.get("is_playing", False),
@@ -53,6 +55,7 @@ def get_playback_state(sp: spotipy.Spotify = Depends(get_user_spotify)):
             "artists": [a["name"] for a in item.get("artists", [])],
             "progress_ms": state.get("progress_ms"),
             "duration_ms": item.get("duration_ms"),
+            "image_url": image_url,
         },
         "device": {"id": device.get("id"), "name": device["name"], "type": device["type"]} if device else None,
     }

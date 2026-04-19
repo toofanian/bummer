@@ -13,7 +13,11 @@ PLAYBACK_STATE = {
     "item": {
         "name": "Track One",
         "duration_ms": 240000,
-        "album": {"name": "Some Album", "id": "album-spotify-id-123"},
+        "album": {
+            "name": "Some Album",
+            "id": "album-spotify-id-123",
+            "images": [{"url": "https://i.scdn.co/image/abc123", "width": 640, "height": 640}],
+        },
         "artists": [{"name": "Artist A"}, {"name": "Artist B"}],
     },
     "device": {"id": "device-id-abc", "name": "My Mac", "type": "Computer"},
@@ -52,6 +56,7 @@ def test_get_playback_state_returns_simplified_shape():
     assert data["track"]["artists"] == ["Artist A", "Artist B"]
     assert data["track"]["progress_ms"] == 45000
     assert data["track"]["duration_ms"] == 240000
+    assert data["track"]["image_url"] == "https://i.scdn.co/image/abc123"
     assert data["device"]["id"] == "device-id-abc"
     assert data["device"]["name"] == "My Mac"
     assert data["device"]["type"] == "Computer"

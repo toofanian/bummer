@@ -103,7 +103,7 @@ export default function App() {
     return albums.find(a => a.name === playback.track?.album)
   }, [albums, playback.track?.album_service_id, playback.track?.album])
   const nowPlayingServiceId = nowPlayingAlbum?.service_id ?? null
-  const nowPlayingImageUrl = nowPlayingAlbum?.image_url ?? null
+  const nowPlayingImageUrl = nowPlayingAlbum?.image_url ?? playback.track?.image_url ?? null
 
   // Restore playingId from Spotify playback state on reload
   useEffect(() => {
