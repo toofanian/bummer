@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { filterAlbums } from '../filterAlbums'
 import MobileAlbumCard from './MobileAlbumCard'
+import AlbumArtStrip from './AlbumArtStrip'
 
 function groupByArtist(albums) {
   const map = {}
@@ -27,23 +28,6 @@ function filterCollections(collections, query) {
   return collections.filter(c => c.name.toLowerCase().includes(q))
 }
 
-function ArtistThumbnail({ albums, artistName }) {
-  const covers = albums.slice(0, 4).map(a => a.image_url).filter(Boolean)
-  if (covers.length === 0) {
-    return (
-      <div className="w-11 h-11 rounded bg-surface-2 flex items-center justify-center text-text-dim text-lg font-semibold flex-shrink-0">
-        {artistName.charAt(0).toUpperCase()}
-      </div>
-    )
-  }
-  return (
-    <div className="w-11 h-11 rounded overflow-hidden flex-shrink-0 grid grid-cols-2 grid-rows-2 gap-px bg-surface-2">
-      {covers.map((url, i) => (
-        <img key={i} src={url} alt="" className="w-full h-full object-cover" />
-      ))}
-    </div>
-  )
-}
 
 /**
  * SearchOverlay
@@ -208,15 +192,19 @@ export default function SearchOverlay({
           <div
             key={group.name}
             data-testid={`artist-row-${group.name}`}
-            className="flex items-center gap-3 px-4 py-2.5 min-h-16 border-b border-border cursor-pointer transition-colors duration-100 active:bg-selected"
+            className="border-b border-border cursor-pointer transition-colors duration-100 active:bg-selected"
+            style={{ minHeight: 62 }}
             onClick={() => { onSelectArtist?.(group.name); onClose() }}
           >
-            <ArtistThumbnail albums={group.albums} artistName={group.name} />
-            <div className="flex-1 min-w-0">
-              <div className="text-sm font-semibold text-text truncate">{group.name}</div>
-              <div className="text-xs text-text-dim">{group.albums.length} {group.albums.length === 1 ? 'album' : 'albums'}</div>
+            <div className="flex items-center px-4 py-2">
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-semibold text-text">{group.name}</span>
+                  <span className="text-xs text-text-dim">{group.albums.length} {group.albums.length === 1 ? 'album' : 'albums'}</span>
+                </div>
+              </div>
             </div>
-            <span className="text-text-dim text-sm flex-shrink-0">›</span>
+            <AlbumArtStrip albums={group.albums} size={62} />
           </div>
         ))}
 
