@@ -75,7 +75,7 @@ function CollectionRow({ col, isMobile, renamingId, renameValue, setRenameValue,
           </div>
         </>
       ) : (
-        <div className="flex items-stretch overflow-hidden" style={{ height: 62 }}>
+        <div className="flex items-stretch" style={{ height: 62 }}>
           {dragHandleProps && (
             <div className="flex items-center px-2">
               <button
@@ -114,7 +114,7 @@ function CollectionRow({ col, isMobile, renamingId, renameValue, setRenameValue,
           </div>
           <div className="flex-1 min-w-0 flex items-center relative">
             <AlbumArtStrip albums={artAlbums} size={62} />
-            <div onClick={e => e.stopPropagation()} className="absolute right-0 top-0 bottom-0 flex items-center opacity-0 group-hover:opacity-100 transition-opacity duration-150">
+            <div onClick={e => e.stopPropagation()} className="absolute right-2 top-0 bottom-0 flex items-center opacity-0 group-hover:opacity-100 transition-opacity duration-150">
               {renamingId === col.id ? null : confirmingId === col.id ? (
                 <div className="flex items-center gap-0.5 bg-surface/80 backdrop-blur-sm rounded-l px-2">
                   <button className="bg-delete-red border-none text-white cursor-pointer text-xs font-semibold px-1.5 py-0.5 rounded whitespace-nowrap" aria-label="Confirm delete" onClick={e => handleConfirmDelete(e, col.id)}>Delete</button>
