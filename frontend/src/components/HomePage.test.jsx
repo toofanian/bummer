@@ -59,8 +59,8 @@ describe('HomePage', () => {
     useIsMobile.mockReturnValue(true)
     render(<HomePage onPlay={() => {}} />)
     await waitFor(() => {
-      expect(screen.getByRole('tab', { name: /recently played/i })).toBeInTheDocument()
-      expect(screen.getByRole('tab', { name: /recently added/i })).toBeInTheDocument()
+      expect(screen.getByRole('tab', { name: /played/i })).toBeInTheDocument()
+      expect(screen.getByRole('tab', { name: /added/i })).toBeInTheDocument()
       expect(screen.getByRole('tab', { name: /related/i })).toBeInTheDocument()
       expect(screen.getByRole('tab', { name: /rediscover/i })).toBeInTheDocument()
     })
