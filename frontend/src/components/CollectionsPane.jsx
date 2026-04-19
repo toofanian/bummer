@@ -189,7 +189,13 @@ export default function CollectionsPane({ collections, onEnter, onDelete, onCrea
         albumCollectionMap={albumCollectionMap || {}}
         collections={collectionsForPicker || []}
         session={session}
-        onBulkAdd={onBulkAdd || (() => {})}
+        onBulkAdd={async (collectionId, albumIds) => {
+          if (onBulkAdd) await onBulkAdd(collectionId, albumIds)
+          if (onFetchAlbums) {
+            const albums = await onFetchAlbums(collectionId)
+            setArtMap(prev => ({ ...prev, [collectionId]: { albums, loading: false } }))
+          }
+        }}
         onCreate={onCreateCollection || (() => {})}
       />
     </div>
