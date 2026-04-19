@@ -40,7 +40,7 @@ describe('HomePage', () => {
       expect(screen.getByText('Recently Played')).toBeInTheDocument()
       expect(screen.getByText('Recently Added')).toBeInTheDocument()
       expect(screen.getByText('Related')).toBeInTheDocument()
-      expect(screen.getByText('Rediscover')).toBeInTheDocument()
+      expect(screen.getByText('Lost')).toBeInTheDocument()
     })
   })
 
@@ -59,10 +59,10 @@ describe('HomePage', () => {
     useIsMobile.mockReturnValue(true)
     render(<HomePage onPlay={() => {}} />)
     await waitFor(() => {
-      expect(screen.getByRole('tab', { name: /recently played/i })).toBeInTheDocument()
-      expect(screen.getByRole('tab', { name: /recently added/i })).toBeInTheDocument()
+      expect(screen.getByRole('tab', { name: /played/i })).toBeInTheDocument()
+      expect(screen.getByRole('tab', { name: /added/i })).toBeInTheDocument()
       expect(screen.getByRole('tab', { name: /related/i })).toBeInTheDocument()
-      expect(screen.getByRole('tab', { name: /rediscover/i })).toBeInTheDocument()
+      expect(screen.getByRole('tab', { name: /lost/i })).toBeInTheDocument()
     })
   })
 
@@ -83,7 +83,7 @@ describe('HomePage', () => {
       expect(screen.getByAltText('Today Album')).toBeInTheDocument()
     })
 
-    await user.click(screen.getByRole('tab', { name: /rediscover/i }))
+    await user.click(screen.getByRole('tab', { name: /lost/i }))
     await waitFor(() => {
       expect(screen.getByAltText('Old Gem')).toBeInTheDocument()
       expect(screen.queryByAltText('Today Album')).not.toBeInTheDocument()

@@ -28,10 +28,10 @@ function AlbumList({ albums, onPlay }) {
 }
 
 const TABS = [
-  { id: 'played', label: 'Recently Played' },
-  { id: 'added', label: 'Recently Added' },
-  { id: 'recommended', label: 'Related' },
-  { id: 'rediscover', label: 'Rediscover' },
+  { id: 'played', label: 'Recently Played', shortLabel: 'Played' },
+  { id: 'added', label: 'Recently Added', shortLabel: 'Added' },
+  { id: 'recommended', label: 'Related', shortLabel: 'Related' },
+  { id: 'rediscover', label: 'Lost', shortLabel: 'Lost' },
 ]
 
 export default function HomePage({ onPlay, session }) {
@@ -80,7 +80,7 @@ export default function HomePage({ onPlay, session }) {
                 activeTab === tab.id ? 'text-text border-b-2 border-accent' : 'text-text-dim hover:text-text'
               }`}
             >
-              {tab.label}
+              {tab.shortLabel}
             </button>
           ))}
         </div>
