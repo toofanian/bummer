@@ -102,7 +102,7 @@ def get_home(
         rediscover_candidates, min(20, len(rediscover_candidates))
     )
 
-    # Recommended: albums by frequently played artists, not played in 30 days
+    # Recommended: shuffled albums by recently played artists
     thirty_days_ago = (datetime.now(timezone.utc) - timedelta(days=30)).isoformat()
     last_30_history = (
         db.table("play_history")
@@ -124,12 +124,15 @@ def get_home(
         :5
     ]
 
-    recommended = [
+    recently_played_home = set(today_ids) | set(week_ids)
+    recommended_candidates = [
         a
         for a in album_cache
-        if a["service_id"] not in played_in_30
+        if a["service_id"] not in recently_played_home
         and any(artist in top_artists for artist in a.get("artists", []))
-    ][:20]
+    ]
+    random.shuffle(recommended_candidates)
+    recommended = recommended_candidates[:20]
 
     # Recently added: albums sorted by added_at descending, capped at 20
     recently_added = sorted(
