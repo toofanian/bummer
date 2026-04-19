@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { apiFetch } from '../api'
 import { useIsMobile } from '../hooks/useIsMobile'
 
-function ChangelogSection({ onPlay, session }) {
+function ChangesSection({ onPlay, session }) {
   const [entries, setEntries] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
@@ -17,7 +17,7 @@ function ChangelogSection({ onPlay, session }) {
     apiFetch('/digest/changelog', {}, session)
       .then(res => {
         if (cancelled) return null
-        if (!res.ok) throw new Error('Failed to load changelog')
+        if (!res.ok) throw new Error('Failed to load changes')
         return res.json()
       })
       .then(json => {
@@ -52,7 +52,7 @@ function ChangelogSection({ onPlay, session }) {
       .catch(() => setLoadingMore(false))
   }
 
-  if (loading) return <div className="px-4 py-6 text-text-dim text-sm">Loading changelog...</div>
+  if (loading) return <div className="px-4 py-6 text-text-dim text-sm">Loading changes...</div>
   if (error) return <div className="px-4 py-6 text-[#f88] text-sm">Error: {error}</div>
   if (entries.length === 0) return <div className="px-4 py-6 text-text-dim text-sm italic">No changes recorded yet.</div>
 
@@ -246,16 +246,16 @@ function StatsSection({ onPlay, session }) {
   )
 }
 
-export default function ChangelogView({ onPlay, session }) {
+export default function DigestView({ onPlay, session }) {
   const isMobile = useIsMobile()
-  const [activeTab, setActiveTab] = useState('changelog')
+  const [activeTab, setActiveTab] = useState('changes')
 
   if (!isMobile) {
     return (
       <div className="flex h-full">
         <div className="flex-1 overflow-y-auto border-r border-border">
           <div className="px-4 pt-3 pb-2 text-xs font-bold tracking-wider uppercase text-text-dim">Library Changes</div>
-          <ChangelogSection onPlay={onPlay} session={session} />
+          <ChangesSection onPlay={onPlay} session={session} />
         </div>
         <div className="flex-1 overflow-y-auto border-r border-border">
           <div className="px-4 pt-3 pb-2 text-xs font-bold tracking-wider uppercase text-text-dim">Listening History</div>
@@ -272,21 +272,21 @@ export default function ChangelogView({ onPlay, session }) {
   return (
     <div className="flex flex-col h-full">
       <div className="flex border-b border-border flex-shrink-0" role="tablist">
-        {['changelog', 'history', 'stats'].map(tab => (
+        {['changes', 'history', 'stats'].map(tab => (
           <button key={tab} role="tab" aria-selected={activeTab === tab}
             onClick={() => setActiveTab(tab)}
             className={`flex-1 py-2 text-xs font-bold tracking-wider uppercase transition-colors duration-150 ${
               activeTab === tab ? 'text-text border-b-2 border-accent' : 'text-text-dim hover:text-text'
             }`}>
-            {tab === 'changelog' ? 'Changes' : tab === 'history' ? 'History' : 'Stats'}
+            {tab === 'changes' ? 'Changes' : tab === 'history' ? 'History' : 'Stats'}
           </button>
         ))}
       </div>
       <div className="flex-1 overflow-y-auto">
-        {activeTab === 'changelog' && (
+        {activeTab === 'changes' && (
           <>
             <div className="px-4 pt-3 pb-2 text-xs font-bold tracking-wider uppercase text-text-dim">Library Changes</div>
-            <ChangelogSection onPlay={onPlay} session={session} />
+            <ChangesSection onPlay={onPlay} session={session} />
           </>
         )}
         {activeTab === 'history' && (
