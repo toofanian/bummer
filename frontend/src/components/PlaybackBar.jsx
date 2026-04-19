@@ -227,7 +227,7 @@ export default function PlaybackBar({
       </div>
 
       {/* CENTER ZONE: transport controls + progress bar */}
-      <div data-testid="playback-center" className="flex flex-col items-center gap-0.5 flex-shrink-0 md:min-w-[500px]">
+      <div data-testid="playback-center" className="flex flex-col items-center gap-1.5 flex-shrink-0 md:min-w-[500px]">
         <div className="flex items-center gap-2">
           <button
             aria-label="Previous track"
