@@ -31,56 +31,6 @@ def log_play(
     return Response(status_code=204)
 
 
-@router.post("/history/sync")
-def sync_history(
-    db: Client = Depends(get_authed_db),
-    sp: spotipy.Spotify = Depends(get_user_spotify),
-    user: dict = Depends(get_current_user),
-):
-    results = sp.current_user_recently_played(limit=50)
-    items = results.get("items", [])
-    if not items:
-        return {"synced": 0}
-
-    # Parse played_at timestamps and find time range
-    parsed = []
-    for item in items:
-        album_id = item["track"]["album"]["id"]
-        played_at = item["played_at"]
-        parsed.append({"album_id": album_id, "played_at": played_at})
-
-    timestamps = [p["played_at"] for p in parsed]
-    min_ts = min(timestamps)
-    max_ts = max(timestamps)
-
-    # Fetch existing rows in this time range to avoid duplicates
-    existing_rows = (
-        db.table("play_history")
-        .select("album_id, played_at")
-        .eq("user_id", user["user_id"])
-        .gte("played_at", min_ts)
-        .lte("played_at", max_ts)
-        .execute()
-    ).data
-    existing_pairs = {(r["album_id"], r["played_at"]) for r in existing_rows}
-
-    new_rows = [
-        {
-            "album_id": p["album_id"],
-            "user_id": user["user_id"],
-            "played_at": p["played_at"],
-            "source": "spotify_sync",
-        }
-        for p in parsed
-        if (p["album_id"], p["played_at"]) not in existing_pairs
-    ]
-
-    if new_rows:
-        db.table("play_history").insert(new_rows).execute()
-
-    return {"synced": len(new_rows)}
-
-
 def _build_album_lookup(album_cache):
     return {a["service_id"]: a for a in album_cache}
 

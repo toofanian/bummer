@@ -32,6 +32,7 @@ export default function App() {
   const [albums, setAlbums] = useState([])
   const [collections, setCollections] = useState([])
   const [collectionAlbums, setCollectionAlbums] = useState([])
+  const [listenCounts, setListenCounts] = useState({})
   // albumCollectionMap: { [service_id]: string[] } — IDs of collections the album belongs to
   const [albumCollectionMap, setAlbumCollectionMap] = useState({})
   const [albumsLoading, setAlbumsLoading] = useState(true)
@@ -170,6 +171,12 @@ export default function App() {
       // 2. Fetch current Supabase cache state (fast, bounded)
       const cacheResp = await apiFetch('/library/albums', {}, sessionRef.current).then(r => r.json())
       const serverAlbums = cacheResp.albums ?? []
+
+      // Fire-and-forget: fetch listen counts in parallel (non-blocking)
+      apiFetch('/library/listen-counts', {}, sessionRef.current)
+        .then(r => r.json())
+        .then(data => setListenCounts(data.counts || {}))
+        .catch(() => {})
 
       if (serverAlbums.length > 0) {
         setAlbums(serverAlbums)
@@ -413,6 +420,10 @@ export default function App() {
           method: 'POST',
           body: JSON.stringify({ album_id: albumId }),
         }, sessionRef.current).catch(() => {})
+        setListenCounts(prev => ({
+          ...prev,
+          [albumId]: (prev[albumId] || 0) + 1,
+        }))
       }
       return err
     }
@@ -741,6 +752,7 @@ export default function App() {
 
   // Mobile layout
   if (isMobile) {
+    const miniBarVisible = playback.track || (!playback.device && !playback.is_playing)
     return (
       <div className="app flex flex-col h-dvh">
         <header className="sticky top-0 z-[100] bg-surface border-b border-border flex items-center px-4 py-2 gap-3" style={{ paddingTop: 'env(safe-area-inset-top, 0px)' }}>
@@ -819,7 +831,7 @@ export default function App() {
           </button>
         </header>
 
-        <div data-testid="mobile-content-area" className="flex-1 overflow-hidden flex flex-col" style={{ paddingBottom: playback.track ? 'calc(106px + env(safe-area-inset-bottom, 0px))' : 'calc(50px + env(safe-area-inset-bottom, 0px))' }}>
+        <div data-testid="mobile-content-area" className="flex-1 overflow-hidden flex flex-col" style={{ paddingBottom: miniBarVisible ? 'calc(106px + env(safe-area-inset-bottom, 0px))' : 'calc(50px + env(safe-area-inset-bottom, 0px))' }}>
           {view === 'home' && (
             <div className="flex-1 overflow-y-auto">
               <HomePage onPlay={handlePlay} session={session} />
@@ -845,6 +857,7 @@ export default function App() {
                   selectedIds={selectedAlbumIdSet}
                   onToggleSelect={handleToggleSelect}
                   onArtistClick={handleArtistClick}
+                  listenCounts={listenCounts}
                 />
               ) : (
                 <ArtistsView
@@ -860,6 +873,7 @@ export default function App() {
                   onToggleSelect={handleToggleSelect}
                   targetArtist={targetArtist}
                   onClearTargetArtist={() => setTargetArtist(null)}
+                  listenCounts={listenCounts}
                 />
               )}
             </div>
@@ -916,6 +930,7 @@ export default function App() {
                   reorderable
                   onReorder={handleReorderCollectionAlbums}
                   onArtistClick={handleArtistClick}
+                  listenCounts={listenCounts}
                 />
               </div>
             </div>
@@ -931,7 +946,7 @@ export default function App() {
             selectedAlbums={selectedAlbumIds.map(id => [...albums, ...collectionAlbums].find(a => a.service_id === id)).filter(Boolean)}
             onOpenPicker={() => setPickerAlbumIds([...selectedAlbumIds])}
             onClear={handleClearSelection}
-            bottomOffset={playback.track ? 106 : 50}
+            bottomOffset={miniBarVisible ? 106 : 50}
           />
         )}
 
@@ -1151,6 +1166,7 @@ export default function App() {
                 selectedIds={selectedAlbumIdSet}
                 onToggleSelect={handleToggleSelect}
                 onArtistClick={handleArtistClick}
+                listenCounts={listenCounts}
               />
             ) : (
               <ArtistsView
@@ -1166,6 +1182,7 @@ export default function App() {
                 onToggleSelect={handleToggleSelect}
                 targetArtist={targetArtist}
                 onClearTargetArtist={() => setTargetArtist(null)}
+                listenCounts={listenCounts}
               />
             )}
           </div>
@@ -1229,6 +1246,7 @@ export default function App() {
                 reorderable
                 onReorder={handleReorderCollectionAlbums}
                 onArtistClick={handleArtistClick}
+                listenCounts={listenCounts}
               />
             </div>
           </div>
