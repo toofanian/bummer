@@ -102,8 +102,8 @@ export default function App() {
     // Fallback (older backend responses without album_service_id)
     return albums.find(a => a.name === playback.track?.album)
   }, [albums, playback.track?.album_service_id, playback.track?.album])
-  const nowPlayingServiceId = nowPlayingAlbum?.service_id ?? null
-  const nowPlayingImageUrl = nowPlayingAlbum?.image_url ?? null
+  const nowPlayingServiceId = nowPlayingAlbum?.service_id ?? playback.track?.album_service_id ?? null
+  const nowPlayingImageUrl = nowPlayingAlbum?.image_url ?? playback.track?.image_url ?? null
 
   // Restore playingId from Spotify playback state on reload
   useEffect(() => {
@@ -975,7 +975,7 @@ export default function App() {
           onSetVolume={setVolume}
           onFetchTracks={handleFetchTracks}
           onPlayTrack={handlePlayTrack}
-          albumServiceId={nowPlayingServiceId}
+          albumSpotifyId={nowPlayingServiceId}
           albumImageUrl={nowPlayingImageUrl}
           onFetchDevices={fetchDevices}
           onTransferPlayback={transferPlayback}
@@ -1022,17 +1022,13 @@ export default function App() {
           />
         )}
         {(devicePickerOpen || pendingPlayIntent) && (
-          <div className="fixed inset-0 z-[400] flex items-center justify-center">
-            <div className="fixed inset-0 bg-black/50" onClick={() => { setDevicePickerOpen(false); setPendingPlayIntent(null); setPickerRestrictedDevice(false) }} />
-            <div className="relative z-[401] w-[280px]">
-              <DevicePicker
-                onClose={() => { setDevicePickerOpen(false); setPendingPlayIntent(null); setPickerRestrictedDevice(false) }}
-                onFetchDevices={fetchDevices}
-                onDeviceSelected={handleModalDeviceSelected}
-                restrictedDevice={pickerRestrictedDevice}
-              />
-            </div>
-          </div>
+          <DevicePicker
+            onClose={() => { setDevicePickerOpen(false); setPendingPlayIntent(null); setPickerRestrictedDevice(false) }}
+            onFetchDevices={fetchDevices}
+            onDeviceSelected={handleModalDeviceSelected}
+            restrictedDevice={pickerRestrictedDevice}
+            bottom="calc(114px + env(safe-area-inset-bottom, 0px))"
+          />
         )}
       </div>
     )
@@ -1303,17 +1299,12 @@ export default function App() {
         onOpenDevicePicker={() => { setDevicePickerOpen(true); setPickerRestrictedDevice(false) }}
       />
       {(devicePickerOpen || pendingPlayIntent) && (
-        <div className="fixed inset-0 z-[400] flex items-center justify-center">
-          <div className="fixed inset-0 bg-black/50" onClick={() => { setDevicePickerOpen(false); setPendingPlayIntent(null); setPickerRestrictedDevice(false) }} />
-          <div className="relative z-[401] w-[280px]">
-            <DevicePicker
-              onClose={() => { setDevicePickerOpen(false); setPendingPlayIntent(null); setPickerRestrictedDevice(false) }}
-              onFetchDevices={fetchDevices}
-              onDeviceSelected={handleModalDeviceSelected}
-              restrictedDevice={pickerRestrictedDevice}
-            />
-          </div>
-        </div>
+        <DevicePicker
+          onClose={() => { setDevicePickerOpen(false); setPendingPlayIntent(null); setPickerRestrictedDevice(false) }}
+          onFetchDevices={fetchDevices}
+          onDeviceSelected={handleModalDeviceSelected}
+          restrictedDevice={pickerRestrictedDevice}
+        />
       )}
     </div>
   )

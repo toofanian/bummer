@@ -43,18 +43,27 @@ def get_playback_state(sp: spotipy.Spotify = Depends(get_user_spotify)):
 
     item = state["item"]
     device = state.get("device")
+    images = item.get("album", {}).get("images") or []
+    image_url = images[0]["url"] if images else None
 
     return {
         "is_playing": state.get("is_playing", False),
         "track": {
             "name": item["name"],
             "album": item["album"]["name"],
-            "album_spotify_id": item["album"].get("id"),
+            "album_service_id": item["album"].get("id"),
             "artists": [a["name"] for a in item.get("artists", [])],
             "progress_ms": state.get("progress_ms"),
             "duration_ms": item.get("duration_ms"),
+            "image_url": image_url,
         },
-        "device": {"name": device["name"], "type": device["type"]} if device else None,
+        "device": {
+            "id": device.get("id"),
+            "name": device["name"],
+            "type": device["type"],
+        }
+        if device
+        else None,
     }
 
 
@@ -64,8 +73,7 @@ def pause_playback(sp: spotipy.Spotify = Depends(get_user_spotify)):
         sp.pause_playback()
     except spotipy.exceptions.SpotifyException as e:
         if _is_no_active_device(e):
-            # Nothing to pause — return 204 silently
-            return Response(status_code=204)
+            raise HTTPException(status_code=409, detail="no_device")
         raise
     return Response(status_code=204)
 
@@ -95,7 +103,7 @@ def previous_track(sp: spotipy.Spotify = Depends(get_user_spotify)):
         sp.previous_track()
     except spotipy.exceptions.SpotifyException as e:
         if _is_no_active_device(e):
-            return Response(status_code=204)
+            raise HTTPException(status_code=409, detail="no_device")
         raise
     return Response(status_code=204)
 
@@ -106,7 +114,7 @@ def next_track(sp: spotipy.Spotify = Depends(get_user_spotify)):
         sp.next_track()
     except spotipy.exceptions.SpotifyException as e:
         if _is_no_active_device(e):
-            return Response(status_code=204)
+            raise HTTPException(status_code=409, detail="no_device")
         raise
     return Response(status_code=204)
 
@@ -117,7 +125,7 @@ def set_volume(body: VolumeRequest, sp: spotipy.Spotify = Depends(get_user_spoti
         sp.volume(body.volume_percent)
     except spotipy.exceptions.SpotifyException as e:
         if _is_no_active_device(e):
-            return Response(status_code=204)
+            raise HTTPException(status_code=409, detail="no_device")
         raise
     return Response(status_code=204)
 
@@ -190,7 +198,23 @@ def get_queue(sp: spotipy.Spotify = Depends(get_user_spotify)):
 def transfer_playback(
     body: TransferRequest, sp: spotipy.Spotify = Depends(get_user_spotify)
 ):
-    sp.transfer_playback(body.device_id, force_play=True)
+    try:
+        sp.transfer_playback(body.device_id, force_play=True)
+    except spotipy.exceptions.SpotifyException as e:
+        if _is_no_active_device(e):
+            raise HTTPException(status_code=409, detail="no_device")
+        if _is_restricted_device(e):
+            raise HTTPException(status_code=409, detail="restricted_device")
+        raise
+
     if body.context_uri:
-        sp.start_playback(context_uri=body.context_uri)
+        try:
+            sp.start_playback(context_uri=body.context_uri)
+        except spotipy.exceptions.SpotifyException as e:
+            if _is_restricted_device(e):
+                raise HTTPException(status_code=409, detail="restricted_device")
+            if _is_no_active_device(e):
+                raise HTTPException(status_code=409, detail="no_device")
+            raise
+
     return Response(status_code=204)
