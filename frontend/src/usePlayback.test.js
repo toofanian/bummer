@@ -455,6 +455,62 @@ describe('seek', () => {
   })
 })
 
+describe('reconciliation fetches', () => {
+  it('nextTrack() does a reconciliation state fetch after API call', async () => {
+    vi.useFakeTimers()
+    const calls = []
+    fetchMock = vi.fn().mockImplementation((url) => {
+      calls.push(url)
+      if (url.includes('/playback/state')) {
+        return Promise.resolve({ ok: true, json: async () => PLAYBACK_STATE })
+      }
+      return Promise.resolve({ ok: true, status: 204 })
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    const { result } = renderHook(() => usePlayback({ access_token: 'test-jwt' }))
+    await act(async () => {}) // flush initial poll
+
+    await act(async () => {
+      await result.current.nextTrack()
+    })
+
+    await act(async () => { await vi.advanceTimersByTimeAsync(600) })
+
+    const stateCallsAfterNext = calls.filter(
+      (u, i) => u.includes('/playback/state') && i > 0
+    )
+    expect(stateCallsAfterNext.length).toBeGreaterThanOrEqual(1)
+  })
+
+  it('previousTrack() does a reconciliation state fetch after API call', async () => {
+    vi.useFakeTimers()
+    const calls = []
+    fetchMock = vi.fn().mockImplementation((url) => {
+      calls.push(url)
+      if (url.includes('/playback/state')) {
+        return Promise.resolve({ ok: true, json: async () => PLAYBACK_STATE })
+      }
+      return Promise.resolve({ ok: true, status: 204 })
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    const { result } = renderHook(() => usePlayback({ access_token: 'test-jwt' }))
+    await act(async () => {}) // flush initial poll
+
+    await act(async () => {
+      await result.current.previousTrack()
+    })
+
+    await act(async () => { await vi.advanceTimersByTimeAsync(600) })
+
+    const stateCallsAfterPrev = calls.filter(
+      (u, i) => u.includes('/playback/state') && i > 0
+    )
+    expect(stateCallsAfterPrev.length).toBeGreaterThanOrEqual(1)
+  })
+})
+
 describe('transferPlayback', () => {
   it('calls PUT /playback/transfer with device_id and then refreshes state', async () => {
     const newState = {
