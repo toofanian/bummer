@@ -2,18 +2,6 @@ import { useState, useEffect } from 'react'
 import { apiFetch } from '../api'
 import { useIsMobile } from '../hooks/useIsMobile'
 
-function mergeRecentlyPlayed(today, thisWeek) {
-  const seen = new Set()
-  const merged = []
-  for (const album of [...(today ?? []), ...(thisWeek ?? [])]) {
-    if (!seen.has(album.service_id)) {
-      seen.add(album.service_id)
-      merged.push(album)
-    }
-  }
-  return merged
-}
-
 function AlbumList({ albums, onPlay }) {
   if (!albums || albums.length === 0) {
     return <div className="px-4 py-6 text-text-dim text-sm italic">Nothing yet</div>
@@ -56,8 +44,7 @@ export default function HomePage({ onPlay, session }) {
   const [activeTab, setActiveTab] = useState('played')
 
   useEffect(() => {
-    const tz = Intl.DateTimeFormat().resolvedOptions().timeZone
-    apiFetch(`/home?tz=${encodeURIComponent(tz)}`, {}, session)
+    apiFetch('/home', {}, session)
       .then(r => r.json())
       .then(d => { setData(d); setLoading(false) })
       .catch(() => setLoading(false))
@@ -66,7 +53,7 @@ export default function HomePage({ onPlay, session }) {
   if (loading) return <p className="p-6 text-text-dim">Loading...</p>
 
   const sections = data ? {
-    played: mergeRecentlyPlayed(data.today, data.this_week),
+    played: data.recently_played ?? [],
     added: data.recently_added ?? [],
     recommended: data.recommended ?? [],
     rediscover: data.rediscover ?? [],

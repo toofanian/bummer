@@ -43,7 +43,7 @@ beforeEach(() => {
       return Promise.resolve({ ok: true, json: () => Promise.resolve([]) })
     }
     if (url.includes('/home')) {
-      return Promise.resolve({ ok: true, json: () => Promise.resolve({ today: [], this_week: [], recently_added: [], rediscover: [], recommended: [] }) })
+      return Promise.resolve({ ok: true, json: () => Promise.resolve({ recently_played: [], recently_added: [], rediscover: [], recommended: [] }) })
     }
     // Default for playback polling etc
     return Promise.resolve({ ok: true, json: () => Promise.resolve({}) })
