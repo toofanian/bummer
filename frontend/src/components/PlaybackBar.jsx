@@ -184,7 +184,7 @@ export default function PlaybackBar({
     <div
       role="region"
       aria-label="Playback bar"
-      className="fixed bottom-0 left-0 right-0 min-h-16 bg-surface border-t border-border grid grid-cols-[1fr_auto_1fr] items-center px-4 pb-[env(safe-area-inset-bottom,0px)] z-[200] gap-2 overflow-hidden"
+      className="fixed bottom-0 left-0 right-0 min-h-20 bg-surface border-t border-border grid grid-cols-[1fr_auto_1fr] items-center px-4 pb-[env(safe-area-inset-bottom,0px)] z-[200] gap-2 overflow-hidden"
     >
       {/* LEFT ZONE: album art + track info */}
       <div data-testid="playback-left" className="flex items-center gap-2.5 min-w-0 overflow-hidden">
