@@ -16,6 +16,10 @@ function CollectionRow({ col, isMobile, renamingId, renameValue, setRenameValue,
       data-testid="collection-row"
       className="border-b border-border cursor-pointer hover:bg-hover transition-colors duration-150 group"
       onClick={() => onEnter(col)}
+      onMouseLeave={() => {
+        if (menuOpenId === col.id) setMenuOpenId(null)
+        if (confirmingId === col.id) setConfirmingId(null)
+      }}
     >
       {isMobile ? (
         <>
