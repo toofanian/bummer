@@ -57,15 +57,12 @@ export default function AlbumPromptBar({ albumCollectionMap, collections, sessio
       )}
 
       <AlbumPromptRow
-        label="Recently Added"
         albums={recentlyAdded}
         albumCollectionMap={albumCollectionMap}
         selectedIds={selectedIds}
         onToggleSelect={handleToggleSelect}
       />
-      <div className="border-t border-border mx-3" />
       <AlbumPromptRow
-        label="Recently Played"
         albums={recentlyPlayed}
         albumCollectionMap={albumCollectionMap}
         selectedIds={selectedIds}
