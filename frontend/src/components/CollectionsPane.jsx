@@ -75,7 +75,7 @@ function CollectionRow({ col, isMobile, renamingId, renameValue, setRenameValue,
           </div>
         </>
       ) : (
-        <div className="flex items-stretch" style={{ height: 62 }}>
+        <div className="flex items-stretch overflow-hidden" style={{ height: 62 }}>
           {dragHandleProps && (
             <div className="flex items-center px-2">
               <button
