@@ -17,7 +17,7 @@ export function ArtistLinks({ artists, onArtistClick }) {
   ))
 }
 
-const MobileAlbumCard = memo(function MobileAlbumCard({ album, isExpanded, isPlaying, exp, playingTrackName, onPlay, onPlayTrack, onExpand, dragHandleProps, sortableRef, sortableStyle, isSelected, onToggleSelect, collectionCount, onArtistClick, listenCount }) {
+const MobileAlbumCard = memo(function MobileAlbumCard({ album, isExpanded, isPlaying, exp, playingTrackName, onPlay, onPlayTrack, onExpand, dragHandleProps, sortableRef, sortableStyle, isSelected, onToggleSelect, collectionCount, onArtistClick }) {
   return (
     <div ref={sortableRef} style={sortableStyle}>
       <div
@@ -61,9 +61,6 @@ const MobileAlbumCard = memo(function MobileAlbumCard({ album, isExpanded, isPla
           >
             {isSelected ? '✓' : collectionCount > 0 ? collectionCount : '+'}
           </button>
-        )}
-        {listenCount > 0 && (
-          <span className="text-xs text-text-dim tabular-nums">{listenCount}</span>
         )}
         <button
           aria-label={isExpanded ? 'Collapse' : 'Expand'}

@@ -724,13 +724,7 @@ describe('AlbumTable mobile card list', () => {
     expect(document.querySelector('.album-card-year')).not.toBeInTheDocument()
   })
 
-  it('shows listen count on mobile card', () => {
-    useIsMobile.mockReturnValue(true)
-    const counts = { id1: 7 }
-    render(<AlbumTable albums={ALBUMS} loading={false} listenCounts={counts} />)
-    expect(screen.getByText('7')).toBeInTheDocument()
-    useIsMobile.mockReturnValue(false)
-  })
+
 })
 
 describe('AlbumTable reorderable drag handles (desktop)', () => {
