@@ -54,7 +54,7 @@ def get_playback_state(sp: spotipy.Spotify = Depends(get_user_spotify)):
             "progress_ms": state.get("progress_ms"),
             "duration_ms": item.get("duration_ms"),
         },
-        "device": {"name": device["name"], "type": device["type"]} if device else None,
+        "device": {"id": device.get("id"), "name": device["name"], "type": device["type"]} if device else None,
     }
 
 

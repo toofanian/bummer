@@ -16,7 +16,7 @@ PLAYBACK_STATE = {
         "album": {"name": "Some Album", "id": "album-spotify-id-123"},
         "artists": [{"name": "Artist A"}, {"name": "Artist B"}],
     },
-    "device": {"name": "My Mac", "type": "Computer"},
+    "device": {"id": "device-id-abc", "name": "My Mac", "type": "Computer"},
 }
 
 
@@ -52,6 +52,7 @@ def test_get_playback_state_returns_simplified_shape():
     assert data["track"]["artists"] == ["Artist A", "Artist B"]
     assert data["track"]["progress_ms"] == 45000
     assert data["track"]["duration_ms"] == 240000
+    assert data["device"]["id"] == "device-id-abc"
     assert data["device"]["name"] == "My Mac"
     assert data["device"]["type"] == "Computer"
 
