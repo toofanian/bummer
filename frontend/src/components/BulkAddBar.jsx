@@ -4,7 +4,7 @@ export default function BulkAddBar({ selectedAlbums, onOpenPicker, onClear, bott
   return (
     <div
       className="fixed left-0 right-0 z-[300] bg-surface border-t border-border"
-      style={{ bottom: bottomOffset, paddingBottom: bottomOffset === 0 ? 'calc(12px + env(safe-area-inset-bottom, 0px))' : undefined }}
+      style={{ bottom: bottomOffset ? `calc(${bottomOffset}px + env(safe-area-inset-bottom, 0px))` : 0, paddingBottom: bottomOffset === 0 ? 'calc(12px + env(safe-area-inset-bottom, 0px))' : undefined }}
     >
       <div className="flex items-center justify-between px-4 py-2 gap-3 h-14">
         <div className="flex-1 min-w-0">
