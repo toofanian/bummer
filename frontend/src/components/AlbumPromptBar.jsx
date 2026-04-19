@@ -77,6 +77,9 @@ export default function AlbumPromptBar({ albumCollectionMap, collections, sessio
         selectedIds={selectedIds}
         onToggleSelect={handleToggleSelect}
       />
+      {recentlyAdded.length > 0 && recentlyPlayed.length > 0 && (
+        <div className="border-t border-border mx-3" />
+      )}
       <AlbumPromptRow
         label="Recently Played"
         albums={recentlyPlayed}
