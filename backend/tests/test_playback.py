@@ -464,6 +464,49 @@ def test_transfer_playback_missing_device_id_returns_422():
     clear_overrides()
 
 
+def test_transfer_no_active_device_returns_409():
+    sp = make_sp()
+    sp.transfer_playback.side_effect = make_no_device_error()
+    override_spotify(sp)
+
+    response = client.put("/playback/transfer", json={"device_id": "abc123"})
+
+    assert response.status_code == 409
+    assert response.json()["detail"] == "no_device"
+
+    clear_overrides()
+
+
+def test_transfer_restricted_device_returns_409():
+    sp = make_sp()
+    sp.transfer_playback.side_effect = make_restricted_device_error()
+    override_spotify(sp)
+
+    response = client.put("/playback/transfer", json={"device_id": "abc123"})
+
+    assert response.status_code == 409
+    assert response.json()["detail"] == "restricted_device"
+
+    clear_overrides()
+
+
+def test_transfer_start_playback_restricted_returns_409():
+    """If transfer succeeds but start_playback hits restricted device, return 409."""
+    sp = make_sp()
+    sp.start_playback.side_effect = make_restricted_device_error()
+    override_spotify(sp)
+
+    response = client.put(
+        "/playback/transfer",
+        json={"device_id": "abc123", "context_uri": "spotify:album:xyz789"},
+    )
+
+    assert response.status_code == 409
+    assert response.json()["detail"] == "restricted_device"
+
+    clear_overrides()
+
+
 # --- PUT /playback/seek ---
 
 

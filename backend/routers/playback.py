@@ -189,7 +189,23 @@ def get_queue(sp: spotipy.Spotify = Depends(get_user_spotify)):
 def transfer_playback(
     body: TransferRequest, sp: spotipy.Spotify = Depends(get_user_spotify)
 ):
-    sp.transfer_playback(body.device_id, force_play=True)
+    try:
+        sp.transfer_playback(body.device_id, force_play=True)
+    except spotipy.exceptions.SpotifyException as e:
+        if _is_no_active_device(e):
+            raise HTTPException(status_code=409, detail="no_device")
+        if _is_restricted_device(e):
+            raise HTTPException(status_code=409, detail="restricted_device")
+        raise
+
     if body.context_uri:
-        sp.start_playback(context_uri=body.context_uri)
+        try:
+            sp.start_playback(context_uri=body.context_uri)
+        except spotipy.exceptions.SpotifyException as e:
+            if _is_restricted_device(e):
+                raise HTTPException(status_code=409, detail="restricted_device")
+            if _is_no_active_device(e):
+                raise HTTPException(status_code=409, detail="no_device")
+            raise
+
     return Response(status_code=204)
