@@ -1184,13 +1184,13 @@ export default function App() {
 
       <div className="flex-1 overflow-hidden flex flex-col">
         {view === 'home' && (
-          <div className="flex-1 overflow-y-auto pb-16">
+          <div className="flex-1 overflow-y-auto pb-20">
             <HomePage onPlay={handlePlay} session={session} />
           </div>
         )}
 
         {view === 'library' && (
-          <div className="flex-1 overflow-y-auto pb-16">
+          <div className="flex-1 overflow-y-auto pb-20">
             {albumsLoading && albums.length === 0 ? (
               <div data-testid="inline-loading-spinner" className="flex items-center justify-center py-16">
                 <div className="w-7 h-7 border-[2.5px] border-border border-t-accent rounded-full animate-spin" />
@@ -1231,7 +1231,7 @@ export default function App() {
         )}
 
         {view === 'collections' && (
-          <div className="flex-1 overflow-y-auto pb-16">
+          <div className="flex-1 overflow-y-auto pb-20">
             {collectionsLoading && collections.length === 0 ? (
               <div data-testid="inline-loading-spinner" className="flex items-center justify-center py-16">
                 <div className="w-7 h-7 border-[2.5px] border-border border-t-accent rounded-full animate-spin" />
@@ -1286,7 +1286,7 @@ export default function App() {
         )}
 
         {view === 'digest' && (
-          <div className="flex-1 overflow-y-auto pb-16">
+          <div className="flex-1 overflow-y-auto pb-20">
             <DigestView onPlay={handlePlay} session={session} />
           </div>
         )}
@@ -1302,7 +1302,7 @@ export default function App() {
               onRename={(newName) => handleRenameCollection(view.id, newName)}
               onPlay={handlePlayCollection}
             />
-            <div className="flex-1 overflow-y-auto pb-16">
+            <div className="flex-1 overflow-y-auto pb-20">
               <AlbumTable
                 albums={filterAlbums(collectionAlbums, search)}
                 loading={false}
