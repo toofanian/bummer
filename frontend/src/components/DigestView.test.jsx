@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import ChangelogView from './ChangelogView'
+import DigestView from './DigestView'
 import { useIsMobile } from '../hooks/useIsMobile'
 
 vi.mock('../hooks/useIsMobile', () => ({
@@ -61,7 +61,7 @@ function mockFetchForAllEndpoints() {
   })
 }
 
-describe('ChangelogView', () => {
+describe('DigestView', () => {
   beforeEach(() => {
     vi.restoreAllMocks()
     useIsMobile.mockReturnValue(false)
@@ -74,7 +74,7 @@ describe('ChangelogView', () => {
 
   it('renders all three columns on wide viewport', async () => {
     useIsMobile.mockReturnValue(false)
-    render(<ChangelogView onPlay={() => {}} />)
+    render(<DigestView onPlay={() => {}} />)
     await waitFor(() => {
       expect(screen.getByText('Library Changes')).toBeInTheDocument()
       expect(screen.getByText('Listening History')).toBeInTheDocument()
@@ -85,14 +85,14 @@ describe('ChangelogView', () => {
   it('renders tab switcher on narrow viewport', async () => {
     useIsMobile.mockReturnValue(true)
     const user = userEvent.setup()
-    render(<ChangelogView onPlay={() => {}} />)
+    render(<DigestView onPlay={() => {}} />)
 
     // Tab buttons should be visible
     expect(screen.getByRole('tab', { name: /changes/i })).toBeInTheDocument()
     expect(screen.getByRole('tab', { name: /history/i })).toBeInTheDocument()
     expect(screen.getByRole('tab', { name: /stats/i })).toBeInTheDocument()
 
-    // Default tab is changelog
+    // Default tab is changes
     await waitFor(() => {
       expect(screen.getByText('Library Changes')).toBeInTheDocument()
     })
@@ -110,8 +110,8 @@ describe('ChangelogView', () => {
     })
   })
 
-  it('renders changelog entries', async () => {
-    render(<ChangelogView onPlay={() => {}} />)
+  it('renders change entries', async () => {
+    render(<DigestView onPlay={() => {}} />)
     await waitFor(() => {
       expect(screen.getByText('New Album')).toBeInTheDocument()
       expect(screen.getByText('Old Album')).toBeInTheDocument()
@@ -121,7 +121,7 @@ describe('ChangelogView', () => {
   })
 
   it('renders listening history grouped by day', async () => {
-    render(<ChangelogView onPlay={() => {}} />)
+    render(<DigestView onPlay={() => {}} />)
     await waitFor(() => {
       expect(screen.getByText('2026-04-16')).toBeInTheDocument()
       expect(screen.getByText('Played Album')).toBeInTheDocument()
@@ -130,7 +130,7 @@ describe('ChangelogView', () => {
   })
 
   it('renders stats with top albums and artists', async () => {
-    render(<ChangelogView onPlay={() => {}} />)
+    render(<DigestView onPlay={() => {}} />)
     await waitFor(() => {
       expect(screen.getByText('Top Albums')).toBeInTheDocument()
       expect(screen.getByText('Top Artists')).toBeInTheDocument()
