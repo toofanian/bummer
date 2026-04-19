@@ -172,7 +172,8 @@ export function usePlayback(session = null) {
       method: 'PUT',
       body: JSON.stringify(payload),
     }, sessionRef.current)
-    // Refresh state so device name in PlaybackBar updates immediately
+    // Give Spotify time to process the transfer before refreshing state
+    await new Promise(resolve => setTimeout(resolve, 500))
     const res = await apiFetch('/playback/state', {}, sessionRef.current)
     if (res.ok) {
       const data = await res.json()
