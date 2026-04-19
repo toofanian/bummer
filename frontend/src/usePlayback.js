@@ -47,7 +47,7 @@ export function usePlayback(session = null) {
       mounted = false
       clearInterval(interval)
     }
-  }, [])
+  }, [!!session])
 
   const play = useCallback(async (contextUri = null) => {
     const res = await apiFetch('/playback/play', {
