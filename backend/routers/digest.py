@@ -384,7 +384,7 @@ def ensure_snapshot(
 
     # Check if a snapshot already exists for today
     existing = (
-        db.table("library_snapshots").select("*").eq("snapshot_date", today).execute()
+        db.table("library_snapshots").select("*").eq("snapshot_date", today).eq("user_id", user_id).execute()
     )
     if existing.data:
         snap = existing.data[0]
