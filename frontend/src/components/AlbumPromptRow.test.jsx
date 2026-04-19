@@ -82,4 +82,47 @@ describe('AlbumPromptRow', () => {
     )
     expect(container.firstChild).toBeNull()
   })
+
+  it('shows checkmark overlay when album is selected', () => {
+    render(
+      <AlbumPromptRow
+        label="Recently Added"
+        albums={ALBUMS}
+        albumCollectionMap={{}}
+        selectedIds={new Set(['a1'])}
+        onToggleSelect={() => {}}
+      />
+    )
+    const overlay = screen.getByTestId('selected-overlay')
+    expect(overlay).toBeInTheDocument()
+  })
+
+  it('calls onToggleSelect with album service_id on click', async () => {
+    const onToggleSelect = vi.fn()
+    render(
+      <AlbumPromptRow
+        label="Recently Added"
+        albums={ALBUMS}
+        albumCollectionMap={{}}
+        selectedIds={new Set()}
+        onToggleSelect={onToggleSelect}
+      />
+    )
+    await userEvent.click(screen.getByRole('button', { name: /select album one/i }))
+    expect(onToggleSelect).toHaveBeenCalledWith('a1')
+  })
+
+  it('shows both checkmark and collection count when selected and in collections', () => {
+    render(
+      <AlbumPromptRow
+        label="Recently Added"
+        albums={ALBUMS}
+        albumCollectionMap={COLLECTION_MAP}
+        selectedIds={new Set(['a1'])}
+        onToggleSelect={() => {}}
+      />
+    )
+    expect(screen.getByTestId('selected-overlay')).toBeInTheDocument()
+    expect(screen.getByText('2')).toBeInTheDocument()
+  })
 })
