@@ -30,11 +30,11 @@ export default function SignupScreen() {
   return (
     <div className="flex flex-col items-center justify-center min-h-screen gap-6 p-8">
       <h1 className="text-3xl font-bold">Bummer</h1>
-      <p className="text-gray-400">the death of shuffle</p>
-      <form onSubmit={handleGoogleSignIn} className="flex flex-col gap-4 w-full max-w-sm">
+      <p className="text-gray-400">The Death of Shuffle.</p>
+      <form onSubmit={handleGoogleSignIn} className="flex flex-col items-center gap-4">
         {errorMsg && <p className="text-red-400 text-sm">{errorMsg}</p>}
         <button type="submit" disabled={loading}
-          className="bg-white text-black font-semibold rounded-lg px-4 py-2 hover:bg-gray-200 disabled:opacity-50">
+          className="bg-white text-black font-semibold rounded-lg px-6 py-2 hover:bg-gray-200 disabled:opacity-50">
           {loading ? 'Signing in…' : 'Sign in with Google'}
         </button>
       </form>
