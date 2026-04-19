@@ -241,7 +241,7 @@ export default function PlaybackBar({
             <button
               aria-label="Pause"
               data-prominent="true"
-              className="bg-text border-none text-bg cursor-pointer w-8 h-8 p-0 rounded-full text-base leading-none flex items-center justify-center transition-[transform,background] duration-150 flex-shrink-0"
+              className="bg-text border-none text-bg cursor-pointer w-7 h-7 p-0 rounded-full text-base leading-none flex items-center justify-center transition-[transform,background] duration-150 flex-shrink-0"
               onClick={onPause}
             >
               <PauseIcon />
@@ -250,7 +250,7 @@ export default function PlaybackBar({
             <button
               aria-label="Play"
               data-prominent="true"
-              className="bg-text border-none text-bg cursor-pointer w-8 h-8 p-0 rounded-full text-base leading-none flex items-center justify-center transition-[transform,background] duration-150 flex-shrink-0"
+              className="bg-text border-none text-bg cursor-pointer w-7 h-7 p-0 rounded-full text-base leading-none flex items-center justify-center transition-[transform,background] duration-150 flex-shrink-0"
               onClick={onPlay}
             >
               <PlayIcon />
