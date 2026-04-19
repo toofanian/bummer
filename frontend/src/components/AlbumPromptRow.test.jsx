@@ -122,4 +122,36 @@ describe('AlbumPromptRow', () => {
     expect(screen.getByTestId('selected-overlay')).toBeInTheDocument()
     expect(screen.getByText('2')).toBeInTheDocument()
   })
+
+  it('renders all albums without truncating to visible count', () => {
+    const manyAlbums = Array.from({ length: 20 }, (_, i) => ({
+      service_id: `alb-${i}`,
+      name: `Album ${i}`,
+      image_url: `https://example.com/${i}.jpg`,
+    }))
+    render(
+      <AlbumPromptRow
+        albums={manyAlbums}
+        albumCollectionMap={{}}
+        selectedIds={new Set()}
+        onToggleSelect={() => {}}
+      />
+    )
+    const buttons = screen.getAllByRole('button')
+    expect(buttons).toHaveLength(20)
+  })
+
+  it('has horizontal scroll styling on the container', () => {
+    render(
+      <AlbumPromptRow
+        albums={ALBUMS}
+        albumCollectionMap={{}}
+        selectedIds={new Set()}
+        onToggleSelect={() => {}}
+      />
+    )
+    const scrollContainer = screen.getAllByRole('button')[0].parentElement
+    expect(scrollContainer.className).toContain('overflow-x-auto')
+    expect(scrollContainer.style.scrollBehavior).toBe('smooth')
+  })
 })
