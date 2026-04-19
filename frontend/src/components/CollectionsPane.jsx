@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react'
 import { useIsMobile } from '../hooks/useIsMobile'
 import AlbumArtStrip from './AlbumArtStrip'
+import AlbumPromptBar from './AlbumPromptBar'
 
-export default function CollectionsPane({ collections, onEnter, onDelete, onCreate, onRename, onFetchAlbums }) {
+export default function CollectionsPane({ collections, onEnter, onDelete, onCreate, onRename, onFetchAlbums, albumCollectionMap, collectionsForPicker, session, onBulkAdd, onCreateCollection }) {
   const [artMap, setArtMap] = useState({})
   const [confirmingId, setConfirmingId] = useState(null)
   const [menuOpenId, setMenuOpenId] = useState(null)
@@ -184,6 +185,13 @@ export default function CollectionsPane({ collections, onEnter, onDelete, onCrea
           })}
         </div>
       )}
+      <AlbumPromptBar
+        albumCollectionMap={albumCollectionMap || {}}
+        collections={collectionsForPicker || []}
+        session={session}
+        onBulkAdd={onBulkAdd || (() => {})}
+        onCreate={onCreateCollection || (() => {})}
+      />
     </div>
   )
 }
