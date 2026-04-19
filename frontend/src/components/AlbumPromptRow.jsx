@@ -2,10 +2,10 @@ export default function AlbumPromptRow({ label, albums, albumCollectionMap, sele
   if (!albums || albums.length === 0) return null
 
   return (
-    <div>
+    <div className="overflow-visible">
       <div className="text-[10px] font-medium text-text-dim uppercase tracking-wider px-3 py-1">{label}</div>
       <div
-        className="flex gap-2 px-3 pb-2 overflow-x-auto prompt-row-scroll"
+        className="flex gap-2 px-3 pb-2 pt-1 overflow-x-auto prompt-row-scroll"
         style={{ WebkitOverflowScrolling: 'touch', scrollbarWidth: 'none', msOverflowStyle: 'none' }}
       >
         {albums.map(album => {
