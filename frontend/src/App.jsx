@@ -102,7 +102,7 @@ export default function App() {
     // Fallback (older backend responses without album_service_id)
     return albums.find(a => a.name === playback.track?.album)
   }, [albums, playback.track?.album_service_id, playback.track?.album])
-  const nowPlayingServiceId = nowPlayingAlbum?.service_id ?? null
+  const nowPlayingServiceId = nowPlayingAlbum?.service_id ?? playback.track?.album_spotify_id ?? null
   const nowPlayingImageUrl = nowPlayingAlbum?.image_url ?? playback.track?.image_url ?? null
 
   // Restore playingId from Spotify playback state on reload
@@ -975,7 +975,7 @@ export default function App() {
           onSetVolume={setVolume}
           onFetchTracks={handleFetchTracks}
           onPlayTrack={handlePlayTrack}
-          albumServiceId={nowPlayingServiceId}
+          albumSpotifyId={nowPlayingServiceId}
           albumImageUrl={nowPlayingImageUrl}
           onFetchDevices={fetchDevices}
           onTransferPlayback={transferPlayback}
