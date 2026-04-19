@@ -1284,6 +1284,7 @@ export default function App() {
                 }
               }}
               onCreateCollection={handleCreateCollection}
+              onReorder={handleReorderCollections}
             />
             )}
           </div>
