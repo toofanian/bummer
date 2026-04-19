@@ -550,6 +550,25 @@ export default function App() {
     }
   }
 
+  async function handleReorderCollections(collectionIds) {
+    // Optimistic reorder: rearrange collections to match the new order
+    const colMap = Object.fromEntries(collections.map(c => [c.id, c]))
+    setCollections(collectionIds.map(id => colMap[id]).filter(Boolean))
+
+    try {
+      const res = await apiFetch('/collections/reorder', {
+        method: 'PUT',
+        body: JSON.stringify({ collection_ids: collectionIds }),
+      }, sessionRef.current)
+      if (!res.ok) throw new Error('Failed to reorder collections')
+    } catch {
+      // Re-fetch server order on failure
+      const res = await apiFetch('/collections', {}, sessionRef.current)
+      const data = await res.json()
+      setCollections(Array.isArray(data) ? data : [])
+    }
+  }
+
   async function handleUpdateCollectionDescription(collectionId, description) {
     await apiFetch(`/collections/${collectionId}/description`, {
       method: 'PUT',
@@ -893,6 +912,34 @@ export default function App() {
                 onRename={handleRenameCollection}
                 onCreate={handleCreateCollection}
                 onFetchAlbums={handleFetchCollectionAlbums}
+                albumCollectionMap={albumCollectionMap}
+                collectionsForPicker={collections}
+                session={session}
+                onBulkAdd={async (collectionId, albumIds) => {
+                  const res = await apiFetch(`/collections/${collectionId}/albums/bulk`, {
+                    method: 'POST',
+                    body: JSON.stringify({ service_ids: albumIds }),
+                  }, sessionRef.current)
+                  if (!res.ok) throw new Error('Failed to bulk add')
+                  const data = await res.json()
+                  setAlbumCollectionMap(prev => {
+                    const next = { ...prev }
+                    albumIds.forEach(id => {
+                      if (!next[id]) next[id] = []
+                      if (!next[id].includes(collectionId)) {
+                        next[id] = [...next[id], collectionId]
+                      }
+                    })
+                    return next
+                  })
+                  if (data.album_count != null) {
+                    setCollections(prev => prev.map(c =>
+                      c.id === collectionId ? { ...c, album_count: data.album_count } : c
+                    ))
+                  }
+                }}
+                onCreateCollection={handleCreateCollection}
+                onReorder={handleReorderCollections}
               />
               )}
             </div>
@@ -1206,6 +1253,34 @@ export default function App() {
               onRename={handleRenameCollection}
               onCreate={handleCreateCollection}
               onFetchAlbums={handleFetchCollectionAlbums}
+              albumCollectionMap={albumCollectionMap}
+              collectionsForPicker={collections}
+              session={session}
+              onBulkAdd={async (collectionId, albumIds) => {
+                const res = await apiFetch(`/collections/${collectionId}/albums/bulk`, {
+                  method: 'POST',
+                  body: JSON.stringify({ service_ids: albumIds }),
+                }, sessionRef.current)
+                if (!res.ok) throw new Error('Failed to bulk add')
+                const data = await res.json()
+                setAlbumCollectionMap(prev => {
+                  const next = { ...prev }
+                  albumIds.forEach(id => {
+                    if (!next[id]) next[id] = []
+                    if (!next[id].includes(collectionId)) {
+                      next[id] = [...next[id], collectionId]
+                    }
+                  })
+                  return next
+                })
+                if (data.album_count != null) {
+                  setCollections(prev => prev.map(c =>
+                    c.id === collectionId ? { ...c, album_count: data.album_count } : c
+                  ))
+                }
+              }}
+              onCreateCollection={handleCreateCollection}
+              onReorder={handleReorderCollections}
             />
             )}
           </div>

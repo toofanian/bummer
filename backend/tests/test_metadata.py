@@ -26,6 +26,10 @@ def mock_db(execute_data=None):
     db.table.return_value.select.return_value.execute.return_value = MagicMock(
         data=execute_data or []
     )
+    # Chain for .select().order().execute() (list_collections with position ordering)
+    db.table.return_value.select.return_value.order.return_value.execute.return_value = MagicMock(
+        data=execute_data or []
+    )
     db.table.return_value.select.return_value.eq.return_value.execute.return_value = (
         MagicMock(data=execute_data or [])
     )
@@ -716,6 +720,76 @@ def test_remove_album_from_collection_returns_401_when_not_authenticated():
 
 
 # --- list_collections without Spotify ---
+
+
+# --- Collection reorder ---
+
+
+def test_reorder_collections():
+    db = mock_db()
+    db.table.return_value.update.return_value.eq.return_value.eq.return_value.execute.return_value = MagicMock(
+        data=[]
+    )
+    override_db(db)
+    override_spotify(mock_spotify())
+
+    response = client.put(
+        "/collections/reorder",
+        json={"collection_ids": ["col-3", "col-1", "col-2"]},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["reordered"] is True
+
+    clear_overrides()
+
+
+def test_reorder_collections_requires_collection_ids():
+    db = mock_db()
+    override_db(db)
+    override_spotify(mock_spotify())
+
+    response = client.put("/collections/reorder", json={})
+
+    assert response.status_code == 422
+
+    clear_overrides()
+
+
+def test_list_collections_orders_by_position():
+    """GET /collections should call .order('position') on the query."""
+    db = mock_db(
+        execute_data=[
+            {**COLLECTION, "position": 0},
+        ]
+    )
+    override_db(db)
+    override_spotify(mock_spotify())
+
+    response = client.get("/collections")
+
+    assert response.status_code == 200
+    # Verify .order("position") was called on the select chain
+    db.table.return_value.select.return_value.order.assert_called_with("position")
+
+    clear_overrides()
+
+
+def test_create_collection_assigns_next_position():
+    """POST /collections should assign position = max(existing) + 1."""
+    db = mock_db(execute_data=[{**COLLECTION, "position": 3}])
+    # Mock the max position lookup: .select("position").order("position", desc=True).limit(1)
+    db.table.return_value.select.return_value.order.return_value.limit.return_value.execute.return_value = MagicMock(
+        data=[{"position": 2}]
+    )
+    override_db(db)
+    override_spotify(mock_spotify())
+
+    response = client.post("/collections", json={"name": "New one"})
+
+    assert response.status_code == 201
+
+    clear_overrides()
 
 
 def test_list_collections_works_without_spotify_token():

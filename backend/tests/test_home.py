@@ -203,17 +203,45 @@ def test_home_recommended_by_frequent_artists(mock_cache):
         clear_overrides()
 
 
-@patch("routers.home.get_album_cache", return_value=ALBUM_CACHE)
-def test_home_returns_recently_added(mock_cache):
-    db = mock_db_with_play_history([])
-    setup_overrides(db=db)
-    try:
-        res = client.get("/home", params={"tz": "UTC"})
-        assert res.status_code == 200
-        data = res.json()
-        assert "recently_added" in data
-        ids = [a["service_id"] for a in data["recently_added"]]
-        # Should be sorted by added_at descending
-        assert ids == ["album2", "album1", "album3"]
-    finally:
-        clear_overrides()
+def test_home_returns_recently_added_within_14_days():
+    now = datetime.now(timezone.utc)
+    cache_with_recent = [
+        {
+            "service_id": "new1",
+            "name": "New One",
+            "artists": ["Artist A"],
+            "image_url": "https://img/n1.jpg",
+            "release_date": "2024-01-01",
+            "added_at": (now - timedelta(days=2)).isoformat(),
+        },
+        {
+            "service_id": "new2",
+            "name": "New Two",
+            "artists": ["Artist B"],
+            "image_url": "https://img/n2.jpg",
+            "release_date": "2024-01-01",
+            "added_at": (now - timedelta(days=10)).isoformat(),
+        },
+        {
+            "service_id": "old1",
+            "name": "Old One",
+            "artists": ["Artist C"],
+            "image_url": "https://img/o1.jpg",
+            "release_date": "2024-01-01",
+            "added_at": (now - timedelta(days=30)).isoformat(),
+        },
+    ]
+    with patch("routers.home.get_album_cache", return_value=cache_with_recent):
+        db = mock_db_with_play_history([])
+        setup_overrides(db=db)
+        try:
+            res = client.get("/home", params={"tz": "UTC"})
+            assert res.status_code == 200
+            data = res.json()
+            assert "recently_added" in data
+            ids = [a["service_id"] for a in data["recently_added"]]
+            # Only albums added within 14 days, sorted descending
+            assert ids == ["new1", "new2"]
+            assert "old1" not in ids
+        finally:
+            clear_overrides()

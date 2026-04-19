@@ -2,6 +2,13 @@ import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import CollectionsPane from './CollectionsPane'
 
+// Mock apiFetch so AlbumPromptBar's home-data fetch doesn't fail
+vi.mock('../api', () => ({
+  apiFetch: vi.fn(() => Promise.resolve({
+    json: () => Promise.resolve({ recently_added: [], today: [], this_week: [] }),
+  })),
+}))
+
 const TWO_DAYS_AGO = new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString()
 const FIVE_DAYS_AGO = new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString()
 
@@ -174,8 +181,8 @@ describe('CollectionsPane', () => {
         onFetchAlbums={() => Promise.resolve([])}
       />
     )
-    expect(screen.getByText('5')).toBeInTheDocument()
-    expect(screen.getByText('12')).toBeInTheDocument()
+    expect(screen.getByText('5 albums')).toBeInTheDocument()
+    expect(screen.getByText('12 albums')).toBeInTheDocument()
   })
 
   it('shows description as subtitle on collection card', () => {
@@ -418,5 +425,61 @@ describe('CollectionsPane', () => {
     const cancelBtn = screen.getByRole('button', { name: /cancel/i })
     await userEvent.click(cancelBtn)
     expect(onDelete).not.toHaveBeenCalled()
+  })
+
+  // --- Drag reorder ---
+
+  it('renders drag handles when onReorder prop is provided', () => {
+    render(
+      <CollectionsPane
+        collections={COLLECTIONS}
+        onEnter={() => {}}
+        onDelete={() => {}}
+        onFetchAlbums={() => Promise.resolve([])}
+        onReorder={() => {}}
+      />
+    )
+    const handles = screen.getAllByRole('button', { name: /drag to reorder/i })
+    expect(handles).toHaveLength(2)
+  })
+
+  it('does not render drag handles when onReorder is not provided', () => {
+    render(
+      <CollectionsPane
+        collections={COLLECTIONS}
+        onEnter={() => {}}
+        onDelete={() => {}}
+        onFetchAlbums={() => Promise.resolve([])}
+      />
+    )
+    expect(screen.queryByRole('button', { name: /drag to reorder/i })).not.toBeInTheDocument()
+  })
+
+  it('renders AlbumPromptBar when prompt bar props are provided', async () => {
+    const { apiFetch } = await import('../api')
+    apiFetch.mockResolvedValue({
+      json: () => Promise.resolve({
+        recently_added: [{ service_id: 'ra1', name: 'New Album', image_url: 'https://example.com/new.jpg' }],
+        today: [],
+        this_week: [],
+      }),
+    })
+    render(
+      <CollectionsPane
+        collections={[]}
+        onEnter={() => {}}
+        onDelete={() => {}}
+        onCreate={() => {}}
+        onFetchAlbums={() => Promise.resolve([])}
+        albumCollectionMap={{}}
+        collectionsForPicker={[]}
+        session={{ access_token: 'test' }}
+        onBulkAdd={() => {}}
+        onCreateCollection={() => {}}
+      />
+    )
+    await waitFor(() => {
+      expect(screen.getByTestId('album-prompt-bar')).toBeInTheDocument()
+    })
   })
 })

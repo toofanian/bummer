@@ -1,0 +1,73 @@
+export default function AlbumPromptRow({ label, albums, albumCollectionMap, selectedIds, onToggleSelect }) {
+  const hasAlbums = albums && albums.length > 0
+
+  return (
+    <div className="overflow-visible">
+      <div className="text-[10px] font-medium text-text-dim uppercase tracking-wider px-3 py-1">{label}</div>
+      {!hasAlbums ? (
+        <div className="px-3 pb-2 pt-1 text-xs text-text-dim italic">Nothing yet</div>
+      ) : (
+      <div
+        className="flex gap-2 px-3 pb-2 pt-1 overflow-x-auto prompt-row-scroll"
+        style={{ WebkitOverflowScrolling: 'touch', scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+      >
+        {albums.map(album => {
+          const collectionIds = albumCollectionMap[album.service_id] || []
+          const count = collectionIds.length
+          const isSelected = selectedIds.has(album.service_id)
+
+          return (
+            <button
+              key={album.service_id}
+              className={`relative flex-shrink-0 rounded-md overflow-hidden transition-all duration-150 p-0 border-none bg-transparent ${
+                isSelected
+                  ? 'ring-2 ring-accent shadow-[0_0_8px_rgba(var(--accent-rgb,99,102,241),0.4)]'
+                  : ''
+              }`}
+              style={{ width: 56, height: 56 }}
+              onClick={() => onToggleSelect(album.service_id)}
+              aria-label={`${isSelected ? 'Deselect' : 'Select'} ${album.name}`}
+            >
+              {album.image_url ? (
+                <img
+                  src={album.image_url}
+                  alt={album.name}
+                  width={56}
+                  height={56}
+                  className="rounded-md object-cover"
+                  style={{ width: 56, height: 56 }}
+                />
+              ) : (
+                <div data-testid="album-placeholder" className="rounded-md bg-surface-2" style={{ width: 56, height: 56 }} />
+              )}
+
+              {(count > 0 || isSelected) && (
+                <div
+                  data-testid="collection-count-overlay"
+                  className={`absolute inset-0 bg-black/50 flex items-center justify-center ${
+                    isSelected && count > 0 ? 'items-end justify-end pb-1 pr-1' : ''
+                  }`}
+                >
+                  {count > 0 && (
+                    <span className={`text-white font-bold ${isSelected ? 'text-[10px]' : 'text-sm'}`}>
+                      {count}
+                    </span>
+                  )}
+                </div>
+              )}
+
+              {isSelected && (
+                <div className="absolute inset-0 flex items-center justify-center" data-testid="selected-overlay">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                    <polyline points="20 6 9 17 4 12" />
+                  </svg>
+                </div>
+              )}
+            </button>
+          )
+        })}
+      </div>
+      )}
+    </div>
+  )
+}

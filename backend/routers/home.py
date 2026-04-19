@@ -121,12 +121,17 @@ def get_home(
         recommended_candidates, min(20, len(recommended_candidates))
     )
 
-    # Recently added: albums sorted by added_at descending, capped at 20
+    # Recently added: albums added within the last 14 days, sorted by added_at descending
+    fourteen_days_ago = (datetime.now(timezone.utc) - timedelta(days=14)).isoformat()
     recently_added = sorted(
-        [a for a in album_cache if a.get("added_at")],
+        [
+            a
+            for a in album_cache
+            if a.get("added_at") and a["added_at"] >= fourteen_days_ago
+        ],
         key=lambda a: a["added_at"],
         reverse=True,
-    )[:20]
+    )
 
     return {
         "today": resolve(today_ids),
