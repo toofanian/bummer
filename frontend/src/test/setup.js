@@ -1,5 +1,12 @@
 import '@testing-library/jest-dom'
 
+// jsdom does not implement ResizeObserver — stub it.
+globalThis.ResizeObserver = class ResizeObserver {
+  observe() {}
+  unobserve() {}
+  disconnect() {}
+}
+
 // jsdom does not implement matchMedia — stub it so useIsMobile doesn't crash.
 // Returns matches: false (desktop) by default; individual tests can override.
 Object.defineProperty(window, 'matchMedia', {
