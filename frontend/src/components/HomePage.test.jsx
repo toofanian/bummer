@@ -63,7 +63,7 @@ describe('HomePage', () => {
     await waitFor(() => {
       expect(screen.getByRole('tab', { name: /recently played/i })).toBeInTheDocument()
       expect(screen.getByRole('tab', { name: /recently added/i })).toBeInTheDocument()
-      expect(screen.getByRole('tab', { name: /you might like/i })).toBeInTheDocument()
+      expect(screen.getByRole('tab', { name: /related/i })).toBeInTheDocument()
       expect(screen.getByRole('tab', { name: /rediscover/i })).toBeInTheDocument()
     })
   })
