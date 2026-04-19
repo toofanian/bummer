@@ -550,6 +550,25 @@ export default function App() {
     }
   }
 
+  async function handleReorderCollections(collectionIds) {
+    // Optimistic reorder: rearrange collections to match the new order
+    const colMap = Object.fromEntries(collections.map(c => [c.id, c]))
+    setCollections(collectionIds.map(id => colMap[id]).filter(Boolean))
+
+    try {
+      const res = await apiFetch('/collections/reorder', {
+        method: 'PUT',
+        body: JSON.stringify({ collection_ids: collectionIds }),
+      }, sessionRef.current)
+      if (!res.ok) throw new Error('Failed to reorder collections')
+    } catch {
+      // Re-fetch server order on failure
+      const res = await apiFetch('/collections', {}, sessionRef.current)
+      const data = await res.json()
+      setCollections(Array.isArray(data) ? data : [])
+    }
+  }
+
   async function handleUpdateCollectionDescription(collectionId, description) {
     await apiFetch(`/collections/${collectionId}/description`, {
       method: 'PUT',
@@ -920,6 +939,7 @@ export default function App() {
                   }
                 }}
                 onCreateCollection={handleCreateCollection}
+                onReorder={handleReorderCollections}
               />
               )}
             </div>

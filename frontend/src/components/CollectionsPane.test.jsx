@@ -427,6 +427,34 @@ describe('CollectionsPane', () => {
     expect(onDelete).not.toHaveBeenCalled()
   })
 
+  // --- Drag reorder ---
+
+  it('renders drag handles when onReorder prop is provided', () => {
+    render(
+      <CollectionsPane
+        collections={COLLECTIONS}
+        onEnter={() => {}}
+        onDelete={() => {}}
+        onFetchAlbums={() => Promise.resolve([])}
+        onReorder={() => {}}
+      />
+    )
+    const handles = screen.getAllByRole('button', { name: /drag to reorder/i })
+    expect(handles).toHaveLength(2)
+  })
+
+  it('does not render drag handles when onReorder is not provided', () => {
+    render(
+      <CollectionsPane
+        collections={COLLECTIONS}
+        onEnter={() => {}}
+        onDelete={() => {}}
+        onFetchAlbums={() => Promise.resolve([])}
+      />
+    )
+    expect(screen.queryByRole('button', { name: /drag to reorder/i })).not.toBeInTheDocument()
+  })
+
   it('renders AlbumPromptBar when prompt bar props are provided', async () => {
     const { apiFetch } = await import('../api')
     apiFetch.mockResolvedValue({

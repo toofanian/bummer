@@ -31,6 +31,10 @@ class ReorderBody(BaseModel):
     album_ids: list[str] = Field(..., max_length=500)
 
 
+class ReorderCollectionsBody(BaseModel):
+    collection_ids: list[str] = Field(..., max_length=500)
+
+
 class BulkAddBody(BaseModel):
     service_ids: list[str] = Field(..., max_length=500)
 
@@ -104,7 +108,7 @@ def list_collections(
     db=Depends(get_authed_db),
     user: dict = Depends(get_current_user),
 ):
-    result = db.table("collections").select("*, collection_albums(count)").execute()
+    result = db.table("collections").select("*, collection_albums(count)").order("position").execute()
     rows = []
     for row in result.data:
         count_data = row.pop("collection_albums", None)
@@ -121,12 +125,37 @@ def create_collection(
     sp: spotipy.Spotify = Depends(get_user_spotify),
     user: dict = Depends(get_current_user),
 ):
+    # Assign position = max(existing) + 1
+    existing = (
+        db.table("collections")
+        .select("position")
+        .order("position", desc=True)
+        .limit(1)
+        .execute()
+    )
+    next_pos = (existing.data[0]["position"] or 0) + 1 if existing.data else 0
+
     result = (
         db.table("collections")
-        .insert({"name": body.name, "user_id": user["user_id"]})
+        .insert({"name": body.name, "user_id": user["user_id"], "position": next_pos})
         .execute()
     )
     return result.data[0]
+
+
+@router.put("/collections/reorder")
+def reorder_collections(
+    body: ReorderCollectionsBody,
+    db=Depends(get_authed_db),
+    sp: spotipy.Spotify = Depends(get_user_spotify),
+    user: dict = Depends(get_current_user),
+):
+    user_id = user["user_id"]
+    for i, collection_id in enumerate(body.collection_ids):
+        db.table("collections").update({"position": i}).eq(
+            "id", collection_id
+        ).eq("user_id", user_id).execute()
+    return {"reordered": True}
 
 
 @router.delete("/collections/{collection_id}")
