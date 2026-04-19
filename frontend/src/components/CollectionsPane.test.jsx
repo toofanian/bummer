@@ -241,6 +241,21 @@ describe('CollectionsPane', () => {
     expect(fixedHeightEl).toBeInTheDocument()
   })
 
+  it('collections list container allows vertical scrolling', () => {
+    render(
+      <CollectionsPane
+        collections={COLLECTIONS}
+        onEnter={() => {}}
+        onDelete={() => {}}
+        onFetchAlbums={() => Promise.resolve([])}
+      />
+    )
+    const firstRow = screen.getByText('Road trip').closest('[data-testid="collection-row"]')
+    const listContainer = firstRow.parentElement
+    expect(listContainer.className).toContain('overflow-y-auto')
+    expect(listContainer.className).not.toContain('overflow-hidden')
+  })
+
   it('does not use a multi-column grid layout', () => {
     render(
       <CollectionsPane
