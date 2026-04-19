@@ -32,6 +32,7 @@ export default function App() {
   const [albums, setAlbums] = useState([])
   const [collections, setCollections] = useState([])
   const [collectionAlbums, setCollectionAlbums] = useState([])
+  const [listenCounts, setListenCounts] = useState({})
   // albumCollectionMap: { [service_id]: string[] } — IDs of collections the album belongs to
   const [albumCollectionMap, setAlbumCollectionMap] = useState({})
   const [albumsLoading, setAlbumsLoading] = useState(true)
@@ -170,6 +171,12 @@ export default function App() {
       // 2. Fetch current Supabase cache state (fast, bounded)
       const cacheResp = await apiFetch('/library/albums', {}, sessionRef.current).then(r => r.json())
       const serverAlbums = cacheResp.albums ?? []
+
+      // Fire-and-forget: fetch listen counts in parallel (non-blocking)
+      apiFetch('/library/listen-counts', {}, sessionRef.current)
+        .then(r => r.json())
+        .then(data => setListenCounts(data.counts || {}))
+        .catch(() => {})
 
       if (serverAlbums.length > 0) {
         setAlbums(serverAlbums)
@@ -413,6 +420,10 @@ export default function App() {
           method: 'POST',
           body: JSON.stringify({ album_id: albumId }),
         }, sessionRef.current).catch(() => {})
+        setListenCounts(prev => ({
+          ...prev,
+          [albumId]: (prev[albumId] || 0) + 1,
+        }))
       }
       return err
     }
@@ -845,6 +856,7 @@ export default function App() {
                   selectedIds={selectedAlbumIdSet}
                   onToggleSelect={handleToggleSelect}
                   onArtistClick={handleArtistClick}
+                  listenCounts={listenCounts}
                 />
               ) : (
                 <ArtistsView
@@ -860,6 +872,7 @@ export default function App() {
                   onToggleSelect={handleToggleSelect}
                   targetArtist={targetArtist}
                   onClearTargetArtist={() => setTargetArtist(null)}
+                  listenCounts={listenCounts}
                 />
               )}
             </div>
@@ -916,6 +929,7 @@ export default function App() {
                   reorderable
                   onReorder={handleReorderCollectionAlbums}
                   onArtistClick={handleArtistClick}
+                  listenCounts={listenCounts}
                 />
               </div>
             </div>
@@ -1151,6 +1165,7 @@ export default function App() {
                 selectedIds={selectedAlbumIdSet}
                 onToggleSelect={handleToggleSelect}
                 onArtistClick={handleArtistClick}
+                listenCounts={listenCounts}
               />
             ) : (
               <ArtistsView
@@ -1166,6 +1181,7 @@ export default function App() {
                 onToggleSelect={handleToggleSelect}
                 targetArtist={targetArtist}
                 onClearTargetArtist={() => setTargetArtist(null)}
+                listenCounts={listenCounts}
               />
             )}
           </div>
@@ -1229,6 +1245,7 @@ export default function App() {
                 reorderable
                 onReorder={handleReorderCollectionAlbums}
                 onArtistClick={handleArtistClick}
+                listenCounts={listenCounts}
               />
             </div>
           </div>

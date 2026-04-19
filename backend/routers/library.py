@@ -164,6 +164,24 @@ def get_album_tracks(album_id: str, sp: spotipy.Spotify = Depends(get_user_spoti
     }
 
 
+@router.get("/listen-counts")
+def get_listen_counts(
+    db: Client = Depends(get_authed_db),
+    user: dict = Depends(get_current_user),
+):
+    rows = (
+        db.table("play_history")
+        .select("album_id")
+        .eq("user_id", user["user_id"])
+        .execute()
+    ).data
+    counts = {}
+    for row in rows:
+        aid = row["album_id"]
+        counts[aid] = counts.get(aid, 0) + 1
+    return {"counts": counts}
+
+
 def get_album_cache(db: Client = None, user_id: str | None = None):
     """Return cached album list from Supabase, or empty list if absent.
 
