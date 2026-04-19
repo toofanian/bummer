@@ -155,8 +155,8 @@ def test_home_empty_history(mock_cache):
 
 
 @patch("routers.home.get_album_cache")
-def test_home_recently_played_capped_at_20(mock_cache):
-    """When more than 20 unique albums are played, only the 20 most recent are returned."""
+def test_home_recently_played_capped_at_30(mock_cache):
+    """When more than 30 unique albums are played, only the 30 most recent are returned."""
     albums = [
         {
             "service_id": f"album{i}",
@@ -166,15 +166,15 @@ def test_home_recently_played_capped_at_20(mock_cache):
             "release_date": "2020-01-01",
             "added_at": "2024-01-01T00:00:00Z",
         }
-        for i in range(1, 26)
+        for i in range(1, 36)
     ]
     mock_cache.return_value = albums
 
     now = datetime.now(timezone.utc)
-    # 25 unique plays, most recent first
+    # 35 unique plays, most recent first
     rows = [
         {"album_id": f"album{i}", "played_at": (now - timedelta(hours=i)).isoformat()}
-        for i in range(1, 26)
+        for i in range(1, 36)
     ]
     db = mock_db_with_play_history(rows)
     setup_overrides(db=db)
@@ -182,9 +182,9 @@ def test_home_recently_played_capped_at_20(mock_cache):
         res = client.get("/home")
         assert res.status_code == 200
         data = res.json()
-        assert len(data["recently_played"]) == 20
+        assert len(data["recently_played"]) == 30
         ids = [a["service_id"] for a in data["recently_played"]]
-        assert ids == [f"album{i}" for i in range(1, 21)]
+        assert ids == [f"album{i}" for i in range(1, 31)]
     finally:
         clear_overrides()
 
@@ -203,7 +203,7 @@ def test_home_rediscover_returns_unplayed_albums(mock_cache):
         data = res.json()
         rediscover_ids = [a["service_id"] for a in data["rediscover"]]
         assert set(rediscover_ids).issubset({"album1", "album2", "album3"})
-        assert len(rediscover_ids) <= 20
+        assert len(rediscover_ids) <= 30
     finally:
         clear_overrides()
 

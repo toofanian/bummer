@@ -272,7 +272,7 @@ export default function CollectionsPane({ collections, onEnter, onDelete, onCrea
   }
 
   const rowList = (
-    <div className="flex-1 overflow-y-auto">
+    <div className="flex-1 overflow-hidden">
       {collections.map(col => renderRow(col))}
     </div>
   )

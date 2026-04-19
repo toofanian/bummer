@@ -87,7 +87,7 @@ export default function HomePage({ onPlay, session }) {
             </button>
           ))}
         </div>
-        <div className="flex-1 overflow-y-auto">
+        <div className="flex-1 overflow-hidden">
           <AlbumList albums={sections[activeTab]} onPlay={onPlay} />
         </div>
       </div>
@@ -99,7 +99,7 @@ export default function HomePage({ onPlay, session }) {
       {TABS.map((tab, i) => (
         <div key={tab.id} className="flex-1 flex flex-col">
           <div className="px-4 py-3 text-sm font-bold tracking-wider uppercase text-text text-center flex-shrink-0">{tab.label}</div>
-          <div className="flex-1 overflow-y-auto">
+          <div className="flex-1 overflow-hidden">
             <AlbumList albums={sections[tab.id]} onPlay={onPlay} />
           </div>
         </div>

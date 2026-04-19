@@ -55,16 +55,16 @@ def get_home(
     album_cache = get_album_cache(db, user_id=user["user_id"])
     lookup = _build_album_lookup(album_cache)
 
-    # Recently played: last 20 unique albums by most recent play
+    # Recently played: last 30 unique albums by most recent play
     recent_rows = (
         db.table("play_history")
         .select("album_id, played_at")
         .order("played_at", desc=True)
-        .limit(200)
+        .limit(300)
         .execute()
     ).data
 
-    recent_ids = _dedup_album_ids(recent_rows)[:20]
+    recent_ids = _dedup_album_ids(recent_rows)[:30]
 
     def resolve(ids):
         return [lookup[aid] for aid in ids if aid in lookup]
@@ -82,7 +82,7 @@ def get_home(
         a for a in album_cache if a["service_id"] not in recently_played_ids
     ]
     rediscover = random.sample(
-        rediscover_candidates, min(20, len(rediscover_candidates))
+        rediscover_candidates, min(30, len(rediscover_candidates))
     )
 
     # Recommended: shuffled albums by artists from recently played
@@ -101,15 +101,15 @@ def get_home(
         and any(artist in recent_artists for artist in a.get("artists", []))
     ]
     recommended = random.sample(
-        recommended_candidates, min(20, len(recommended_candidates))
+        recommended_candidates, min(30, len(recommended_candidates))
     )
 
-    # Recently added: albums sorted by added_at descending, capped at 20
+    # Recently added: albums sorted by added_at descending, capped at 30
     recently_added = sorted(
         [a for a in album_cache if a.get("added_at")],
         key=lambda a: a["added_at"],
         reverse=True,
-    )[:20]
+    )[:30]
 
     return {
         "recently_played": resolve(recent_ids),
