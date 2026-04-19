@@ -1,70 +1,28 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect } from 'react'
 import { apiFetch } from '../api'
 import { useIsMobile } from '../hooks/useIsMobile'
 
 function AlbumList({ albums, onPlay }) {
-  const containerRef = useRef(null)
-  const [visibleCount, setVisibleCount] = useState(null)
-
-  useEffect(() => {
-    if (!containerRef.current || !albums || albums.length === 0) return
-    const el = containerRef.current
-    const cols = 3
-    const gap = 4 // gap-1 = 0.25rem = 4px
-    const padding = 16 // p-2 = 0.5rem = 8px * 2 sides
-    const availableWidth = el.clientWidth - padding
-    const tileSize = (availableWidth - gap * (cols - 1)) / cols
-    const rowHeight = tileSize + gap
-    const availableHeight = el.clientHeight - padding
-    if (availableHeight <= 0) return
-    const rows = Math.max(1, Math.floor((availableHeight + gap) / rowHeight))
-    setVisibleCount(rows * cols)
-  }, [albums])
-
-  useEffect(() => {
-    if (!containerRef.current) return
-    const observer = new ResizeObserver(() => {
-      const el = containerRef.current
-      if (!el || !albums || albums.length === 0) return
-      const cols = 3
-      const gap = 4
-      const padding = 16
-      const availableWidth = el.clientWidth - padding
-      const tileSize = (availableWidth - gap * (cols - 1)) / cols
-      const rowHeight = tileSize + gap
-      const availableHeight = el.clientHeight - padding
-      if (availableHeight <= 0) return
-      const rows = Math.max(1, Math.floor((availableHeight + gap) / rowHeight))
-      setVisibleCount(rows * cols)
-    })
-    observer.observe(containerRef.current)
-    return () => observer.disconnect()
-  }, [albums])
-
   if (!albums || albums.length === 0) {
     return <div className="px-4 py-6 text-text-dim text-sm italic">Nothing yet</div>
   }
 
-  const display = visibleCount != null ? albums.slice(0, visibleCount) : albums
-
   return (
-    <div ref={containerRef} className="h-full overflow-hidden">
-      <div className="grid grid-cols-3 gap-1 p-2">
-        {display.map(album => (
-          <div
-            key={album.service_id}
-            data-testid={`album-item-${album.service_id}`}
-            onClick={() => onPlay(album.service_id)}
-            className="cursor-pointer active:scale-95 active:opacity-80 transition-transform duration-150"
-          >
-            {album.image_url ? (
-              <img src={album.image_url} alt={album.name} className="w-full aspect-square rounded-md object-cover block" />
-            ) : (
-              <div className="w-full aspect-square rounded-md bg-surface-2" />
-            )}
-          </div>
-        ))}
-      </div>
+    <div className="grid grid-cols-3 gap-1 p-2">
+      {albums.map(album => (
+        <div
+          key={album.service_id}
+          data-testid={`album-item-${album.service_id}`}
+          onClick={() => onPlay(album.service_id)}
+          className="cursor-pointer active:scale-95 active:opacity-80 transition-transform duration-150"
+        >
+          {album.image_url ? (
+            <img src={album.image_url} alt={album.name} className="w-full aspect-square rounded-md object-cover block" />
+          ) : (
+            <div className="w-full aspect-square rounded-md bg-surface-2" />
+          )}
+        </div>
+      ))}
     </div>
   )
 }
@@ -126,7 +84,7 @@ export default function HomePage({ onPlay, session }) {
             </button>
           ))}
         </div>
-        <div className="flex-1 overflow-hidden">
+        <div className="flex-1 overflow-y-auto">
           <AlbumList albums={sections[activeTab]} onPlay={onPlay} />
         </div>
       </div>
@@ -137,8 +95,8 @@ export default function HomePage({ onPlay, session }) {
     <div className="flex h-full">
       {TABS.map((tab, i) => (
         <div key={tab.id} className="flex-1 flex flex-col">
-          <div className="px-4 py-3 text-sm font-bold tracking-wider uppercase text-text text-center flex-shrink-0">{tab.label}</div>
-          <div className="flex-1 overflow-hidden">
+          <div className="px-4 py-2 text-sm font-bold tracking-wider uppercase text-text text-center flex-shrink-0 flex items-center justify-center" style={{ height: 40 }}>{tab.label}</div>
+          <div className="flex-1 overflow-y-auto">
             <AlbumList albums={sections[tab.id]} onPlay={onPlay} />
           </div>
         </div>
