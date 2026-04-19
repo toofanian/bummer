@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
-import { SpeakerIndicatorIcon } from './DevicePicker'
+import { DeviceTypeIcon } from './DevicePicker'
 import { PlayIcon, PauseIcon, PreviousIcon, NextIcon, VolumeIcon } from './icons'
 import { formatTime, useDebouncedCallback } from '../utils/playback'
 
@@ -296,7 +296,7 @@ export default function PlaybackBar({
             style={{ color: device?.type && device.type !== 'Computer' ? 'var(--accent)' : 'var(--text-dim)' }}
             onClick={() => onOpenDevicePicker()}
           >
-            <SpeakerIndicatorIcon />
+            <DeviceTypeIcon type={device?.type} />
           </button>
         )}
 

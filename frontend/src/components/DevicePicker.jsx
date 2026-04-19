@@ -29,7 +29,7 @@ function SpeakerDeviceIcon() {
   )
 }
 
-function deviceTypeIcon(type) {
+export function DeviceTypeIcon({ type }) {
   switch (type) {
     case 'Computer': return <LaptopIcon />
     case 'Smartphone': return <PhoneIcon />
@@ -87,26 +87,10 @@ export default function DevicePicker({
   }
 
   return (
-    <>
-      {/* Backdrop — clicking outside closes the picker.
-          stopPropagation prevents React synthetic events from bubbling
-          up to a parent click handler (e.g. MiniPlaybackBar's onExpand,
-          which would otherwise open FullScreenNowPlaying when you
-          dismiss the picker on mobile). */}
-      <div
-        data-testid="device-picker-backdrop"
-        aria-hidden="true"
-        style={{ position: 'fixed', inset: 0, zIndex: 9998 }}
-        onClick={(e) => {
-          e.stopPropagation()
-          onClose()
-        }}
-      />
       <div
         role="listbox"
         aria-label="Select device"
         className="bg-surface border border-border rounded-lg min-w-[240px] shadow-[0_4px_16px_rgba(0,0,0,0.3)]"
-        style={{ position: 'fixed', bottom: '68px', right: '16px', zIndex: 9999 }}
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
@@ -156,7 +140,7 @@ export default function DevicePicker({
             onClick={() => handleDeviceClick(d.id)}
           >
             <span className="flex-shrink-0 flex items-center" style={{ color: d.is_active ? 'var(--accent)' : 'var(--text-dim)' }}>
-              {deviceTypeIcon(d.type)}
+              {<DeviceTypeIcon type={d.type} />}
             </span>
             {d.is_active && (
               <span
@@ -169,6 +153,5 @@ export default function DevicePicker({
         ))
       )}
     </div>
-    </>
   )
 }
