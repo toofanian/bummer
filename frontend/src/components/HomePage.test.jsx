@@ -46,14 +46,14 @@ describe('HomePage', () => {
     })
   })
 
-  it('renders album names in desktop columns', async () => {
+  it('renders album art in desktop columns', async () => {
     useIsMobile.mockReturnValue(false)
     render(<HomePage onPlay={() => {}} />)
     await waitFor(() => {
-      expect(screen.getByText('Today Album')).toBeInTheDocument()
-      expect(screen.getByText('New Album')).toBeInTheDocument()
-      expect(screen.getByText('Try This')).toBeInTheDocument()
-      expect(screen.getByText('Old Gem')).toBeInTheDocument()
+      expect(screen.getByAltText('Today Album')).toBeInTheDocument()
+      expect(screen.getByAltText('New Album')).toBeInTheDocument()
+      expect(screen.getByAltText('Try This')).toBeInTheDocument()
+      expect(screen.getByAltText('Old Gem')).toBeInTheDocument()
     })
   })
 
@@ -72,8 +72,8 @@ describe('HomePage', () => {
     useIsMobile.mockReturnValue(true)
     render(<HomePage onPlay={() => {}} />)
     await waitFor(() => {
-      expect(screen.getByText('Today Album')).toBeInTheDocument()
-      expect(screen.queryByText('Old Gem')).not.toBeInTheDocument()
+      expect(screen.getByAltText('Today Album')).toBeInTheDocument()
+      expect(screen.queryByAltText('Old Gem')).not.toBeInTheDocument()
     })
   })
 
@@ -82,13 +82,13 @@ describe('HomePage', () => {
     const user = userEvent.setup()
     render(<HomePage onPlay={() => {}} />)
     await waitFor(() => {
-      expect(screen.getByText('Today Album')).toBeInTheDocument()
+      expect(screen.getByAltText('Today Album')).toBeInTheDocument()
     })
 
     await user.click(screen.getByRole('tab', { name: /rediscover/i }))
     await waitFor(() => {
-      expect(screen.getByText('Old Gem')).toBeInTheDocument()
-      expect(screen.queryByText('Today Album')).not.toBeInTheDocument()
+      expect(screen.getByAltText('Old Gem')).toBeInTheDocument()
+      expect(screen.queryByAltText('Today Album')).not.toBeInTheDocument()
     })
   })
 
@@ -105,7 +105,7 @@ describe('HomePage', () => {
     )
     render(<HomePage onPlay={() => {}} />)
     await waitFor(() => {
-      const items = screen.getAllByText('Today Album')
+      const items = screen.getAllByAltText('Today Album')
       expect(items).toHaveLength(1)
     })
   })
@@ -114,9 +114,9 @@ describe('HomePage', () => {
     const onPlay = vi.fn()
     render(<HomePage onPlay={onPlay} />)
     await waitFor(() => {
-      expect(screen.getByText('Today Album')).toBeInTheDocument()
+      expect(screen.getByAltText('Today Album')).toBeInTheDocument()
     })
-    screen.getByText('Today Album').closest('[data-testid]').click()
+    screen.getByAltText('Today Album').closest('[data-testid]').click()
     expect(onPlay).toHaveBeenCalledWith('a1')
   })
 

@@ -20,21 +20,19 @@ function AlbumList({ albums, onPlay }) {
   }
 
   return (
-    <div>
+    <div className="grid grid-cols-3 gap-1 p-2">
       {albums.map(album => (
         <div
           key={album.service_id}
           data-testid={`album-item-${album.service_id}`}
           onClick={() => onPlay(album.service_id)}
-          className="flex items-center gap-2.5 px-4 py-1.5 cursor-pointer transition-colors duration-150 hover:bg-surface-2"
+          className="cursor-pointer active:scale-95 active:opacity-80 transition-transform duration-150"
         >
-          {album.image_url && (
-            <img src={album.image_url} alt="" className="w-9 h-9 rounded-[3px] flex-shrink-0 object-cover" />
+          {album.image_url ? (
+            <img src={album.image_url} alt={album.name} className="w-full aspect-square rounded-md object-cover block" />
+          ) : (
+            <div className="w-full aspect-square rounded-md bg-surface-2" />
           )}
-          <div className="flex-1 min-w-0">
-            <div className="text-sm font-medium text-text truncate">{album.name ?? 'Unknown album'}</div>
-            <div className="text-xs text-text-dim truncate">{album.artists?.join(', ') ?? 'Unknown artist'}</div>
-          </div>
         </div>
       ))}
     </div>
