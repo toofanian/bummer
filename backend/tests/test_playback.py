@@ -16,7 +16,9 @@ PLAYBACK_STATE = {
         "album": {
             "name": "Some Album",
             "id": "album-spotify-id-123",
-            "images": [{"url": "https://i.scdn.co/image/abc123", "width": 640, "height": 640}],
+            "images": [
+                {"url": "https://i.scdn.co/image/abc123", "width": 640, "height": 640}
+            ],
         },
         "artists": [{"name": "Artist A"}, {"name": "Artist B"}],
     },
