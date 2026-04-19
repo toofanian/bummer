@@ -72,7 +72,7 @@ export default function DevicePicker({
 
   useEffect(() => {
     fetchAndShow()
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [fetchAndShow])
 
   useEffect(() => {
     function handleKeyDown(e) {
