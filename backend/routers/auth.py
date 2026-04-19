@@ -1,6 +1,10 @@
 from datetime import datetime, timedelta, timezone
 
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import (  # HTTPException unused while invite bypass active (issue #79)
+    APIRouter,
+    Depends,
+    Request,
+)
 from pydantic import BaseModel
 from slowapi import Limiter
 from slowapi.util import get_remote_address
