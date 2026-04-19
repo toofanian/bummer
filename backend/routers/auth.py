@@ -33,23 +33,32 @@ class StoreSpotifyTokenRequest(BaseModel):
 @router.post("/redeem-invite")
 @limiter.limit("5/15minutes")
 async def redeem_invite(request: Request, body: RedeemInviteRequest):
-    """Validate an invite code and mark it redeemed."""
-    db = get_service_db()
-    result = db.table("invite_codes").select("*").eq("code", body.invite_code).execute()
+    """Validate an invite code and mark it redeemed.
 
-    if not result.data:
-        raise HTTPException(status_code=404, detail="Invite code not found")
-
-    invite = result.data[0]
-    if invite.get("redeemed_at") is not None:
-        raise HTTPException(status_code=400, detail="Invite code already used")
-
-    db.table("invite_codes").update(
-        {
-            "redeemed_at": datetime.now(timezone.utc).isoformat(),
-        }
-    ).eq("code", body.invite_code).execute()
+    BYPASSED: invite code check disabled (issue #79) — always succeeds
+    without touching the database. To re-enable, restore the original
+    validation logic below.
+    """
+    # --- BYPASSED (issue #79): open registration, skip DB validation ---
     return {"message": "Invite code redeemed"}
+
+    # --- Original invite code validation (kept for revertibility) ---
+    # db = get_service_db()
+    # result = db.table("invite_codes").select("*").eq("code", body.invite_code).execute()
+    #
+    # if not result.data:
+    #     raise HTTPException(status_code=404, detail="Invite code not found")
+    #
+    # invite = result.data[0]
+    # if invite.get("redeemed_at") is not None:
+    #     raise HTTPException(status_code=400, detail="Invite code already used")
+    #
+    # db.table("invite_codes").update(
+    #     {
+    #         "redeemed_at": datetime.now(timezone.utc).isoformat(),
+    #     }
+    # ).eq("code", body.invite_code).execute()
+    # return {"message": "Invite code redeemed"}
 
 
 # --- Authenticated endpoints ---
