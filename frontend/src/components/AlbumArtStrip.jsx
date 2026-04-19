@@ -1,6 +1,6 @@
 export default function AlbumArtStrip({ albums, size = 40 }) {
   return (
-    <div className="flex items-center gap-0 min-w-0">
+    <div className="flex items-center gap-0 min-w-0" style={{ overflowX: 'auto', scrollbarWidth: 'none', WebkitOverflowScrolling: 'touch' }}>
       {albums.map((album, i) => (
         <div key={album.service_id} className="flex-shrink-0 first:ml-0" style={{ width: size, height: size, marginRight: i < albums.length - 1 ? -4 : 0 }}>
           {album.image_url

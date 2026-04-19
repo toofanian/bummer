@@ -47,7 +47,7 @@ export function usePlayback(session = null) {
       mounted = false
       clearInterval(interval)
     }
-  }, [])
+  }, [!!session])
 
   const play = useCallback(async (contextUri = null) => {
     const res = await apiFetch('/playback/play', {
@@ -117,15 +117,53 @@ export function usePlayback(session = null) {
 
   const pause = useCallback(async () => {
     setState(prev => ({ ...prev, is_playing: false }))
-    await apiFetch('/playback/pause', { method: 'PUT' }, sessionRef.current)
+    const res = await apiFetch('/playback/pause', { method: 'PUT' }, sessionRef.current)
+
+    if (res.status === 409) {
+      const data = await res.json()
+      return data.detail
+    }
+
+    // Reconciliation fetch — same pattern as play()
+    setTimeout(async () => {
+      try {
+        const stateRes = await apiFetch('/playback/state', {}, sessionRef.current)
+        if (stateRes.ok) {
+          const data = await stateRes.json()
+          lastPollDataRef.current = data
+          setState(prev => ({ ...prev, ...data }))
+        }
+      } catch {}
+    }, 500)
+    return null
   }, [])
 
   const previousTrack = useCallback(async () => {
     await apiFetch('/playback/previous', { method: 'POST' }, sessionRef.current)
+    setTimeout(async () => {
+      try {
+        const stateRes = await apiFetch('/playback/state', {}, sessionRef.current)
+        if (stateRes.ok) {
+          const data = await stateRes.json()
+          lastPollDataRef.current = data
+          setState(prev => ({ ...prev, ...data }))
+        }
+      } catch {}
+    }, 500)
   }, [])
 
   const nextTrack = useCallback(async () => {
     await apiFetch('/playback/next', { method: 'POST' }, sessionRef.current)
+    setTimeout(async () => {
+      try {
+        const stateRes = await apiFetch('/playback/state', {}, sessionRef.current)
+        if (stateRes.ok) {
+          const data = await stateRes.json()
+          lastPollDataRef.current = data
+          setState(prev => ({ ...prev, ...data }))
+        }
+      } catch {}
+    }, 500)
   }, [])
 
   const setVolume = useCallback(async (volumePercent) => {
@@ -154,7 +192,8 @@ export function usePlayback(session = null) {
       method: 'PUT',
       body: JSON.stringify(payload),
     }, sessionRef.current)
-    // Refresh state so device name in PlaybackBar updates immediately
+    // Give Spotify time to process the transfer before refreshing state
+    await new Promise(resolve => setTimeout(resolve, 500))
     const res = await apiFetch('/playback/state', {}, sessionRef.current)
     if (res.ok) {
       const data = await res.json()
@@ -168,6 +207,16 @@ export function usePlayback(session = null) {
       method: 'PUT',
       body: JSON.stringify({ position_ms: positionMs }),
     }, sessionRef.current)
+    setTimeout(async () => {
+      try {
+        const stateRes = await apiFetch('/playback/state', {}, sessionRef.current)
+        if (stateRes.ok) {
+          const data = await stateRes.json()
+          lastPollDataRef.current = data
+          setState(prev => ({ ...prev, ...data }))
+        }
+      } catch {}
+    }, 500)
   }, [])
 
   return { state, play, playTrack, pause, previousTrack, nextTrack, setVolume, fetchDevices, fetchQueue, seek, transferPlayback }

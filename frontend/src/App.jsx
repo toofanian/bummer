@@ -4,7 +4,7 @@ import CollectionsPane from './components/CollectionsPane'
 import CollectionDetailHeader from './components/CollectionDetailHeader'
 import PlaybackBar from './components/PlaybackBar'
 import NowPlayingPane from './components/NowPlayingPane'
-import ChangelogView from './components/ChangelogView'
+import DigestView from './components/DigestView'
 import { filterAlbums } from './filterAlbums'
 import { usePlayback } from './usePlayback'
 import DevicePicker from './components/DevicePicker'
@@ -84,7 +84,7 @@ export default function App() {
   const [collectionPlayback, setCollectionPlayback] = useState(null)
   const collectionPlaybackRef = useRef(null)
   collectionPlaybackRef.current = collectionPlayback
-  const isInCollection = view !== 'home' && view !== 'library' && view !== 'collections' && view !== 'changelog' && view !== 'settings'
+  const isInCollection = view !== 'home' && view !== 'library' && view !== 'collections' && view !== 'digest' && view !== 'settings'
   const artistCount = useMemo(() => {
     const artists = new Set()
     for (const album of albums) {
@@ -102,8 +102,8 @@ export default function App() {
     // Fallback (older backend responses without album_service_id)
     return albums.find(a => a.name === playback.track?.album)
   }, [albums, playback.track?.album_service_id, playback.track?.album])
-  const nowPlayingServiceId = nowPlayingAlbum?.service_id ?? null
-  const nowPlayingImageUrl = nowPlayingAlbum?.image_url ?? null
+  const nowPlayingServiceId = nowPlayingAlbum?.service_id ?? playback.track?.album_service_id ?? null
+  const nowPlayingImageUrl = nowPlayingAlbum?.image_url ?? playback.track?.image_url ?? null
 
   // Restore playingId from Spotify playback state on reload
   useEffect(() => {
@@ -550,6 +550,25 @@ export default function App() {
     }
   }
 
+  async function handleReorderCollections(collectionIds) {
+    // Optimistic reorder: rearrange collections to match the new order
+    const colMap = Object.fromEntries(collections.map(c => [c.id, c]))
+    setCollections(collectionIds.map(id => colMap[id]).filter(Boolean))
+
+    try {
+      const res = await apiFetch('/collections/reorder', {
+        method: 'PUT',
+        body: JSON.stringify({ collection_ids: collectionIds }),
+      }, sessionRef.current)
+      if (!res.ok) throw new Error('Failed to reorder collections')
+    } catch {
+      // Re-fetch server order on failure
+      const res = await apiFetch('/collections', {}, sessionRef.current)
+      const data = await res.json()
+      setCollections(Array.isArray(data) ? data : [])
+    }
+  }
+
   async function handleUpdateCollectionDescription(collectionId, description) {
     await apiFetch(`/collections/${collectionId}/description`, {
       method: 'PUT',
@@ -752,11 +771,12 @@ export default function App() {
 
   // Mobile layout
   if (isMobile) {
+    const miniBarVisible = playback.track || (!playback.device && !playback.is_playing)
     return (
       <div className="app flex flex-col h-dvh">
         <header className="sticky top-0 z-[100] bg-surface border-b border-border flex items-center px-4 py-2 gap-3" style={{ paddingTop: 'env(safe-area-inset-top, 0px)' }}>
           <h1>
-            {view === 'home' ? 'Home' : view === 'library' ? 'Library' : view === 'collections' ? 'Collections' : view === 'changelog' ? 'Changelog' : view === 'settings' ? 'Settings' : view?.name ?? 'Collection'}
+            {view === 'home' ? 'Home' : view === 'library' ? 'Library' : view === 'collections' ? 'Collections' : view === 'digest' ? 'Digest' : view === 'settings' ? 'Settings' : view?.name ?? 'Collection'}
             {' '}<span style={{ fontSize: '10px', fontWeight: 400, opacity: 0.35, letterSpacing: '0.05em' }}>{__APP_VERSION__}</span>
           </h1>
           {view === 'library' && (
@@ -830,7 +850,7 @@ export default function App() {
           </button>
         </header>
 
-        <div data-testid="mobile-content-area" className="flex-1 overflow-hidden flex flex-col" style={{ paddingBottom: playback.track ? 'calc(106px + env(safe-area-inset-bottom, 0px))' : 'calc(50px + env(safe-area-inset-bottom, 0px))' }}>
+        <div data-testid="mobile-content-area" className="flex-1 overflow-hidden flex flex-col" style={{ paddingBottom: miniBarVisible ? 'calc(106px + env(safe-area-inset-bottom, 0px))' : 'calc(50px + env(safe-area-inset-bottom, 0px))' }}>
           {view === 'home' && (
             <div className="flex-1 overflow-y-auto">
               <HomePage onPlay={handlePlay} session={session} />
@@ -892,14 +912,42 @@ export default function App() {
                 onRename={handleRenameCollection}
                 onCreate={handleCreateCollection}
                 onFetchAlbums={handleFetchCollectionAlbums}
+                albumCollectionMap={albumCollectionMap}
+                collectionsForPicker={collections}
+                session={session}
+                onBulkAdd={async (collectionId, albumIds) => {
+                  const res = await apiFetch(`/collections/${collectionId}/albums/bulk`, {
+                    method: 'POST',
+                    body: JSON.stringify({ service_ids: albumIds }),
+                  }, sessionRef.current)
+                  if (!res.ok) throw new Error('Failed to bulk add')
+                  const data = await res.json()
+                  setAlbumCollectionMap(prev => {
+                    const next = { ...prev }
+                    albumIds.forEach(id => {
+                      if (!next[id]) next[id] = []
+                      if (!next[id].includes(collectionId)) {
+                        next[id] = [...next[id], collectionId]
+                      }
+                    })
+                    return next
+                  })
+                  if (data.album_count != null) {
+                    setCollections(prev => prev.map(c =>
+                      c.id === collectionId ? { ...c, album_count: data.album_count } : c
+                    ))
+                  }
+                }}
+                onCreateCollection={handleCreateCollection}
+                onReorder={handleReorderCollections}
               />
               )}
             </div>
           )}
 
-          {view === 'changelog' && (
+          {view === 'digest' && (
             <div className="flex-1 overflow-y-auto">
-              <ChangelogView onPlay={handlePlay} session={session} />
+              <DigestView onPlay={handlePlay} session={session} />
             </div>
           )}
 
@@ -945,7 +993,7 @@ export default function App() {
             selectedAlbums={selectedAlbumIds.map(id => [...albums, ...collectionAlbums].find(a => a.service_id === id)).filter(Boolean)}
             onOpenPicker={() => setPickerAlbumIds([...selectedAlbumIds])}
             onClear={handleClearSelection}
-            bottomOffset={playback.track ? 106 : 50}
+            bottomOffset={miniBarVisible ? 106 : 50}
           />
         )}
 
@@ -974,7 +1022,7 @@ export default function App() {
           onSetVolume={setVolume}
           onFetchTracks={handleFetchTracks}
           onPlayTrack={handlePlayTrack}
-          albumServiceId={nowPlayingServiceId}
+          albumSpotifyId={nowPlayingServiceId}
           albumImageUrl={nowPlayingImageUrl}
           onFetchDevices={fetchDevices}
           onTransferPlayback={transferPlayback}
@@ -991,7 +1039,7 @@ export default function App() {
         />
 
         <BottomTabBar
-          activeTab={view === 'home' || view === 'library' || view === 'collections' || view === 'changelog' ? view : view === 'settings' ? null : 'collections'}
+          activeTab={view === 'home' || view === 'library' || view === 'collections' || view === 'digest' ? view : view === 'settings' ? null : 'collections'}
           onTabChange={(tab) => {
             setView(tab)
             setSearch('')
@@ -1021,17 +1069,13 @@ export default function App() {
           />
         )}
         {(devicePickerOpen || pendingPlayIntent) && (
-          <div className="fixed inset-0 z-[400] flex items-center justify-center">
-            <div className="fixed inset-0 bg-black/50" onClick={() => { setDevicePickerOpen(false); setPendingPlayIntent(null); setPickerRestrictedDevice(false) }} />
-            <div className="relative z-[401] w-[280px]">
-              <DevicePicker
-                onClose={() => { setDevicePickerOpen(false); setPendingPlayIntent(null); setPickerRestrictedDevice(false) }}
-                onFetchDevices={fetchDevices}
-                onDeviceSelected={handleModalDeviceSelected}
-                restrictedDevice={pickerRestrictedDevice}
-              />
-            </div>
-          </div>
+          <DevicePicker
+            onClose={() => { setDevicePickerOpen(false); setPendingPlayIntent(null); setPickerRestrictedDevice(false) }}
+            onFetchDevices={fetchDevices}
+            onDeviceSelected={handleModalDeviceSelected}
+            restrictedDevice={pickerRestrictedDevice}
+            bottom="calc(114px + env(safe-area-inset-bottom, 0px))"
+          />
         )}
       </div>
     )
@@ -1114,10 +1158,10 @@ export default function App() {
           onChange={e => setSearch(e.target.value)}
         />
         <button
-          onClick={() => { setView('changelog'); setSearch('') }}
-          aria-label="Library changelog"
-          className={`bg-transparent border-none p-1.5 cursor-pointer transition-colors duration-150 ${view === 'changelog' ? 'text-text' : 'text-text-dim hover:text-text'}`}
-          title="Library Changelog"
+          onClick={() => { setView('digest'); setSearch('') }}
+          aria-label="Library digest"
+          className={`bg-transparent border-none p-1.5 cursor-pointer transition-colors duration-150 ${view === 'digest' ? 'text-text' : 'text-text-dim hover:text-text'}`}
+          title="Library Digest"
         >
           <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
             <rect x="2" y="1" width="12" height="14" rx="1" fill="none" stroke="currentColor" strokeWidth="1.5" />
@@ -1209,14 +1253,42 @@ export default function App() {
               onRename={handleRenameCollection}
               onCreate={handleCreateCollection}
               onFetchAlbums={handleFetchCollectionAlbums}
+              albumCollectionMap={albumCollectionMap}
+              collectionsForPicker={collections}
+              session={session}
+              onBulkAdd={async (collectionId, albumIds) => {
+                const res = await apiFetch(`/collections/${collectionId}/albums/bulk`, {
+                  method: 'POST',
+                  body: JSON.stringify({ service_ids: albumIds }),
+                }, sessionRef.current)
+                if (!res.ok) throw new Error('Failed to bulk add')
+                const data = await res.json()
+                setAlbumCollectionMap(prev => {
+                  const next = { ...prev }
+                  albumIds.forEach(id => {
+                    if (!next[id]) next[id] = []
+                    if (!next[id].includes(collectionId)) {
+                      next[id] = [...next[id], collectionId]
+                    }
+                  })
+                  return next
+                })
+                if (data.album_count != null) {
+                  setCollections(prev => prev.map(c =>
+                    c.id === collectionId ? { ...c, album_count: data.album_count } : c
+                  ))
+                }
+              }}
+              onCreateCollection={handleCreateCollection}
+              onReorder={handleReorderCollections}
             />
             )}
           </div>
         )}
 
-        {view === 'changelog' && (
+        {view === 'digest' && (
           <div className="flex-1 overflow-y-auto pb-16">
-            <ChangelogView onPlay={handlePlay} session={session} />
+            <DigestView onPlay={handlePlay} session={session} />
           </div>
         )}
 
@@ -1302,17 +1374,12 @@ export default function App() {
         onOpenDevicePicker={() => { setDevicePickerOpen(true); setPickerRestrictedDevice(false) }}
       />
       {(devicePickerOpen || pendingPlayIntent) && (
-        <div className="fixed inset-0 z-[400] flex items-center justify-center">
-          <div className="fixed inset-0 bg-black/50" onClick={() => { setDevicePickerOpen(false); setPendingPlayIntent(null); setPickerRestrictedDevice(false) }} />
-          <div className="relative z-[401] w-[280px]">
-            <DevicePicker
-              onClose={() => { setDevicePickerOpen(false); setPendingPlayIntent(null); setPickerRestrictedDevice(false) }}
-              onFetchDevices={fetchDevices}
-              onDeviceSelected={handleModalDeviceSelected}
-              restrictedDevice={pickerRestrictedDevice}
-            />
-          </div>
-        </div>
+        <DevicePicker
+          onClose={() => { setDevicePickerOpen(false); setPendingPlayIntent(null); setPickerRestrictedDevice(false) }}
+          onFetchDevices={fetchDevices}
+          onDeviceSelected={handleModalDeviceSelected}
+          restrictedDevice={pickerRestrictedDevice}
+        />
       )}
     </div>
   )

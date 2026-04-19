@@ -184,7 +184,7 @@ def test_home_rediscover_excludes_recently_played(mock_cache):
 
 @patch("routers.home.get_album_cache", return_value=ALBUM_CACHE)
 def test_home_recommended_by_frequent_artists(mock_cache):
-    """Recommended should return albums by frequently played artists, not recently played."""
+    """Recommended should return albums by recently played artists, excluding those in recently played."""
     now = datetime.now(timezone.utc)
     rows = [
         {"album_id": "album1", "played_at": (now - timedelta(days=1)).isoformat()},
@@ -197,23 +197,51 @@ def test_home_recommended_by_frequent_artists(mock_cache):
         res = client.get("/home", params={"tz": "UTC"})
         data = res.json()
         rec_ids = [a["service_id"] for a in data["recommended"]]
-        assert "album3" in rec_ids  # by Artist A but not recently played
-        assert "album1" not in rec_ids  # was just played
+        assert "album3" in rec_ids  # by Artist A, not in recently played
+        assert "album1" not in rec_ids  # in recently played section, excluded
     finally:
         clear_overrides()
 
 
-@patch("routers.home.get_album_cache", return_value=ALBUM_CACHE)
-def test_home_returns_recently_added(mock_cache):
-    db = mock_db_with_play_history([])
-    setup_overrides(db=db)
-    try:
-        res = client.get("/home", params={"tz": "UTC"})
-        assert res.status_code == 200
-        data = res.json()
-        assert "recently_added" in data
-        ids = [a["service_id"] for a in data["recently_added"]]
-        # Should be sorted by added_at descending
-        assert ids == ["album2", "album1", "album3"]
-    finally:
-        clear_overrides()
+def test_home_returns_recently_added_within_14_days():
+    now = datetime.now(timezone.utc)
+    cache_with_recent = [
+        {
+            "service_id": "new1",
+            "name": "New One",
+            "artists": ["Artist A"],
+            "image_url": "https://img/n1.jpg",
+            "release_date": "2024-01-01",
+            "added_at": (now - timedelta(days=2)).isoformat(),
+        },
+        {
+            "service_id": "new2",
+            "name": "New Two",
+            "artists": ["Artist B"],
+            "image_url": "https://img/n2.jpg",
+            "release_date": "2024-01-01",
+            "added_at": (now - timedelta(days=10)).isoformat(),
+        },
+        {
+            "service_id": "old1",
+            "name": "Old One",
+            "artists": ["Artist C"],
+            "image_url": "https://img/o1.jpg",
+            "release_date": "2024-01-01",
+            "added_at": (now - timedelta(days=30)).isoformat(),
+        },
+    ]
+    with patch("routers.home.get_album_cache", return_value=cache_with_recent):
+        db = mock_db_with_play_history([])
+        setup_overrides(db=db)
+        try:
+            res = client.get("/home", params={"tz": "UTC"})
+            assert res.status_code == 200
+            data = res.json()
+            assert "recently_added" in data
+            ids = [a["service_id"] for a in data["recently_added"]]
+            # Only albums added within 14 days, sorted descending
+            assert ids == ["new1", "new2"]
+            assert "old1" not in ids
+        finally:
+            clear_overrides()
