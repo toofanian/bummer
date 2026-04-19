@@ -15,87 +15,33 @@ def test_health():
 
 
 # --- redeem-invite tests ---
+# Original validation tests removed — invite code check bypassed (issue #79).
+# See git history for the original tests if re-enabling.
 
 
-def test_redeem_invite_valid_code():
-    mock_db = MagicMock()
-    # First call: select invite code — returns valid, unredeemed invite
-    invite_row = {
-        "code": "TESTCODE",
-        "redeemed_at": None,
-    }
-    mock_db.table.return_value.select.return_value.eq.return_value.execute.return_value.data = [
-        invite_row
-    ]
-    # update call for marking redeemed
-    mock_db.table.return_value.update.return_value.eq.return_value.execute.return_value = MagicMock()
+# --- redeem-invite bypass tests (issue #79) ---
 
-    with patch("routers.auth.get_service_db", return_value=mock_db):
-        response = client.post(
-            "/auth/redeem-invite",
-            json={"invite_code": "TESTCODE"},
-        )
 
+def test_redeem_invite_bypassed_always_succeeds():
+    """Invite code validation is bypassed — any code should succeed without DB."""
+    response = client.post(
+        "/auth/redeem-invite",
+        json={"invite_code": "ANYTHING"},
+    )
     assert response.status_code == 200
     assert "redeemed" in response.json()["message"].lower()
 
 
-def test_redeem_invite_marks_code_as_used():
+def test_redeem_invite_bypassed_no_db_call():
+    """Bypassed endpoint should not touch the database at all."""
     mock_db = MagicMock()
-    invite_row = {
-        "code": "TESTCODE",
-        "redeemed_at": None,
-    }
-    mock_db.table.return_value.select.return_value.eq.return_value.execute.return_value.data = [
-        invite_row
-    ]
-    mock_db.table.return_value.update.return_value.eq.return_value.execute.return_value = MagicMock()
-
     with patch("routers.auth.get_service_db", return_value=mock_db):
         response = client.post(
             "/auth/redeem-invite",
-            json={"invite_code": "TESTCODE"},
+            json={"invite_code": "ANYTHING"},
         )
-
     assert response.status_code == 200
-    # Verify the update call was made to mark the code as used
-    mock_db.table.return_value.update.assert_called_once()
-    update_arg = mock_db.table.return_value.update.call_args[0][0]
-    assert "redeemed_at" in update_arg
-
-
-def test_redeem_invite_already_used():
-    mock_db = MagicMock()
-    invite_row = {
-        "code": "ABC123",
-        "redeemed_at": "2026-01-01T00:00:00+00:00",
-    }
-    mock_db.table.return_value.select.return_value.eq.return_value.execute.return_value.data = [
-        invite_row
-    ]
-
-    with patch("routers.auth.get_service_db", return_value=mock_db):
-        response = client.post(
-            "/auth/redeem-invite",
-            json={"invite_code": "ABC123"},
-        )
-
-    assert response.status_code == 400
-    assert "already" in response.json()["detail"].lower()
-
-
-def test_redeem_invite_nonexistent_code():
-    mock_db = MagicMock()
-    mock_db.table.return_value.select.return_value.eq.return_value.execute.return_value.data = []
-
-    with patch("routers.auth.get_service_db", return_value=mock_db):
-        response = client.post(
-            "/auth/redeem-invite",
-            json={"invite_code": "BADCODE"},
-        )
-
-    assert response.status_code == 404
-    assert "not found" in response.json()["detail"].lower()
+    mock_db.table.assert_not_called()
 
 
 # --- spotify-token tests ---

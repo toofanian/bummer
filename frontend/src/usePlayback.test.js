@@ -10,7 +10,7 @@ const PLAYBACK_STATE = {
     progress_ms: 45000,
     duration_ms: 240000,
   },
-  device: { name: 'My Mac', type: 'Computer' },
+  device: { id: 'device-id-abc', name: 'My Mac', type: 'Computer' },
 }
 
 const IDLE_STATE = { is_playing: false, track: null, device: null }
@@ -116,6 +116,57 @@ describe('usePlayback', () => {
     await act(async () => { await result.current.pause() })
 
     expect(result.current.state.is_playing).toBe(false)
+  })
+
+  it('pause() does a reconciliation state fetch after API call', async () => {
+    vi.useFakeTimers()
+    const calls = []
+    fetchMock = vi.fn().mockImplementation((url) => {
+      calls.push(url)
+      if (url.includes('/playback/state')) {
+        return Promise.resolve({ ok: true, json: async () => PLAYBACK_STATE })
+      }
+      return Promise.resolve({ ok: true, status: 204 })
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    const { result } = renderHook(() => usePlayback({ access_token: 'test-jwt' }))
+    await act(async () => {}) // flush initial poll
+
+    await act(async () => {
+      await result.current.pause()
+    })
+
+    // Advance past the reconciliation delay
+    await act(async () => { await vi.advanceTimersByTimeAsync(600) })
+
+    const stateCallsAfterPause = calls.filter(
+      (u, i) => u.includes('/playback/state') && i > 0
+    )
+    expect(stateCallsAfterPause.length).toBeGreaterThanOrEqual(1)
+  })
+
+  it('pause() returns "no_device" when backend returns 409', async () => {
+    fetchMock = vi.fn().mockImplementation((url) => {
+      if (url.includes('/playback/state')) {
+        return Promise.resolve({ ok: true, json: async () => PLAYBACK_STATE })
+      }
+      if (url.includes('/playback/pause')) {
+        return Promise.resolve({ ok: false, status: 409, json: async () => ({ detail: 'no_device' }) })
+      }
+      return Promise.resolve({ ok: true, status: 204 })
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    const { result } = renderHook(() => usePlayback({ access_token: 'test-jwt' }))
+    await act(async () => {}) // flush initial poll
+
+    let returnValue
+    await act(async () => {
+      returnValue = await result.current.pause()
+    })
+
+    expect(returnValue).toBe('no_device')
   })
 
   it('does not crash when fetch throws', async () => {
@@ -404,12 +455,68 @@ describe('seek', () => {
   })
 })
 
+describe('reconciliation fetches', () => {
+  it('nextTrack() does a reconciliation state fetch after API call', async () => {
+    vi.useFakeTimers()
+    const calls = []
+    fetchMock = vi.fn().mockImplementation((url) => {
+      calls.push(url)
+      if (url.includes('/playback/state')) {
+        return Promise.resolve({ ok: true, json: async () => PLAYBACK_STATE })
+      }
+      return Promise.resolve({ ok: true, status: 204 })
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    const { result } = renderHook(() => usePlayback({ access_token: 'test-jwt' }))
+    await act(async () => {}) // flush initial poll
+
+    await act(async () => {
+      await result.current.nextTrack()
+    })
+
+    await act(async () => { await vi.advanceTimersByTimeAsync(600) })
+
+    const stateCallsAfterNext = calls.filter(
+      (u, i) => u.includes('/playback/state') && i > 0
+    )
+    expect(stateCallsAfterNext.length).toBeGreaterThanOrEqual(1)
+  })
+
+  it('previousTrack() does a reconciliation state fetch after API call', async () => {
+    vi.useFakeTimers()
+    const calls = []
+    fetchMock = vi.fn().mockImplementation((url) => {
+      calls.push(url)
+      if (url.includes('/playback/state')) {
+        return Promise.resolve({ ok: true, json: async () => PLAYBACK_STATE })
+      }
+      return Promise.resolve({ ok: true, status: 204 })
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    const { result } = renderHook(() => usePlayback({ access_token: 'test-jwt' }))
+    await act(async () => {}) // flush initial poll
+
+    await act(async () => {
+      await result.current.previousTrack()
+    })
+
+    await act(async () => { await vi.advanceTimersByTimeAsync(600) })
+
+    const stateCallsAfterPrev = calls.filter(
+      (u, i) => u.includes('/playback/state') && i > 0
+    )
+    expect(stateCallsAfterPrev.length).toBeGreaterThanOrEqual(1)
+  })
+})
+
 describe('transferPlayback', () => {
   it('calls PUT /playback/transfer with device_id and then refreshes state', async () => {
     const newState = {
       is_playing: true,
       track: { name: 'Song', album: 'Album', artists: ['Artist'], progress_ms: 0, duration_ms: 200000 },
-      device: { name: 'My Mac', type: 'Computer' },
+      device: { id: 'device-id-abc', name: 'My Mac', type: 'Computer' },
     }
 
     fetchMock = vi.fn().mockImplementation((url, opts) => {

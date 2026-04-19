@@ -35,6 +35,34 @@ describe('BulkAddBar', () => {
     expect(images[1]).toHaveAttribute('src', 'https://example.com/cover2.jpg')
   })
 
+  it('includes safe-area-inset-bottom in bottom offset when bottomOffset > 0', () => {
+    const { container } = render(
+      <BulkAddBar
+        selectedAlbums={SELECTED_ALBUMS}
+        onOpenPicker={() => {}}
+        onClear={() => {}}
+        bottomOffset={50}
+      />
+    )
+    const bar = container.firstChild
+    expect(bar.style.bottom).toContain('calc')
+    expect(bar.style.bottom).toContain('50px')
+    expect(bar.style.bottom).toContain('safe-area-inset-bottom')
+  })
+
+  it('uses bottom 0 when bottomOffset is 0', () => {
+    const { container } = render(
+      <BulkAddBar
+        selectedAlbums={SELECTED_ALBUMS}
+        onOpenPicker={() => {}}
+        onClear={() => {}}
+        bottomOffset={0}
+      />
+    )
+    const bar = container.firstChild
+    expect(bar.style.bottom).toBe('0px')
+  })
+
   it('calls onClear when clear button is clicked', async () => {
     const onClear = vi.fn()
     render(

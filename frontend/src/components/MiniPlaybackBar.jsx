@@ -1,4 +1,4 @@
-import { SpeakerIndicatorIcon } from './DevicePicker'
+import { DeviceTypeIcon } from './DevicePicker'
 import { PlayIcon, PauseIcon } from './icons'
 
 export default function MiniPlaybackBar({ state, albumImageUrl, onPlayPause, onExpand, onOpenDevicePicker }) {
@@ -53,7 +53,7 @@ export default function MiniPlaybackBar({ state, albumImageUrl, onPlayPause, onE
             onOpenDevicePicker()
           }}
         >
-          <SpeakerIndicatorIcon />
+          <DeviceTypeIcon type={device.type} />
         </button>
       )}
 
