@@ -1,9 +1,12 @@
 export default function AlbumPromptRow({ label, albums, albumCollectionMap, selectedIds, onToggleSelect }) {
-  if (!albums || albums.length === 0) return null
+  const hasAlbums = albums && albums.length > 0
 
   return (
     <div className="overflow-visible">
       <div className="text-[10px] font-medium text-text-dim uppercase tracking-wider px-3 py-1">{label}</div>
+      {!hasAlbums ? (
+        <div className="px-3 pb-2 pt-1 text-xs text-text-dim italic">Nothing yet</div>
+      ) : (
       <div
         className="flex gap-2 px-3 pb-2 pt-1 overflow-x-auto prompt-row-scroll"
         style={{ WebkitOverflowScrolling: 'touch', scrollbarWidth: 'none', msOverflowStyle: 'none' }}
@@ -64,6 +67,7 @@ export default function AlbumPromptRow({ label, albums, albumCollectionMap, sele
           )
         })}
       </div>
+      )}
     </div>
   )
 }

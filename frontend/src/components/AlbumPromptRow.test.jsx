@@ -70,8 +70,8 @@ describe('AlbumPromptRow', () => {
     expect(placeholders).toHaveLength(1)
   })
 
-  it('does not render when albums array is empty', () => {
-    const { container } = render(
+  it('shows empty state when albums array is empty', () => {
+    render(
       <AlbumPromptRow
         label="Recently Added"
         albums={[]}
@@ -80,7 +80,8 @@ describe('AlbumPromptRow', () => {
         onToggleSelect={() => {}}
       />
     )
-    expect(container.firstChild).toBeNull()
+    expect(screen.getByText('Recently Added')).toBeInTheDocument()
+    expect(screen.getByText('Nothing yet')).toBeInTheDocument()
   })
 
   it('shows checkmark overlay when album is selected', () => {

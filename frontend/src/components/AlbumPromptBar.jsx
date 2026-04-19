@@ -54,7 +54,6 @@ export default function AlbumPromptBar({ albumCollectionMap, collections, sessio
   }
 
   if (!loaded) return null
-  if (recentlyAdded.length === 0 && recentlyPlayed.length === 0) return null
 
   return (
     <div data-testid="album-prompt-bar" className="relative border-t border-border bg-surface">
@@ -77,9 +76,7 @@ export default function AlbumPromptBar({ albumCollectionMap, collections, sessio
         selectedIds={selectedIds}
         onToggleSelect={handleToggleSelect}
       />
-      {recentlyAdded.length > 0 && recentlyPlayed.length > 0 && (
-        <div className="border-t border-border mx-3" />
-      )}
+      <div className="border-t border-border mx-3" />
       <AlbumPromptRow
         label="Recently Played"
         albums={recentlyPlayed}

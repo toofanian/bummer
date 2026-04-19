@@ -80,7 +80,7 @@ describe('AlbumPromptBar', () => {
     expect(screen.getByRole('listbox', { name: /collection picker/i })).toBeInTheDocument()
   })
 
-  it('hides entire bar when home data has no albums', async () => {
+  it('still renders bar with empty state when home data has no albums', async () => {
     apiFetch.mockResolvedValue({
       json: () => Promise.resolve({
         recently_added: [],
@@ -88,12 +88,13 @@ describe('AlbumPromptBar', () => {
         this_week: [],
       }),
     })
-    const { container } = renderBar()
+    renderBar()
     await waitFor(() => {
       expect(apiFetch).toHaveBeenCalled()
     })
     await waitFor(() => {
-      expect(container.querySelector('[data-testid="album-prompt-bar"]')).not.toBeInTheDocument()
+      expect(screen.getByTestId('album-prompt-bar')).toBeInTheDocument()
+      expect(screen.getAllByText('Nothing yet')).toHaveLength(2)
     })
   })
 
