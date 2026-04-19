@@ -181,8 +181,8 @@ describe('CollectionsPane', () => {
         onFetchAlbums={() => Promise.resolve([])}
       />
     )
-    expect(screen.getByText('5')).toBeInTheDocument()
-    expect(screen.getByText('12')).toBeInTheDocument()
+    expect(screen.getByText('5 albums')).toBeInTheDocument()
+    expect(screen.getByText('12 albums')).toBeInTheDocument()
   })
 
   it('shows description as subtitle on collection card', () => {

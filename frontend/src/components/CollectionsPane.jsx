@@ -46,10 +46,10 @@ function CollectionRow({ col, isMobile, renamingId, renameValue, setRenameValue,
                 ) : (
                   <span className="text-sm font-medium text-text">{col.name}</span>
                 )}
-                {col.album_count != null && (
-                  <span className="text-xs text-text-dim">{col.album_count}</span>
-                )}
               </div>
+              {col.album_count != null && (
+                <div className="text-xs text-text-dim mt-0.5">{col.album_count} {col.album_count === 1 ? 'album' : 'albums'}</div>
+              )}
               {col.description && (
                 <div className="text-xs text-text-dim mt-0.5 truncate">{col.description}</div>
               )}
@@ -104,6 +104,9 @@ function CollectionRow({ col, isMobile, renamingId, renameValue, setRenameValue,
               ) : (
                 <div className="text-sm font-medium text-text truncate">{col.name}</div>
               )}
+              {col.album_count != null && (
+                <div className="text-xs text-text-dim mt-0.5">{col.album_count} {col.album_count === 1 ? 'album' : 'albums'}</div>
+              )}
               {col.description && (
                 <div className="text-xs text-text-dim mt-0.5 truncate">{col.description}</div>
               )}
@@ -113,9 +116,6 @@ function CollectionRow({ col, isMobile, renamingId, renameValue, setRenameValue,
             <AlbumArtStrip albums={artAlbums} size={62} />
           </div>
           <div className="flex items-center gap-3 flex-shrink-0 px-3">
-            {col.album_count != null && (
-              <span className="text-xs text-text-dim tabular-nums">{col.album_count}</span>
-            )}
             <div onClick={e => e.stopPropagation()} className="relative">
               {renamingId === col.id ? null : confirmingId === col.id ? (
                 <>
