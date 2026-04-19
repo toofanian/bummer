@@ -16,7 +16,7 @@ export default function AlbumPromptRow({ label, albums, albumCollectionMap, sele
           return (
             <button
               key={album.service_id}
-              className={`relative flex-shrink-0 rounded-md overflow-hidden transition-all duration-150 ${
+              className={`relative flex-shrink-0 rounded-md overflow-hidden transition-all duration-150 p-0 border-none bg-transparent ${
                 isSelected
                   ? 'ring-2 ring-accent shadow-[0_0_8px_rgba(var(--accent-rgb,99,102,241),0.4)]'
                   : ''
@@ -29,10 +29,13 @@ export default function AlbumPromptRow({ label, albums, albumCollectionMap, sele
                 <img
                   src={album.image_url}
                   alt={album.name}
-                  className="w-full h-full object-cover"
+                  width={56}
+                  height={56}
+                  className="rounded-md object-cover"
+                  style={{ width: 56, height: 56 }}
                 />
               ) : (
-                <div data-testid="album-placeholder" className="w-full h-full bg-surface-2" />
+                <div data-testid="album-placeholder" className="rounded-md bg-surface-2" style={{ width: 56, height: 56 }} />
               )}
 
               {count > 0 && (

@@ -59,7 +59,7 @@ export default function AlbumPromptBar({ albumCollectionMap, collections, sessio
   return (
     <div data-testid="album-prompt-bar" className="relative border-t border-border bg-surface">
       {selectedIds.size > 0 && (
-        <div className="absolute left-1/2 -translate-x-1/2 -top-10 z-10">
+        <div className="absolute left-1/2 -translate-x-1/2 -top-14 z-10">
           <button
             className="px-4 py-1.5 text-sm font-medium bg-text text-bg rounded-full shadow-lg"
             aria-label="Add to Collection"
