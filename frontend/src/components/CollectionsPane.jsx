@@ -23,7 +23,7 @@ function CollectionRow({ col, isMobile, renamingId, renameValue, setRenameValue,
             {dragHandleProps && (
               <button
                 aria-label="Drag to reorder"
-                className="drag-handle bg-transparent border-none text-text-dim cursor-grab p-0 text-lg touch-none mr-2"
+                className="drag-handle bg-transparent border-none text-text-dim cursor-grab p-0 text-lg touch-none ml-1 mr-2"
                 onClick={(e) => e.stopPropagation()}
                 {...dragHandleProps}
               >⠿</button>
@@ -77,7 +77,7 @@ function CollectionRow({ col, isMobile, renamingId, renameValue, setRenameValue,
       ) : (
         <div className="flex items-stretch" style={{ height: 62 }}>
           {dragHandleProps && (
-            <div className="flex items-center px-1">
+            <div className="flex items-center px-2">
               <button
                 aria-label="Drag to reorder"
                 className="drag-handle bg-transparent border-none text-text-dim cursor-grab p-0 text-lg touch-none"
