@@ -31,7 +31,7 @@ const TABS = [
   { id: 'played', label: 'Recently Played', shortLabel: 'Played' },
   { id: 'added', label: 'Recently Added', shortLabel: 'Added' },
   { id: 'recommended', label: 'Related', shortLabel: 'Related' },
-  { id: 'rediscover', label: 'Rediscover', shortLabel: 'Rediscover' },
+  { id: 'rediscover', label: 'Lost', shortLabel: 'Lost' },
 ]
 
 export default function HomePage({ onPlay, session }) {
