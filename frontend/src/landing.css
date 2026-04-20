@@ -41,3 +41,20 @@
     line-height: 1.6;
   }
 }
+
+/* Splide dot pagination — brutalist style */
+.splide__pagination__page {
+  background: var(--color-text-dim);
+  opacity: 0.4;
+  width: 8px;
+  height: 8px;
+  margin: 0 4px;
+  border: none;
+  border-radius: 50%;
+  transition: opacity 0.2s;
+}
+
+.splide__pagination__page.is-active {
+  opacity: 1;
+  background: var(--color-text);
+}
