@@ -1,6 +1,7 @@
 // App.mobile-layout.test.jsx (separate file to avoid conflicting with existing App.test.jsx)
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, waitFor } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 
 vi.mock('./hooks/useAuth', () => ({
   useAuth: () => ({
@@ -68,6 +69,59 @@ describe('App layout', () => {
   it('renders without crashing on mobile', () => {
     mockMatchMedia(true) // <= 768px
     expect(() => render(<App />)).not.toThrow()
+  })
+
+  it('shows Bummer branding in mobile header', async () => {
+    mockMatchMedia(true)
+    render(<App />)
+    const header = await waitFor(() => document.querySelector('header'))
+    expect(header.textContent).toContain('Bummer')
+  })
+
+  it('does not show dynamic view title in mobile header', async () => {
+    mockMatchMedia(true)
+    render(<App />)
+    const header = await waitFor(() => document.querySelector('header'))
+    expect(header.textContent).not.toContain('Home')
+    expect(header.textContent).not.toContain('Library')
+    expect(header.textContent).not.toContain('Digest')
+  })
+
+  it('shows settings button in mobile header', async () => {
+    mockMatchMedia(true)
+    render(<App />)
+    await waitFor(() => document.querySelector('header'))
+    expect(screen.getByLabelText('Settings')).toBeInTheDocument()
+  })
+
+  it('shows search button in mobile header on all views', async () => {
+    mockMatchMedia(true)
+    render(<App />)
+    await waitFor(() => document.querySelector('header'))
+    expect(screen.getByLabelText('Search')).toBeInTheDocument()
+  })
+
+  it('hides search button visually on views without search', async () => {
+    mockMatchMedia(true)
+    render(<App />)
+    const searchBtn = await waitFor(() => screen.getByLabelText('Search'))
+    expect(searchBtn).toHaveStyle({ visibility: 'hidden' })
+  })
+
+  it('shows Albums/Artists tabs in library content area on mobile', async () => {
+    mockMatchMedia(true)
+    render(<App />)
+    // Navigate to library view via bottom tab bar
+    const libraryTab = await waitFor(() => screen.getByRole('button', { name: /library/i }))
+    await userEvent.click(libraryTab)
+    // Should find Albums and Artists tabs inside the content area (not header)
+    const albumsTab = await waitFor(() => screen.getByRole('tab', { name: /albums/i }))
+    const artistsTab = screen.getByRole('tab', { name: /artists/i })
+    expect(albumsTab).toBeInTheDocument()
+    expect(artistsTab).toBeInTheDocument()
+    // Tabs should NOT be inside the header
+    const header = document.querySelector('header')
+    expect(header).not.toContainElement(albumsTab)
   })
 
   it('reserves MiniPlaybackBar padding even when no track is playing (Connect a device state)', async () => {

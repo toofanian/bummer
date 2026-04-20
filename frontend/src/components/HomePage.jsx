@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { apiFetch } from '../api'
 import { useIsMobile } from '../hooks/useIsMobile'
+import TabBar from './TabBar'
 
 function AlbumList({ albums, onPlay }) {
   if (!albums || albums.length === 0) {
@@ -69,21 +70,11 @@ export default function HomePage({ onPlay, session }) {
   if (isMobile) {
     return (
       <div className="flex flex-col h-full">
-        <div className="flex border-b border-border flex-shrink-0" role="tablist">
-          {TABS.map(tab => (
-            <button
-              key={tab.id}
-              role="tab"
-              aria-selected={activeTab === tab.id}
-              onClick={() => setActiveTab(tab.id)}
-              className={`flex-1 py-2 text-xs font-bold tracking-wider uppercase transition-colors duration-150 ${
-                activeTab === tab.id ? 'text-text border-b-2 border-accent' : 'text-text-dim hover:text-text'
-              }`}
-            >
-              {tab.shortLabel}
-            </button>
-          ))}
-        </div>
+        <TabBar
+          tabs={TABS.map(t => ({ id: t.id, label: t.shortLabel }))}
+          activeTab={activeTab}
+          onTabChange={setActiveTab}
+        />
         <div className="flex-1 overflow-y-auto">
           <AlbumList albums={sections[activeTab]} onPlay={onPlay} />
         </div>

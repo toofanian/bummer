@@ -1,12 +1,17 @@
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import CollectionsPane from './CollectionsPane'
+import { useIsMobile } from '../hooks/useIsMobile'
 
 // Mock apiFetch so AlbumPromptBar's home-data fetch doesn't fail
 vi.mock('../api', () => ({
   apiFetch: vi.fn(() => Promise.resolve({
     json: () => Promise.resolve({ recently_added: [], recently_played: [] }),
   })),
+}))
+
+vi.mock('../hooks/useIsMobile', () => ({
+  useIsMobile: vi.fn().mockReturnValue(false),
 }))
 
 const TWO_DAYS_AGO = new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString()
@@ -495,5 +500,51 @@ describe('CollectionsPane', () => {
     await waitFor(() => {
       expect(screen.getByTestId('album-prompt-bar')).toBeInTheDocument()
     })
+  })
+})
+
+describe('CollectionsPane inline create (mobile)', () => {
+  beforeEach(() => {
+    useIsMobile.mockReturnValue(true)
+  })
+  afterEach(() => {
+    useIsMobile.mockReturnValue(false)
+  })
+
+  const baseProps = {
+    collections: [],
+    onEnter: vi.fn(),
+    onDelete: vi.fn(),
+    onCreate: vi.fn(),
+    onRename: vi.fn(),
+    onFetchAlbums: vi.fn(),
+    albumCollectionMap: {},
+    collectionsForPicker: [],
+    session: { access_token: 'test' },
+    onBulkAdd: vi.fn(),
+    onCreateCollection: vi.fn(),
+    onReorder: null,
+    showCreate: false,
+    onShowCreateChange: vi.fn(),
+    createName: '',
+    onCreateNameChange: vi.fn(),
+    onCreateSubmit: vi.fn(),
+  }
+
+  it('renders create collection button when showCreate is false', () => {
+    render(<CollectionsPane {...baseProps} />)
+    expect(screen.getByLabelText('Create collection')).toBeInTheDocument()
+  })
+
+  it('renders name input when showCreate is true', () => {
+    render(<CollectionsPane {...baseProps} showCreate={true} />)
+    expect(screen.getByPlaceholderText(/collection name/i)).toBeInTheDocument()
+  })
+
+  it('calls onShowCreateChange when create button clicked', async () => {
+    const onShowCreateChange = vi.fn()
+    render(<CollectionsPane {...baseProps} onShowCreateChange={onShowCreateChange} />)
+    await userEvent.click(screen.getByLabelText('Create collection'))
+    expect(onShowCreateChange).toHaveBeenCalledWith(true)
   })
 })
