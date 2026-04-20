@@ -11,6 +11,7 @@
   --color-hover: #1e1e1e;
   --color-accent: #c0c0c0;
   --color-spotify-green: #1db954;
+  --color-glow: #ffffff;
 
   --breakpoint-sm: 390px;
   --breakpoint-md: 768px;
@@ -27,6 +28,7 @@
     --color-text-dim: #666666;
     --color-hover: #e8e8e8;
     --color-accent: #606060;
+    --color-glow: #000000;
   }
 }
 
@@ -40,4 +42,153 @@
     -webkit-font-smoothing: antialiased;
     line-height: 1.6;
   }
+}
+
+/* ── Landing page styles ── */
+
+/* Noise texture overlay */
+.landing-noise {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 1;
+  opacity: 0.03;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  background-repeat: repeat;
+  background-size: 256px 256px;
+}
+
+/* Heading — dramatic, uppercase, heavy */
+.landing-heading {
+  font-size: clamp(2.2rem, 8vw, 5.5rem);
+  font-weight: 900;
+  letter-spacing: -0.02em;
+  line-height: 0.95;
+  text-transform: uppercase;
+  color: var(--color-text);
+}
+
+/* Subheading — monospaced, understated */
+.landing-subheading {
+  font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', 'JetBrains Mono', ui-monospace, monospace;
+  font-size: clamp(0.7rem, 1.5vw, 0.9rem);
+  color: var(--color-text-dim);
+  letter-spacing: 0.04em;
+  font-weight: 400;
+}
+
+/* Thin horizontal rule divider */
+.landing-divider {
+  width: 100%;
+  max-width: 32rem;
+  height: 1px;
+  margin: 0 auto;
+  background: var(--color-border);
+}
+
+/* Screenshot wrapper — subtle glow + perspective */
+.landing-screenshot-wrapper {
+  display: flex;
+  justify-content: center;
+  padding: 0.5rem 1rem 1.5rem;
+}
+
+.landing-screenshot {
+  width: 100%;
+  max-height: 46vh;
+  object-fit: contain;
+  border-radius: 12px;
+  filter: drop-shadow(0 0 20px rgba(255, 255, 255, 0.06))
+          drop-shadow(0 4px 12px rgba(0, 0, 0, 0.5));
+  transform: perspective(800px) rotateY(0deg);
+  transition: filter 0.4s ease, transform 0.4s ease;
+}
+
+.splide__slide.is-active .landing-screenshot {
+  filter: drop-shadow(0 0 30px rgba(255, 255, 255, 0.1))
+          drop-shadow(0 8px 24px rgba(0, 0, 0, 0.6));
+  transform: perspective(800px) rotateY(0deg) scale(1.02);
+}
+
+/* CTA button — bold, monospaced, wide */
+.landing-cta {
+  display: inline-flex;
+  align-items: center;
+
+  font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', 'JetBrains Mono', ui-monospace, monospace;
+  font-size: 1.1rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--color-bg);
+  text-decoration: none;
+  padding: 0.85rem 3rem;
+  background: var(--color-text);
+  border: 2px solid var(--color-text);
+  border-radius: 0;
+  position: relative;
+  transition: all 0.25s ease;
+}
+
+.landing-cta:hover {
+  background: transparent;
+  color: var(--color-text);
+  box-shadow: 0 0 24px rgba(255, 255, 255, 0.08);
+}
+
+.landing-cta:active {
+  transform: scale(0.97);
+}
+
+/* ── Splide pagination — dash indicators ── */
+.splide__pagination {
+  bottom: 0 !important;
+  padding: 0 !important;
+  gap: 6px;
+}
+
+.splide__pagination__page {
+  background: var(--color-text-dim);
+  opacity: 0.3;
+  width: 16px;
+  height: 2px;
+  margin: 0;
+  border: none;
+  border-radius: 1px;
+  transition: opacity 0.3s ease, width 0.3s ease, background 0.3s ease;
+  cursor: pointer;
+}
+
+.splide__pagination__page.is-active {
+  opacity: 1;
+  width: 24px;
+  background: var(--color-accent);
+}
+
+/* ── Lightbox ── */
+.landing-lightbox {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  background: rgba(0, 0, 0, 0.85);
+  backdrop-filter: blur(8px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: zoom-out;
+  animation: lightbox-in 0.2s ease-out;
+}
+
+.landing-lightbox-img {
+  max-width: 90vw;
+  max-height: 90vh;
+  object-fit: contain;
+  border-radius: 8px;
+  cursor: default;
+  filter: drop-shadow(0 0 40px rgba(255, 255, 255, 0.1));
+}
+
+@keyframes lightbox-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
 }

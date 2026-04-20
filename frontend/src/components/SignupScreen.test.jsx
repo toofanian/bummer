@@ -15,13 +15,13 @@ describe('SignupScreen', () => {
   it('renders Google sign-in button without invite code field (issue #79)', () => {
     render(<SignupScreen />)
     expect(screen.queryByPlaceholderText(/invite code/i)).not.toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /sign in with google/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /continue with google/i })).toBeInTheDocument()
   })
 
   it('signup calls signInWithOAuth directly without redeem-invite (issue #79)', async () => {
     supabase.auth.signInWithOAuth.mockResolvedValueOnce({ error: null })
     render(<SignupScreen />)
-    fireEvent.click(screen.getByRole('button', { name: /sign in with google/i }))
+    fireEvent.click(screen.getByRole('button', { name: /continue with google/i }))
     await waitFor(() => expect(supabase.auth.signInWithOAuth).toHaveBeenCalledWith(
       expect.objectContaining({
         provider: 'google',
