@@ -59,19 +59,25 @@ def test_log_play_requires_album_id():
 def mock_db_with_play_history(rows):
     """Mock DB that returns play_history rows and empty library cache.
 
-    Uses MagicMock's auto-chaining so any combination of
-    .select().gte().order().execute() or .select().gte().execute() works.
+    The recently_played query uses .select().order().limit().execute() (no .gte()).
+    The rediscover/recommended queries use .select().gte().execute().
     """
     db = MagicMock()
 
     def table_router(table_name):
         mock_table = MagicMock()
         if table_name == "play_history":
-            mock_table.select.return_value.gte.return_value.order.return_value.execute.return_value = MagicMock(
+            # Chain for recently_played: .select().order().limit().execute()
+            mock_table.select.return_value.order.return_value.limit.return_value.execute.return_value = MagicMock(
                 data=rows
             )
+            # Chain for rediscover/recommended: .select().gte().execute()
             mock_table.select.return_value.gte.return_value.execute.return_value = (
                 MagicMock(data=rows)
+            )
+            # Also support .select().gte().order().execute() in case it's still used
+            mock_table.select.return_value.gte.return_value.order.return_value.execute.return_value = MagicMock(
+                data=rows
             )
         elif table_name == "library_cache":
             mock_table.select.return_value.eq.return_value.execute.return_value = (
@@ -112,21 +118,25 @@ ALBUM_CACHE = [
 
 
 @patch("routers.home.get_album_cache", return_value=ALBUM_CACHE)
-def test_home_returns_today_albums(mock_cache):
+def test_home_returns_recently_played_deduped(mock_cache):
+    """recently_played returns deduped albums keeping first (most recent) occurrence."""
     now = datetime.now(timezone.utc)
     rows = [
         {"album_id": "album1", "played_at": now.isoformat()},
-        {"album_id": "album2", "played_at": now.isoformat()},
-        {"album_id": "album1", "played_at": (now - timedelta(hours=1)).isoformat()},
+        {"album_id": "album2", "played_at": (now - timedelta(hours=1)).isoformat()},
+        {"album_id": "album1", "played_at": (now - timedelta(hours=2)).isoformat()},
     ]
     db = mock_db_with_play_history(rows)
     setup_overrides(db=db)
     try:
-        res = client.get("/home", params={"tz": "UTC"})
+        res = client.get("/home")
         assert res.status_code == 200
         data = res.json()
-        today_ids = [a["service_id"] for a in data["today"]]
-        assert today_ids == ["album1", "album2"]
+        recently_played_ids = [a["service_id"] for a in data["recently_played"]]
+        assert recently_played_ids == ["album1", "album2"]
+        # Verify old keys are gone
+        assert "today" not in data
+        assert "this_week" not in data
     finally:
         clear_overrides()
 
@@ -136,11 +146,45 @@ def test_home_empty_history(mock_cache):
     db = mock_db_with_play_history([])
     setup_overrides(db=db)
     try:
-        res = client.get("/home", params={"tz": "UTC"})
+        res = client.get("/home")
         assert res.status_code == 200
         data = res.json()
-        assert data["today"] == []
-        assert data["this_week"] == []
+        assert data["recently_played"] == []
+    finally:
+        clear_overrides()
+
+
+@patch("routers.home.get_album_cache")
+def test_home_recently_played_capped_at_30(mock_cache):
+    """When more than 30 unique albums are played, only the 30 most recent are returned."""
+    albums = [
+        {
+            "service_id": f"album{i}",
+            "name": f"Album {i}",
+            "artists": ["Artist X"],
+            "image_url": f"https://img/{i}.jpg",
+            "release_date": "2020-01-01",
+            "added_at": "2024-01-01T00:00:00Z",
+        }
+        for i in range(1, 36)
+    ]
+    mock_cache.return_value = albums
+
+    now = datetime.now(timezone.utc)
+    # 35 unique plays, most recent first
+    rows = [
+        {"album_id": f"album{i}", "played_at": (now - timedelta(hours=i)).isoformat()}
+        for i in range(1, 36)
+    ]
+    db = mock_db_with_play_history(rows)
+    setup_overrides(db=db)
+    try:
+        res = client.get("/home")
+        assert res.status_code == 200
+        data = res.json()
+        assert len(data["recently_played"]) == 30
+        ids = [a["service_id"] for a in data["recently_played"]]
+        assert ids == [f"album{i}" for i in range(1, 31)]
     finally:
         clear_overrides()
 
@@ -155,11 +199,11 @@ def test_home_rediscover_returns_unplayed_albums(mock_cache):
     db = mock_db_with_play_history(rows)
     setup_overrides(db=db)
     try:
-        res = client.get("/home", params={"tz": "UTC"})
+        res = client.get("/home")
         data = res.json()
         rediscover_ids = [a["service_id"] for a in data["rediscover"]]
         assert set(rediscover_ids).issubset({"album1", "album2", "album3"})
-        assert len(rediscover_ids) <= 20
+        assert len(rediscover_ids) <= 30
     finally:
         clear_overrides()
 
@@ -174,7 +218,7 @@ def test_home_rediscover_excludes_recently_played(mock_cache):
     db = mock_db_with_play_history(rows)
     setup_overrides(db=db)
     try:
-        res = client.get("/home", params={"tz": "UTC"})
+        res = client.get("/home")
         data = res.json()
         rediscover_ids = [a["service_id"] for a in data["rediscover"]]
         assert "album1" not in rediscover_ids
@@ -194,7 +238,7 @@ def test_home_recommended_by_frequent_artists(mock_cache):
     db = mock_db_with_play_history(rows)
     setup_overrides(db=db)
     try:
-        res = client.get("/home", params={"tz": "UTC"})
+        res = client.get("/home")
         data = res.json()
         rec_ids = [a["service_id"] for a in data["recommended"]]
         assert "album3" in rec_ids  # by Artist A, not in recently played
@@ -203,45 +247,17 @@ def test_home_recommended_by_frequent_artists(mock_cache):
         clear_overrides()
 
 
-def test_home_returns_recently_added_within_14_days():
-    now = datetime.now(timezone.utc)
-    cache_with_recent = [
-        {
-            "service_id": "new1",
-            "name": "New One",
-            "artists": ["Artist A"],
-            "image_url": "https://img/n1.jpg",
-            "release_date": "2024-01-01",
-            "added_at": (now - timedelta(days=2)).isoformat(),
-        },
-        {
-            "service_id": "new2",
-            "name": "New Two",
-            "artists": ["Artist B"],
-            "image_url": "https://img/n2.jpg",
-            "release_date": "2024-01-01",
-            "added_at": (now - timedelta(days=10)).isoformat(),
-        },
-        {
-            "service_id": "old1",
-            "name": "Old One",
-            "artists": ["Artist C"],
-            "image_url": "https://img/o1.jpg",
-            "release_date": "2024-01-01",
-            "added_at": (now - timedelta(days=30)).isoformat(),
-        },
-    ]
-    with patch("routers.home.get_album_cache", return_value=cache_with_recent):
-        db = mock_db_with_play_history([])
-        setup_overrides(db=db)
-        try:
-            res = client.get("/home", params={"tz": "UTC"})
-            assert res.status_code == 200
-            data = res.json()
-            assert "recently_added" in data
-            ids = [a["service_id"] for a in data["recently_added"]]
-            # Only albums added within 14 days, sorted descending
-            assert ids == ["new1", "new2"]
-            assert "old1" not in ids
-        finally:
-            clear_overrides()
+@patch("routers.home.get_album_cache", return_value=ALBUM_CACHE)
+def test_home_returns_recently_added(mock_cache):
+    db = mock_db_with_play_history([])
+    setup_overrides(db=db)
+    try:
+        res = client.get("/home")
+        assert res.status_code == 200
+        data = res.json()
+        assert "recently_added" in data
+        ids = [a["service_id"] for a in data["recently_added"]]
+        # Should be sorted by added_at descending
+        assert ids == ["album2", "album1", "album3"]
+    finally:
+        clear_overrides()

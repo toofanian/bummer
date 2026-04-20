@@ -154,7 +154,7 @@ function SortableCollectionRow({ col, ...rest }) {
   )
 }
 
-export default function CollectionsPane({ collections, onEnter, onDelete, onCreate, onRename, onFetchAlbums, albumCollectionMap, collectionsForPicker, session, onBulkAdd, onCreateCollection, onReorder }) {
+export default function CollectionsPane({ collections, onEnter, onDelete, onCreate, onRename, onFetchAlbums, albumCollectionMap, collectionsForPicker, session, onBulkAdd, onCreateCollection, onReorder, showCreate, onShowCreateChange, createName, onCreateNameChange, onCreateSubmit }) {
   const [artMap, setArtMap] = useState({})
   const [confirmingId, setConfirmingId] = useState(null)
   const [menuOpenId, setMenuOpenId] = useState(null)
@@ -279,6 +279,39 @@ export default function CollectionsPane({ collections, onEnter, onDelete, onCrea
 
   return (
     <div className="w-full flex flex-col h-full overflow-hidden">
+      {isMobile && (
+        <div className="flex items-center px-4 py-2 border-b border-border flex-shrink-0">
+          {showCreate ? (
+            <input
+              autoFocus
+              className="bg-surface-2 text-text border border-border rounded-full px-3 py-1 text-sm flex-1 min-w-0"
+              placeholder="Collection name\u2026"
+              value={createName}
+              onChange={e => onCreateNameChange(e.target.value)}
+              onKeyDown={e => {
+                if (e.key === 'Enter' && createName.trim()) {
+                  onCreateSubmit(createName.trim())
+                } else if (e.key === 'Escape') {
+                  onShowCreateChange(false)
+                }
+              }}
+              onBlur={() => onShowCreateChange(false)}
+            />
+          ) : (
+            <button
+              className="bg-transparent border-none text-text-dim cursor-pointer p-1.5 rounded transition-colors duration-150 hover:text-text"
+              onClick={() => onShowCreateChange(true)}
+              aria-label="Create collection"
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <circle cx="12" cy="12" r="10" />
+                <path d="M12 8v8" />
+                <path d="M8 12h8" />
+              </svg>
+            </button>
+          )}
+        </div>
+      )}
       {collections.length === 0 ? (
         <p className="p-4 text-sm text-text-dim italic">No collections yet.</p>
       ) : onReorder ? (

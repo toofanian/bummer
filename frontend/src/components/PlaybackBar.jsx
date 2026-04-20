@@ -184,7 +184,7 @@ export default function PlaybackBar({
     <div
       role="region"
       aria-label="Playback bar"
-      className="fixed bottom-0 left-0 right-0 min-h-16 bg-surface border-t border-border grid grid-cols-[1fr_auto_1fr] items-center px-4 pb-[env(safe-area-inset-bottom,0px)] z-[200] gap-2 overflow-hidden"
+      className="fixed bottom-0 left-0 right-0 min-h-20 bg-surface border-t border-border grid grid-cols-[1fr_auto_1fr] items-center px-4 pb-[env(safe-area-inset-bottom,0px)] z-[200] gap-2 overflow-hidden"
     >
       {/* LEFT ZONE: album art + track info */}
       <div data-testid="playback-left" className="flex items-center gap-2.5 min-w-0 overflow-hidden">
@@ -227,7 +227,7 @@ export default function PlaybackBar({
       </div>
 
       {/* CENTER ZONE: transport controls + progress bar */}
-      <div data-testid="playback-center" className="flex flex-col items-center gap-0.5 flex-shrink-0 md:min-w-[500px]">
+      <div data-testid="playback-center" className="flex flex-col items-center gap-1.5 flex-shrink-0 md:min-w-[500px]">
         <div className="flex items-center gap-2">
           <button
             aria-label="Previous track"
@@ -241,7 +241,7 @@ export default function PlaybackBar({
             <button
               aria-label="Pause"
               data-prominent="true"
-              className="bg-text border-none text-bg cursor-pointer w-8 h-8 p-0 rounded-full text-base leading-none flex items-center justify-center transition-[transform,background] duration-150 flex-shrink-0"
+              className="bg-text border-none text-bg cursor-pointer w-7 h-7 p-0 rounded-full text-base leading-none flex items-center justify-center transition-[transform,background] duration-150 flex-shrink-0"
               onClick={onPause}
             >
               <PauseIcon />
@@ -250,8 +250,8 @@ export default function PlaybackBar({
             <button
               aria-label="Play"
               data-prominent="true"
-              className="bg-text border-none text-bg cursor-pointer w-8 h-8 p-0 rounded-full text-base leading-none flex items-center justify-center transition-[transform,background] duration-150 flex-shrink-0"
-              onClick={onPlay}
+              className="bg-text border-none text-bg cursor-pointer w-7 h-7 p-0 rounded-full text-base leading-none flex items-center justify-center transition-[transform,background] duration-150 flex-shrink-0"
+              onClick={() => onPlay()}
             >
               <PlayIcon />
             </button>

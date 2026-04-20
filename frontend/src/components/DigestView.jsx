@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { apiFetch } from '../api'
 import { useIsMobile } from '../hooks/useIsMobile'
+import TabBar from './TabBar'
 
 function ChangesSection({ onPlay, session }) {
   const [entries, setEntries] = useState([])
@@ -38,7 +39,7 @@ function ChangesSection({ onPlay, session }) {
   function handleLoadMore() {
     if (!nextCursor || loadingMore) return
     setLoadingMore(true)
-    apiFetch(`/digest/changelog?before=${nextCursor}`, {}, session)
+    apiFetch(`/digest/changelog?before=${encodeURIComponent(nextCursor)}`, {}, session)
       .then(res => {
         if (!res.ok) throw new Error('Failed to load more')
         return res.json()
@@ -132,7 +133,7 @@ function HistorySection({ onPlay, session }) {
   function handleLoadMore() {
     if (!nextCursor || loadingMore) return
     setLoadingMore(true)
-    apiFetch(`/digest/history?before=${nextCursor}`, {}, session)
+    apiFetch(`/digest/history?before=${encodeURIComponent(nextCursor)}`, {}, session)
       .then(res => {
         if (!res.ok) throw new Error('Failed to load more')
         return res.json()
@@ -271,17 +272,15 @@ export default function DigestView({ onPlay, session }) {
 
   return (
     <div className="flex flex-col h-full">
-      <div className="flex border-b border-border flex-shrink-0" role="tablist">
-        {['changes', 'history', 'stats'].map(tab => (
-          <button key={tab} role="tab" aria-selected={activeTab === tab}
-            onClick={() => setActiveTab(tab)}
-            className={`flex-1 py-2 text-xs font-bold tracking-wider uppercase transition-colors duration-150 ${
-              activeTab === tab ? 'text-text border-b-2 border-accent' : 'text-text-dim hover:text-text'
-            }`}>
-            {tab === 'changes' ? 'Changes' : tab === 'history' ? 'History' : 'Stats'}
-          </button>
-        ))}
-      </div>
+      <TabBar
+        tabs={[
+          { id: 'changes', label: 'Changes' },
+          { id: 'history', label: 'History' },
+          { id: 'stats', label: 'Stats' },
+        ]}
+        activeTab={activeTab}
+        onTabChange={setActiveTab}
+      />
       <div className="flex-1 overflow-y-auto">
         {activeTab === 'changes' && (
           <>

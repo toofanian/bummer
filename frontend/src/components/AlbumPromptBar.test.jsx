@@ -2,9 +2,14 @@ import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import AlbumPromptBar from './AlbumPromptBar'
 import { vi } from 'vitest'
+import { useIsMobile } from '../hooks/useIsMobile'
 
 vi.mock('../api', () => ({
   apiFetch: vi.fn(),
+}))
+
+vi.mock('../hooks/useIsMobile', () => ({
+  useIsMobile: vi.fn(() => false),
 }))
 
 import { apiFetch } from '../api'
@@ -18,10 +23,8 @@ const HOME_DATA = {
   recently_added: [
     { service_id: 'ra1', name: 'New Album', image_url: 'https://example.com/new.jpg' },
   ],
-  today: [
+  recently_played: [
     { service_id: 'rp1', name: 'Played Today', image_url: 'https://example.com/today.jpg' },
-  ],
-  this_week: [
     { service_id: 'rp2', name: 'Played This Week', image_url: 'https://example.com/week.jpg' },
   ],
 }
@@ -45,18 +48,18 @@ describe('AlbumPromptBar', () => {
     })
   })
 
-  it('fetches home data and renders two rows', async () => {
+  it('fetches home data and renders album thumbnails', async () => {
     renderBar()
     await waitFor(() => {
-      expect(screen.getByText('Recently Added')).toBeInTheDocument()
-      expect(screen.getByText('Recently Played')).toBeInTheDocument()
+      expect(screen.getByAltText('New Album')).toBeInTheDocument()
+      expect(screen.getByAltText('Played Today')).toBeInTheDocument()
     })
   })
 
   it('does not render action button when no albums selected', async () => {
     renderBar()
     await waitFor(() => {
-      expect(screen.getByText('Recently Added')).toBeInTheDocument()
+      expect(screen.getByAltText('New Album')).toBeInTheDocument()
     })
     expect(screen.queryByRole('button', { name: /add to collection/i })).not.toBeInTheDocument()
   })
@@ -64,7 +67,7 @@ describe('AlbumPromptBar', () => {
   it('shows action button after selecting an album', async () => {
     renderBar()
     await waitFor(() => {
-      expect(screen.getByText('Recently Added')).toBeInTheDocument()
+      expect(screen.getByAltText('New Album')).toBeInTheDocument()
     })
     await userEvent.click(screen.getByRole('button', { name: /select new album/i }))
     expect(screen.getByRole('button', { name: /add to collection/i })).toBeInTheDocument()
@@ -73,19 +76,18 @@ describe('AlbumPromptBar', () => {
   it('opens CollectionPicker when action button clicked', async () => {
     renderBar()
     await waitFor(() => {
-      expect(screen.getByText('Recently Added')).toBeInTheDocument()
+      expect(screen.getByAltText('New Album')).toBeInTheDocument()
     })
     await userEvent.click(screen.getByRole('button', { name: /select new album/i }))
     await userEvent.click(screen.getByRole('button', { name: /add to collection/i }))
     expect(screen.getByRole('listbox', { name: /collection picker/i })).toBeInTheDocument()
   })
 
-  it('still renders bar with empty state when home data has no albums', async () => {
+  it('renders empty bar when home data has no albums', async () => {
     apiFetch.mockResolvedValue({
       json: () => Promise.resolve({
         recently_added: [],
-        today: [],
-        this_week: [],
+        recently_played: [],
       }),
     })
     renderBar()
@@ -94,7 +96,7 @@ describe('AlbumPromptBar', () => {
     })
     await waitFor(() => {
       expect(screen.getByTestId('album-prompt-bar')).toBeInTheDocument()
-      expect(screen.getAllByText('Nothing yet')).toHaveLength(2)
+      expect(screen.queryAllByRole('button')).toHaveLength(0)
     })
   })
 
@@ -104,15 +106,14 @@ describe('AlbumPromptBar', () => {
         recently_added: [
           { service_id: 'shared1', name: 'Shared Album', image_url: 'https://example.com/s.jpg' },
         ],
-        today: [
+        recently_played: [
           { service_id: 'shared1', name: 'Shared Album', image_url: 'https://example.com/s.jpg' },
         ],
-        this_week: [],
       }),
     })
     renderBar()
     await waitFor(() => {
-      expect(screen.getByText('Recently Added')).toBeInTheDocument()
+      expect(screen.getAllByAltText('Shared Album')).toHaveLength(2)
     })
     const buttons = screen.getAllByRole('button', { name: /select shared album/i })
     await userEvent.click(buttons[0])
@@ -120,11 +121,29 @@ describe('AlbumPromptBar', () => {
     expect(overlays).toHaveLength(2)
   })
 
+  it('hides recently added row on mobile', async () => {
+    useIsMobile.mockReturnValue(true)
+    renderBar()
+    await waitFor(() => {
+      expect(screen.getByAltText('Played Today')).toBeInTheDocument()
+    })
+    expect(screen.queryByAltText('New Album')).not.toBeInTheDocument()
+  })
+
+  it('shows recently added row on desktop', async () => {
+    useIsMobile.mockReturnValue(false)
+    renderBar()
+    await waitFor(() => {
+      expect(screen.getByAltText('New Album')).toBeInTheDocument()
+      expect(screen.getByAltText('Played Today')).toBeInTheDocument()
+    })
+  })
+
   it('clears selection and closes picker after successful bulk add', async () => {
     const onBulkAdd = vi.fn().mockResolvedValue(undefined)
     renderBar({ onBulkAdd })
     await waitFor(() => {
-      expect(screen.getByText('Recently Added')).toBeInTheDocument()
+      expect(screen.getByAltText('New Album')).toBeInTheDocument()
     })
     await userEvent.click(screen.getByRole('button', { name: /select new album/i }))
     await userEvent.click(screen.getByRole('button', { name: /add to collection/i }))

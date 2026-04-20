@@ -13,17 +13,15 @@ const COLLECTION_MAP = {
 }
 
 describe('AlbumPromptRow', () => {
-  it('renders label and album thumbnails', () => {
+  it('renders album thumbnails', () => {
     render(
       <AlbumPromptRow
-        label="Recently Added"
         albums={ALBUMS}
         albumCollectionMap={{}}
         selectedIds={new Set()}
         onToggleSelect={() => {}}
       />
     )
-    expect(screen.getByText('Recently Added')).toBeInTheDocument()
     const images = screen.getAllByRole('img')
     expect(images).toHaveLength(2)
     expect(images[0]).toHaveAttribute('src', 'https://example.com/1.jpg')
@@ -32,7 +30,7 @@ describe('AlbumPromptRow', () => {
   it('shows collection count overlay for albums in collections', () => {
     render(
       <AlbumPromptRow
-        label="Recently Added"
+
         albums={ALBUMS}
         albumCollectionMap={COLLECTION_MAP}
         selectedIds={new Set()}
@@ -45,7 +43,7 @@ describe('AlbumPromptRow', () => {
   it('does not show overlay for albums not in any collection', () => {
     render(
       <AlbumPromptRow
-        label="Recently Added"
+
         albums={ALBUMS}
         albumCollectionMap={COLLECTION_MAP}
         selectedIds={new Set()}
@@ -59,7 +57,7 @@ describe('AlbumPromptRow', () => {
   it('renders placeholder for albums without image_url', () => {
     render(
       <AlbumPromptRow
-        label="Recently Added"
+
         albums={ALBUMS}
         albumCollectionMap={{}}
         selectedIds={new Set()}
@@ -70,24 +68,22 @@ describe('AlbumPromptRow', () => {
     expect(placeholders).toHaveLength(1)
   })
 
-  it('shows empty state when albums array is empty', () => {
-    render(
+  it('renders nothing when albums array is empty', () => {
+    const { container } = render(
       <AlbumPromptRow
-        label="Recently Added"
         albums={[]}
         albumCollectionMap={{}}
         selectedIds={new Set()}
         onToggleSelect={() => {}}
       />
     )
-    expect(screen.getByText('Recently Added')).toBeInTheDocument()
-    expect(screen.getByText('Nothing yet')).toBeInTheDocument()
+    expect(container.querySelectorAll('button')).toHaveLength(0)
   })
 
   it('shows checkmark overlay when album is selected', () => {
     render(
       <AlbumPromptRow
-        label="Recently Added"
+
         albums={ALBUMS}
         albumCollectionMap={{}}
         selectedIds={new Set(['a1'])}
@@ -102,7 +98,7 @@ describe('AlbumPromptRow', () => {
     const onToggleSelect = vi.fn()
     render(
       <AlbumPromptRow
-        label="Recently Added"
+
         albums={ALBUMS}
         albumCollectionMap={{}}
         selectedIds={new Set()}
@@ -116,7 +112,7 @@ describe('AlbumPromptRow', () => {
   it('shows both checkmark and collection count when selected and in collections', () => {
     render(
       <AlbumPromptRow
-        label="Recently Added"
+
         albums={ALBUMS}
         albumCollectionMap={COLLECTION_MAP}
         selectedIds={new Set(['a1'])}
@@ -125,5 +121,37 @@ describe('AlbumPromptRow', () => {
     )
     expect(screen.getByTestId('selected-overlay')).toBeInTheDocument()
     expect(screen.getByText('2')).toBeInTheDocument()
+  })
+
+  it('renders all albums without truncating to visible count', () => {
+    const manyAlbums = Array.from({ length: 20 }, (_, i) => ({
+      service_id: `alb-${i}`,
+      name: `Album ${i}`,
+      image_url: `https://example.com/${i}.jpg`,
+    }))
+    render(
+      <AlbumPromptRow
+        albums={manyAlbums}
+        albumCollectionMap={{}}
+        selectedIds={new Set()}
+        onToggleSelect={() => {}}
+      />
+    )
+    const buttons = screen.getAllByRole('button')
+    expect(buttons).toHaveLength(20)
+  })
+
+  it('has horizontal scroll styling on the container', () => {
+    render(
+      <AlbumPromptRow
+        albums={ALBUMS}
+        albumCollectionMap={{}}
+        selectedIds={new Set()}
+        onToggleSelect={() => {}}
+      />
+    )
+    const scrollContainer = screen.getAllByRole('button')[0].parentElement
+    expect(scrollContainer.className).toContain('overflow-x-auto')
+    expect(scrollContainer.style.scrollBehavior).toBe('smooth')
   })
 })

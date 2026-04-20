@@ -2,20 +2,10 @@ import { useState, useEffect } from 'react'
 import AlbumPromptRow from './AlbumPromptRow'
 import CollectionPicker from './CollectionPicker'
 import { apiFetch } from '../api'
-
-function mergeRecentlyPlayed(today, thisWeek) {
-  const seen = new Set()
-  const merged = []
-  for (const album of [...(today ?? []), ...(thisWeek ?? [])]) {
-    if (!seen.has(album.service_id)) {
-      seen.add(album.service_id)
-      merged.push(album)
-    }
-  }
-  return merged
-}
+import { useIsMobile } from '../hooks/useIsMobile'
 
 export default function AlbumPromptBar({ albumCollectionMap, collections, session, onBulkAdd, onCreate }) {
+  const isMobile = useIsMobile()
   const [recentlyAdded, setRecentlyAdded] = useState([])
   const [recentlyPlayed, setRecentlyPlayed] = useState([])
   const [loaded, setLoaded] = useState(false)
@@ -23,12 +13,11 @@ export default function AlbumPromptBar({ albumCollectionMap, collections, sessio
   const [pickerOpen, setPickerOpen] = useState(false)
 
   useEffect(() => {
-    const tz = Intl.DateTimeFormat().resolvedOptions().timeZone
-    apiFetch(`/home?tz=${encodeURIComponent(tz)}`, {}, session)
+    apiFetch('/home', {}, session)
       .then(r => r.json())
       .then(data => {
         setRecentlyAdded(data.recently_added ?? [])
-        setRecentlyPlayed(mergeRecentlyPlayed(data.today, data.this_week))
+        setRecentlyPlayed(data.recently_played ?? [])
         setLoaded(true)
       })
       .catch(() => setLoaded(true))
@@ -69,16 +58,15 @@ export default function AlbumPromptBar({ albumCollectionMap, collections, sessio
         </div>
       )}
 
+      {!isMobile && (
+        <AlbumPromptRow
+          albums={recentlyAdded}
+          albumCollectionMap={albumCollectionMap}
+          selectedIds={selectedIds}
+          onToggleSelect={handleToggleSelect}
+        />
+      )}
       <AlbumPromptRow
-        label="Recently Added"
-        albums={recentlyAdded}
-        albumCollectionMap={albumCollectionMap}
-        selectedIds={selectedIds}
-        onToggleSelect={handleToggleSelect}
-      />
-      <div className="border-t border-border mx-3" />
-      <AlbumPromptRow
-        label="Recently Played"
         albums={recentlyPlayed}
         albumCollectionMap={albumCollectionMap}
         selectedIds={selectedIds}
