@@ -2,9 +2,14 @@ import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import AlbumPromptBar from './AlbumPromptBar'
 import { vi } from 'vitest'
+import { useIsMobile } from '../hooks/useIsMobile'
 
 vi.mock('../api', () => ({
   apiFetch: vi.fn(),
+}))
+
+vi.mock('../hooks/useIsMobile', () => ({
+  useIsMobile: vi.fn(() => false),
 }))
 
 import { apiFetch } from '../api'
@@ -114,6 +119,24 @@ describe('AlbumPromptBar', () => {
     await userEvent.click(buttons[0])
     const overlays = screen.getAllByTestId('selected-overlay')
     expect(overlays).toHaveLength(2)
+  })
+
+  it('hides recently added row on mobile', async () => {
+    useIsMobile.mockReturnValue(true)
+    renderBar()
+    await waitFor(() => {
+      expect(screen.getByAltText('Played Today')).toBeInTheDocument()
+    })
+    expect(screen.queryByAltText('New Album')).not.toBeInTheDocument()
+  })
+
+  it('shows recently added row on desktop', async () => {
+    useIsMobile.mockReturnValue(false)
+    renderBar()
+    await waitFor(() => {
+      expect(screen.getByAltText('New Album')).toBeInTheDocument()
+      expect(screen.getByAltText('Played Today')).toBeInTheDocument()
+    })
   })
 
   it('clears selection and closes picker after successful bulk add', async () => {
