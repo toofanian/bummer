@@ -163,7 +163,7 @@ export default function FullScreenNowPlaying({
           </button>
           <button
             aria-label={is_playing ? 'Pause' : 'Play'}
-            onClick={is_playing ? onPause : onPlay}
+            onClick={() => is_playing ? onPause() : onPlay()}
             className="w-14 h-14 flex items-center justify-center bg-text text-bg border-none rounded-full transition-[transform,opacity] duration-150 hover:opacity-90"
           >
             {is_playing ? <PauseIcon size={28} /> : <PlayIcon size={28} />}
