@@ -110,34 +110,43 @@
   transform: perspective(800px) rotateY(0deg) scale(1.02);
 }
 
-/* CTA button — monospaced, bordered, animated */
+/* CTA button — bold, monospaced, wide */
 .landing-cta {
-  display: inline-block;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.75rem;
   font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', 'JetBrains Mono', ui-monospace, monospace;
-  font-size: 0.95rem;
-  font-weight: 600;
-  letter-spacing: 0.08em;
+  font-size: 1.1rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
   text-transform: uppercase;
-  color: var(--color-text);
+  color: var(--color-bg);
   text-decoration: none;
-  padding: 0.6rem 2.5rem;
-  background: var(--color-surface-2);
-  border: 1px solid var(--color-border);
-  border-radius: 6px;
+  padding: 0.85rem 3rem;
+  background: var(--color-text);
+  border: 2px solid var(--color-text);
+  border-radius: 0;
   position: relative;
-  overflow: hidden;
-  transition: border-color 0.3s ease, box-shadow 0.3s ease, color 0.3s ease;
+  transition: all 0.25s ease;
+}
+
+.landing-cta-arrow {
+  transition: transform 0.25s ease;
+  font-size: 1.2rem;
 }
 
 .landing-cta:hover {
-  border-color: var(--color-accent);
-  box-shadow: 0 0 16px rgba(255, 255, 255, 0.06),
-              inset 0 0 16px rgba(255, 255, 255, 0.02);
-  color: #ffffff;
+  background: transparent;
+  color: var(--color-text);
+  box-shadow: 0 0 24px rgba(255, 255, 255, 0.08);
+}
+
+.landing-cta:hover .landing-cta-arrow {
+  transform: translateX(4px);
 }
 
 .landing-cta:active {
-  transform: scale(0.98);
+  transform: scale(0.97);
 }
 
 /* ── Splide pagination — dash indicators ── */

@@ -12,18 +12,25 @@ const screenshots = [
 export default function LandingPage() {
   const [lightbox, setLightbox] = useState(null)
 
+  function closeLightbox() { setLightbox(null) }
+
+  // Close on Escape
+  if (typeof window !== 'undefined') {
+    window.onkeydown = (e) => { if (e.key === 'Escape') closeLightbox() }
+  }
+
   return (
     <>
     {lightbox !== null && (
       <div
         className="landing-lightbox"
-        onClick={() => setLightbox(null)}
+        onClick={closeLightbox}
       >
         <img
           src={screenshots[lightbox].src}
           alt={screenshots[lightbox].alt}
           className="landing-lightbox-img"
-          onClick={(e) => e.stopPropagation()}
+          onClick={closeLightbox}
         />
       </div>
     )}
@@ -76,12 +83,13 @@ export default function LandingPage() {
       </div>
 
       {/* CTA */}
-      <div className="flex justify-center py-4 relative z-10">
+      <div className="flex justify-center py-5 relative z-10">
         <a
           href="https://app.thedeathofshuffle.com"
           className="landing-cta"
         >
-          Bummer
+          <span className="landing-cta-text">Bummer</span>
+          <span className="landing-cta-arrow">&rarr;</span>
         </a>
       </div>
 
