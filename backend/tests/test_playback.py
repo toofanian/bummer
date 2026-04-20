@@ -428,7 +428,7 @@ def test_transfer_playback_calls_spotify_transfer():
     response = client.put("/playback/transfer", json={"device_id": "abc123"})
 
     assert response.status_code == 204
-    sp.transfer_playback.assert_called_once_with("abc123", force_play=True)
+    sp.transfer_playback.assert_called_once_with("abc123", force_play=False)
 
     clear_overrides()
 
@@ -443,7 +443,7 @@ def test_transfer_playback_with_context_uri_calls_transfer_then_start_playback()
     )
 
     assert response.status_code == 204
-    sp.transfer_playback.assert_called_once_with("abc123", force_play=True)
+    sp.transfer_playback.assert_called_once_with("abc123", force_play=False)
     sp.start_playback.assert_called_once_with(context_uri="spotify:album:xyz789")
 
     clear_overrides()

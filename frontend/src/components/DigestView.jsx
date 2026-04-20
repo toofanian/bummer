@@ -39,7 +39,7 @@ function ChangesSection({ onPlay, session }) {
   function handleLoadMore() {
     if (!nextCursor || loadingMore) return
     setLoadingMore(true)
-    apiFetch(`/digest/changelog?before=${nextCursor}`, {}, session)
+    apiFetch(`/digest/changelog?before=${encodeURIComponent(nextCursor)}`, {}, session)
       .then(res => {
         if (!res.ok) throw new Error('Failed to load more')
         return res.json()
@@ -133,7 +133,7 @@ function HistorySection({ onPlay, session }) {
   function handleLoadMore() {
     if (!nextCursor || loadingMore) return
     setLoadingMore(true)
-    apiFetch(`/digest/history?before=${nextCursor}`, {}, session)
+    apiFetch(`/digest/history?before=${encodeURIComponent(nextCursor)}`, {}, session)
       .then(res => {
         if (!res.ok) throw new Error('Failed to load more')
         return res.json()

@@ -199,7 +199,7 @@ def transfer_playback(
     body: TransferRequest, sp: spotipy.Spotify = Depends(get_user_spotify)
 ):
     try:
-        sp.transfer_playback(body.device_id, force_play=True)
+        sp.transfer_playback(body.device_id, force_play=False)
     except spotipy.exceptions.SpotifyException as e:
         if _is_no_active_device(e):
             raise HTTPException(status_code=409, detail="no_device")
