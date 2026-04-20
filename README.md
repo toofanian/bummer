@@ -10,9 +10,9 @@ A personal music library manager that syncs with Spotify and provides a more int
 |------|---------|
 | ![Home](frontend/public/screenshots/home.png) | ![Library](frontend/public/screenshots/library.png) |
 
-| Collections | Changelog |
+| Collections | Digest |
 |-------------|-----------|
-| ![Collections](frontend/public/screenshots/collections.png) | ![Changelog](frontend/public/screenshots/changelog.png) |
+| ![Collections](frontend/public/screenshots/collections.png) | ![Digest](frontend/public/screenshots/digest.png) |
 
 ## What it does
 

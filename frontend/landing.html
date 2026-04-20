@@ -21,35 +21,43 @@
         </p>
       </section>
 
-      <!-- Feature Showcase -->
-      <section class="w-full max-w-4xl mb-12 md:mb-16">
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-
-          <div class="bg-surface rounded-xl border border-border p-4">
-            <img src="/screenshots/home.png" alt="Home screen" class="w-full rounded-lg border border-border mb-4" />
-            <h3 class="text-lg font-semibold text-center">Home</h3>
-          </div>
-
-          <div class="bg-surface rounded-xl border border-border p-4">
-            <img src="/screenshots/library.png" alt="Library screen" class="w-full rounded-lg border border-border mb-4" />
-            <h3 class="text-lg font-semibold text-center">Library</h3>
-          </div>
-
-          <div class="bg-surface rounded-xl border border-border p-4">
-            <img src="/screenshots/collections.png" alt="Collections screen" class="w-full rounded-lg border border-border mb-4" />
-            <h3 class="text-lg font-semibold text-center">Collections</h3>
-          </div>
-
-          <div class="bg-surface rounded-xl border border-border p-4">
-            <img src="/screenshots/changelog.png" alt="Changelog screen" class="w-full rounded-lg border border-border mb-4" />
-            <h3 class="text-lg font-semibold text-center">Changelog</h3>
-          </div>
-
+      <!-- Feature Carousel -->
+      <section class="w-full max-w-4xl mb-12 md:mb-16 relative overflow-hidden">
+        <div id="carousel" class="flex transition-transform duration-500 ease-in-out">
+          <img src="/screenshots/home.png" alt="Home" class="w-full flex-shrink-0 rounded-lg" />
+          <img src="/screenshots/library.png" alt="Library" class="w-full flex-shrink-0 rounded-lg" />
+          <img src="/screenshots/collections.png" alt="Collections" class="w-full flex-shrink-0 rounded-lg" />
+          <img src="/screenshots/digest.png" alt="Digest" class="w-full flex-shrink-0 rounded-lg" />
+        </div>
+        <div id="dots" class="flex justify-center gap-3 mt-4">
+          <button class="w-2.5 h-2.5 rounded-full bg-text-dim opacity-50 transition-opacity" data-index="0"></button>
+          <button class="w-2.5 h-2.5 rounded-full bg-text-dim opacity-50 transition-opacity" data-index="1"></button>
+          <button class="w-2.5 h-2.5 rounded-full bg-text-dim opacity-50 transition-opacity" data-index="2"></button>
+          <button class="w-2.5 h-2.5 rounded-full bg-text-dim opacity-50 transition-opacity" data-index="3"></button>
         </div>
       </section>
 
+      <script>
+        (() => {
+          const carousel = document.getElementById('carousel');
+          const dots = document.querySelectorAll('#dots button');
+          let current = 0;
+          const total = 4;
+
+          function goTo(i) {
+            current = i;
+            carousel.style.transform = `translateX(-${current * 100}%)`;
+            dots.forEach((d, idx) => d.style.opacity = idx === current ? '1' : '0.5');
+          }
+
+          dots.forEach(d => d.addEventListener('click', () => goTo(+d.dataset.index)));
+          goTo(0);
+          setInterval(() => goTo((current + 1) % total), 5000);
+        })();
+      </script>
+
       <!-- CTA -->
-      <
+      <a
         href="https://app.thedeathofshuffle.com"
         class="inline-block bg-surface-2 border border-border text-text font-semibold text-lg px-8 py-3 rounded-lg hover:border-accent transition-colors"
       >
