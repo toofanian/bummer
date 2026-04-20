@@ -94,7 +94,7 @@ export default function LandingPage() {
       </div>
 
       {/* Footer */}
-      <div className="pb-2 relative z-10">
+      <div className="pb-2 mt-auto relative z-10">
         <footer className="text-center">
           <p className="text-text-dim text-xs tracking-wide mb-1.5">
             Feedback welcome.
