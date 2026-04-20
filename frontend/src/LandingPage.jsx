@@ -89,7 +89,7 @@ export default function LandingPage() {
       <div className="pb-2 relative z-10">
         <footer className="text-center">
           <p className="text-text-dim text-xs tracking-wide mb-1.5">
-            Feedback welcome through GitHub.
+            Feedback welcome.
           </p>
           <a
             href="https://github.com/toofanian/bummer"
