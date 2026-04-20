@@ -85,8 +85,8 @@ export default function LandingPage() {
         </div>
       </div>
 
-      {/* CTA */}
-      <div className="flex justify-center py-5 relative z-10">
+      {/* CTA — own flex zone to keep distance from footer */}
+      <div className="flex-1 flex items-center justify-center relative z-10">
         <a
           href="https://app.thedeathofshuffle.com"
           className="landing-cta"
@@ -95,8 +95,8 @@ export default function LandingPage() {
         </a>
       </div>
 
-      {/* Footer */}
-      <div className="pb-2 mt-auto relative z-10">
+      {/* Footer — pinned to bottom */}
+      <div className="pb-3 relative z-10">
         <footer className="text-center">
           <p className="text-text-dim text-xs tracking-wide mb-1.5">
             Feedback welcome.
