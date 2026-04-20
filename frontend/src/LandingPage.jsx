@@ -88,8 +88,7 @@ export default function LandingPage() {
           href="https://app.thedeathofshuffle.com"
           className="landing-cta"
         >
-          <span className="landing-cta-text">Bummer</span>
-          <span className="landing-cta-arrow">&rarr;</span>
+          Bummer
         </a>
       </div>
 
