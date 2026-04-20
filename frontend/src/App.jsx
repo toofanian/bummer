@@ -775,67 +775,19 @@ export default function App() {
     return (
       <div className="app flex flex-col h-dvh">
         <header className="sticky top-0 z-[100] bg-surface border-b border-border flex items-center px-4 py-2 gap-3" style={{ paddingTop: 'env(safe-area-inset-top, 0px)' }}>
-          <h1>
-            {view === 'home' ? 'Home' : view === 'library' ? 'Library' : view === 'collections' ? 'Collections' : view === 'digest' ? 'Digest' : view === 'settings' ? 'Settings' : view?.name ?? 'Collection'}
-          </h1>
-          {view === 'library' && (
-            <LibraryViewToggle
-              activeView={librarySubView}
-              onViewChange={setLibrarySubView}
-              albumCount={albums.length}
-              artistCount={artistCount}
-            />
-          )}
-          {view === 'collections' && (
-            showCollectionCreate ? (
-              <input
-                autoFocus
-                className="bg-surface-2 text-text border border-border rounded-full px-3 py-1 text-sm flex-1 min-w-0"
-                placeholder="Collection name\u2026"
-                value={collectionCreateName}
-                onChange={e => setCollectionCreateName(e.target.value)}
-                onKeyDown={e => {
-                  if (e.key === 'Enter' && collectionCreateName.trim()) {
-                    handleCreateCollection(collectionCreateName.trim())
-                    setCollectionCreateName('')
-                    setShowCollectionCreate(false)
-                  } else if (e.key === 'Escape') {
-                    setCollectionCreateName('')
-                    setShowCollectionCreate(false)
-                  }
-                }}
-                onBlur={() => {
-                  setCollectionCreateName('')
-                  setShowCollectionCreate(false)
-                }}
-              />
-            ) : (
-              <button
-                className="bg-transparent border-none text-text-dim cursor-pointer p-1.5 rounded transition-colors duration-150 hover:text-text"
-                onClick={() => setShowCollectionCreate(true)}
-                aria-label="Create collection"
-              >
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                  <circle cx="12" cy="12" r="10" />
-                  <path d="M12 8v8" />
-                  <path d="M8 12h8" />
-                </svg>
-              </button>
-            )
-          )}
-          {(view === 'library' || view === 'collections') && (
-            <button
-              onClick={() => setSearchOpen(true)}
-              aria-label="Search"
-              className="bg-transparent border-none p-1.5 cursor-pointer transition-colors duration-150 text-text-dim hover:text-text"
-              title="Search"
-            >
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                <circle cx="11" cy="11" r="8" />
-                <path d="m21 21-4.3-4.3" />
-              </svg>
-            </button>
-          )}
+          <h1 className="flex-1 text-base font-semibold">Bummer</h1>
+          <button
+            onClick={() => setSearchOpen(true)}
+            aria-label="Search"
+            className="bg-transparent border-none p-1.5 cursor-pointer transition-colors duration-150 text-text-dim hover:text-text"
+            title="Search"
+            style={{ visibility: (view === 'library' || view === 'collections') ? 'visible' : 'hidden' }}
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <circle cx="11" cy="11" r="8" />
+              <path d="m21 21-4.3-4.3" />
+            </svg>
+          </button>
           <button
             onClick={() => setView('settings')}
             aria-label="Settings"

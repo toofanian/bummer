@@ -70,6 +70,43 @@ describe('App layout', () => {
     expect(() => render(<App />)).not.toThrow()
   })
 
+  it('shows Bummer branding in mobile header', async () => {
+    mockMatchMedia(true)
+    render(<App />)
+    const header = await waitFor(() => document.querySelector('header'))
+    expect(header.textContent).toContain('Bummer')
+  })
+
+  it('does not show dynamic view title in mobile header', async () => {
+    mockMatchMedia(true)
+    render(<App />)
+    const header = await waitFor(() => document.querySelector('header'))
+    expect(header.textContent).not.toContain('Home')
+    expect(header.textContent).not.toContain('Library')
+    expect(header.textContent).not.toContain('Digest')
+  })
+
+  it('shows settings button in mobile header', async () => {
+    mockMatchMedia(true)
+    render(<App />)
+    await waitFor(() => document.querySelector('header'))
+    expect(screen.getByLabelText('Settings')).toBeInTheDocument()
+  })
+
+  it('shows search button in mobile header on all views', async () => {
+    mockMatchMedia(true)
+    render(<App />)
+    await waitFor(() => document.querySelector('header'))
+    expect(screen.getByLabelText('Search')).toBeInTheDocument()
+  })
+
+  it('hides search button visually on views without search', async () => {
+    mockMatchMedia(true)
+    render(<App />)
+    const searchBtn = await waitFor(() => screen.getByLabelText('Search'))
+    expect(searchBtn).toHaveStyle({ visibility: 'hidden' })
+  })
+
   it('reserves MiniPlaybackBar padding even when no track is playing (Connect a device state)', async () => {
     mockMatchMedia(true) // mobile
     render(<App />)
