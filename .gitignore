@@ -28,3 +28,4 @@ frontend/test-results/
 
 # Personal notes
 docs/notes/
+*.DS_Store
