@@ -285,9 +285,9 @@ def test_ensure_snapshot_creates_when_none_exists(mock_date, mock_cache):
         {"service_id": "a2", "name": "Album2", "artists": ["Y"], "image_url": None},
     ]
     db = MagicMock()
-    # No existing snapshot for today
-    db.table.return_value.select.return_value.eq.return_value.execute.return_value = (
-        MagicMock(data=[])
+    # No existing snapshot for today (.eq(snapshot_date).eq(user_id).execute())
+    db.table.return_value.select.return_value.eq.return_value.eq.return_value.execute.return_value = MagicMock(
+        data=[]
     )
     setup_overrides(db=db)
     try:
@@ -317,8 +317,8 @@ def test_ensure_snapshot_skips_when_already_exists(mock_date, mock_cache):
         "total": 2,
     }
     db = MagicMock()
-    db.table.return_value.select.return_value.eq.return_value.execute.return_value = (
-        MagicMock(data=[existing_snapshot])
+    db.table.return_value.select.return_value.eq.return_value.eq.return_value.execute.return_value = MagicMock(
+        data=[existing_snapshot]
     )
     setup_overrides(db=db)
     try:
@@ -343,9 +343,9 @@ def test_ensure_snapshot_returns_503_when_cache_empty(mock_date, mock_cache):
     mock_date.side_effect = lambda *a, **kw: date(*a, **kw)
     mock_cache.return_value = []
     db = MagicMock()
-    # No existing snapshot
-    db.table.return_value.select.return_value.eq.return_value.execute.return_value = (
-        MagicMock(data=[])
+    # No existing snapshot (.eq(snapshot_date).eq(user_id).execute())
+    db.table.return_value.select.return_value.eq.return_value.eq.return_value.execute.return_value = MagicMock(
+        data=[]
     )
     setup_overrides(db=db)
     try:
