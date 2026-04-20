@@ -14,9 +14,12 @@ export default function LandingPage() {
 
   function closeLightbox() { setLightbox(null) }
 
-  // Close on Escape
   if (typeof window !== 'undefined') {
-    window.onkeydown = (e) => { if (e.key === 'Escape') closeLightbox() }
+    window.onkeydown = (e) => {
+      if (e.key === 'Escape') closeLightbox()
+      if (lightbox !== null && e.key === 'ArrowRight') setLightbox((lightbox + 1) % screenshots.length)
+      if (lightbox !== null && e.key === 'ArrowLeft') setLightbox((lightbox - 1 + screenshots.length) % screenshots.length)
+    }
   }
 
   return (
