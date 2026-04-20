@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { Splide, SplideSlide } from '@splidejs/react-splide'
 import '@splidejs/splide/css/core'
 
@@ -9,7 +10,23 @@ const screenshots = [
 ]
 
 export default function LandingPage() {
+  const [lightbox, setLightbox] = useState(null)
+
   return (
+    <>
+    {lightbox !== null && (
+      <div
+        className="landing-lightbox"
+        onClick={() => setLightbox(null)}
+      >
+        <img
+          src={screenshots[lightbox].src}
+          alt={screenshots[lightbox].alt}
+          className="landing-lightbox-img"
+          onClick={(e) => e.stopPropagation()}
+        />
+      </div>
+    )}
     <main className="landing-page h-screen flex flex-col px-6 py-8 md:py-10 overflow-hidden relative">
       {/* Noise overlay */}
       <div className="landing-noise" aria-hidden="true" />
@@ -42,13 +59,14 @@ export default function LandingPage() {
             }}
             aria-label="Feature screenshots"
           >
-            {screenshots.map((s) => (
+            {screenshots.map((s, i) => (
               <SplideSlide key={s.alt}>
                 <div className="landing-screenshot-wrapper">
                   <img
                     src={s.src}
                     alt={s.alt}
-                    className="landing-screenshot"
+                    className="landing-screenshot cursor-pointer"
+                    onClick={() => setLightbox(i)}
                   />
                 </div>
               </SplideSlide>
@@ -57,15 +75,18 @@ export default function LandingPage() {
         </div>
       </div>
 
-      {/* Bottom — CTA + footer */}
-      <div className="flex flex-col items-center gap-3 pb-2 relative z-10">
+      {/* CTA */}
+      <div className="flex justify-center py-4 relative z-10">
         <a
           href="https://app.thedeathofshuffle.com"
           className="landing-cta"
         >
           Bummer
         </a>
+      </div>
 
+      {/* Footer */}
+      <div className="pb-2 relative z-10">
         <footer className="text-center">
           <p className="text-text-dim text-xs tracking-wide mb-1.5">
             Feedback welcome through GitHub.
@@ -83,6 +104,9 @@ export default function LandingPage() {
           </a>
         </footer>
       </div>
+
+
     </main>
+    </>
   )
 }
