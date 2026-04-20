@@ -15,6 +15,8 @@
     "@dnd-kit/core": "^6.3.1",
     "@dnd-kit/sortable": "^10.0.0",
     "@dnd-kit/utilities": "^3.2.2",
+    "@splidejs/react-splide": "^0.7.12",
+    "@splidejs/splide": "^4.1.4",
     "@supabase/supabase-js": "^2.101.1",
     "react": "^19.2.0",
     "react-dom": "^19.2.0"
