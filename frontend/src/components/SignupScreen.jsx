@@ -55,7 +55,7 @@ export default function SignupScreen() {
         <form onSubmit={handleGoogleSignIn} className="flex flex-col items-center gap-4">
           {errorMsg && <p className="text-red-400 text-sm">{errorMsg}</p>}
           <button type="submit" disabled={loading}
-            className="flex items-center justify-center gap-3 w-full max-w-xs bg-black text-white font-medium text-sm px-5 py-2.5 rounded-lg border border-[#333] transition-all duration-200 hover:bg-[#191919] hover:border-[#555] disabled:opacity-50"
+            className="flex items-center justify-center gap-3 w-full max-w-xs bg-black text-white font-medium text-sm px-5 py-2.5 rounded-lg border border-[#333] transition-all duration-200 hover:bg-[#191919] disabled:opacity-50"
             style={{ fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" }}>
             <svg width="16" height="16" viewBox="0 0 48 48">
               <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/>
