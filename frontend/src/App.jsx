@@ -809,43 +809,67 @@ export default function App() {
           )}
 
           {view === 'library' && (
-            <div className="flex-1 overflow-y-auto">
-              {albumsLoading && albums.length === 0 ? (
-                <div data-testid="inline-loading-spinner" className="flex items-center justify-center py-16">
-                  <div className="w-7 h-7 border-[2.5px] border-border border-t-accent rounded-full animate-spin" />
-                </div>
-              ) : librarySubView === 'albums' ? (
-                <AlbumTable
-                  albums={albums}
-                  loading={albumsLoading}
-                  onFetchTracks={handleFetchTracks}
-                  onPlay={handlePlay}
-                  onPlayTrack={handlePlayTrack}
-                  playingId={playback.is_playing ? playingId : null}
-                  playingTrackName={playback.track?.name ?? null}
-                  albumCollectionMap={albumCollectionMap}
-                  selectedIds={selectedAlbumIdSet}
-                  onToggleSelect={handleToggleSelect}
-                  onArtistClick={handleArtistClick}
-                  listenCounts={listenCounts}
-                />
-              ) : (
-                <ArtistsView
-                  albums={albums}
-                  search=""
-                  onFetchTracks={handleFetchTracks}
-                  onPlay={handlePlay}
-                  onPlayTrack={handlePlayTrack}
-                  playingId={playback.is_playing ? playingId : null}
-                  playingTrackName={playback.track?.name ?? null}
-                  albumCollectionMap={albumCollectionMap}
-                  selectedIds={selectedAlbumIdSet}
-                  onToggleSelect={handleToggleSelect}
-                  targetArtist={targetArtist}
-                  onClearTargetArtist={() => setTargetArtist(null)}
-                  listenCounts={listenCounts}
-                />
-              )}
+            <div className="flex-1 flex flex-col overflow-hidden">
+              <div className="flex border-b border-border flex-shrink-0" role="tablist">
+                <button
+                  role="tab"
+                  aria-selected={librarySubView === 'albums'}
+                  onClick={() => setLibrarySubView('albums')}
+                  className={`flex-1 py-2 text-xs font-bold tracking-wider uppercase transition-colors duration-150 ${
+                    librarySubView === 'albums' ? 'text-text border-b-2 border-accent' : 'text-text-dim hover:text-text'
+                  }`}
+                >
+                  Albums ({albums.length})
+                </button>
+                <button
+                  role="tab"
+                  aria-selected={librarySubView === 'artists'}
+                  onClick={() => setLibrarySubView('artists')}
+                  className={`flex-1 py-2 text-xs font-bold tracking-wider uppercase transition-colors duration-150 ${
+                    librarySubView === 'artists' ? 'text-text border-b-2 border-accent' : 'text-text-dim hover:text-text'
+                  }`}
+                >
+                  Artists{artistCount != null ? ` (${artistCount})` : ''}
+                </button>
+              </div>
+              <div className="flex-1 overflow-y-auto">
+                {albumsLoading && albums.length === 0 ? (
+                  <div data-testid="inline-loading-spinner" className="flex items-center justify-center py-16">
+                    <div className="w-7 h-7 border-[2.5px] border-border border-t-accent rounded-full animate-spin" />
+                  </div>
+                ) : librarySubView === 'albums' ? (
+                  <AlbumTable
+                    albums={albums}
+                    loading={albumsLoading}
+                    onFetchTracks={handleFetchTracks}
+                    onPlay={handlePlay}
+                    onPlayTrack={handlePlayTrack}
+                    playingId={playback.is_playing ? playingId : null}
+                    playingTrackName={playback.track?.name ?? null}
+                    albumCollectionMap={albumCollectionMap}
+                    selectedIds={selectedAlbumIdSet}
+                    onToggleSelect={handleToggleSelect}
+                    onArtistClick={handleArtistClick}
+                    listenCounts={listenCounts}
+                  />
+                ) : (
+                  <ArtistsView
+                    albums={albums}
+                    search=""
+                    onFetchTracks={handleFetchTracks}
+                    onPlay={handlePlay}
+                    onPlayTrack={handlePlayTrack}
+                    playingId={playback.is_playing ? playingId : null}
+                    playingTrackName={playback.track?.name ?? null}
+                    albumCollectionMap={albumCollectionMap}
+                    selectedIds={selectedAlbumIdSet}
+                    onToggleSelect={handleToggleSelect}
+                    targetArtist={targetArtist}
+                    onClearTargetArtist={() => setTargetArtist(null)}
+                    listenCounts={listenCounts}
+                  />
+                )}
+              </div>
             </div>
           )}
 
