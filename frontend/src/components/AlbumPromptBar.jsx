@@ -2,8 +2,10 @@ import { useState, useEffect } from 'react'
 import AlbumPromptRow from './AlbumPromptRow'
 import CollectionPicker from './CollectionPicker'
 import { apiFetch } from '../api'
+import { useIsMobile } from '../hooks/useIsMobile'
 
 export default function AlbumPromptBar({ albumCollectionMap, collections, session, onBulkAdd, onCreate }) {
+  const isMobile = useIsMobile()
   const [recentlyAdded, setRecentlyAdded] = useState([])
   const [recentlyPlayed, setRecentlyPlayed] = useState([])
   const [loaded, setLoaded] = useState(false)
@@ -56,12 +58,14 @@ export default function AlbumPromptBar({ albumCollectionMap, collections, sessio
         </div>
       )}
 
-      <AlbumPromptRow
-        albums={recentlyAdded}
-        albumCollectionMap={albumCollectionMap}
-        selectedIds={selectedIds}
-        onToggleSelect={handleToggleSelect}
-      />
+      {!isMobile && (
+        <AlbumPromptRow
+          albums={recentlyAdded}
+          albumCollectionMap={albumCollectionMap}
+          selectedIds={selectedIds}
+          onToggleSelect={handleToggleSelect}
+        />
+      )}
       <AlbumPromptRow
         albums={recentlyPlayed}
         albumCollectionMap={albumCollectionMap}
