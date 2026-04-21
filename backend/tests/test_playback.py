@@ -499,8 +499,6 @@ def test_transfer_restricted_device_returns_409():
     clear_overrides()
 
 
-
-
 # --- PUT /playback/seek ---
 
 
