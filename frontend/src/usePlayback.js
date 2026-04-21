@@ -185,9 +185,8 @@ export function usePlayback(session = null) {
     return res.json()
   }, [])
 
-  const transferPlayback = useCallback(async (deviceId, contextUri = null) => {
+  const transferPlayback = useCallback(async (deviceId) => {
     const payload = { device_id: deviceId }
-    if (contextUri) payload.context_uri = contextUri
     const transferRes = await apiFetch('/playback/transfer', {
       method: 'PUT',
       body: JSON.stringify(payload),

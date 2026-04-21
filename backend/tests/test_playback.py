@@ -433,7 +433,20 @@ def test_transfer_playback_calls_spotify_transfer():
     clear_overrides()
 
 
-def test_transfer_playback_with_context_uri_calls_transfer_then_start_playback():
+def test_transfer_playback_does_not_call_start_playback():
+    sp = make_sp()
+    override_spotify(sp)
+
+    response = client.put("/playback/transfer", json={"device_id": "abc123"})
+
+    assert response.status_code == 204
+    sp.start_playback.assert_not_called()
+
+    clear_overrides()
+
+
+def test_transfer_playback_ignores_context_uri_in_payload():
+    """Transfer endpoint should ignore context_uri even if sent — it only transfers."""
     sp = make_sp()
     override_spotify(sp)
 
@@ -444,18 +457,6 @@ def test_transfer_playback_with_context_uri_calls_transfer_then_start_playback()
 
     assert response.status_code == 204
     sp.transfer_playback.assert_called_once_with("abc123", force_play=False)
-    sp.start_playback.assert_called_once_with(context_uri="spotify:album:xyz789")
-
-    clear_overrides()
-
-
-def test_transfer_playback_without_context_uri_does_not_call_start_playback():
-    sp = make_sp()
-    override_spotify(sp)
-
-    response = client.put("/playback/transfer", json={"device_id": "abc123"})
-
-    assert response.status_code == 204
     sp.start_playback.assert_not_called()
 
     clear_overrides()
@@ -498,21 +499,6 @@ def test_transfer_restricted_device_returns_409():
     clear_overrides()
 
 
-def test_transfer_start_playback_restricted_returns_409():
-    """If transfer succeeds but start_playback hits restricted device, return 409."""
-    sp = make_sp()
-    sp.start_playback.side_effect = make_restricted_device_error()
-    override_spotify(sp)
-
-    response = client.put(
-        "/playback/transfer",
-        json={"device_id": "abc123", "context_uri": "spotify:album:xyz789"},
-    )
-
-    assert response.status_code == 409
-    assert response.json()["detail"] == "restricted_device"
-
-    clear_overrides()
 
 
 # --- PUT /playback/seek ---

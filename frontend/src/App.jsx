@@ -462,9 +462,12 @@ export default function App() {
     let err
     if (intent.type === 'album') {
       setPlayingId(intent.albumId)
-      err = await transferPlayback(deviceId, intent.contextUri)
+      err = await transferPlayback(deviceId)
+      if (!err) {
+        await new Promise(resolve => setTimeout(resolve, 500))
+        err = await play(intent.contextUri)
+      }
       if (err) setPlayingId(null)
-      // transferPlayback with context_uri is atomic — no separate play() needed
     } else if (intent.type === 'track') {
       await transferPlayback(deviceId)
       // Small delay to let the device activate before playing a track
