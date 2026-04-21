@@ -136,7 +136,7 @@ describe('App layout', () => {
     expect(header).not.toContainElement(albumsTab)
   })
 
-  it('digest view has bottom padding on desktop to clear playback bar', async () => {
+  it('digest columns have bottom padding and hidden scrollbars on desktop', async () => {
     mockMatchMedia(false) // desktop
     render(<App />)
     // Navigate to digest view via sidebar
@@ -146,9 +146,9 @@ describe('App layout', () => {
     await waitFor(() => {
       expect(screen.getByText('Library Changes')).toBeInTheDocument()
     })
-    // The App.jsx wrapper around DigestView should have pb-20
-    const wrapper = document.querySelector('.flex-1.overflow-y-auto.pb-20')
-    expect(wrapper).toBeTruthy()
+    // Each digest column should have pb-20 and prompt-row-scroll
+    const columns = document.querySelectorAll('.overflow-y-auto.pb-20.prompt-row-scroll')
+    expect(columns.length).toBe(3)
   })
 
   it('reserves MiniPlaybackBar padding even when no track is playing (Connect a device state)', async () => {
