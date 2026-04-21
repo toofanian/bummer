@@ -54,6 +54,12 @@ export default function App() {
     try { localStorage.setItem('library_view', val) } catch {}
     setLibrarySubViewRaw(val)
   }
+  // Reset library sub-view to albums when navigating away from library
+  useEffect(() => {
+    if (view !== 'library') {
+      setLibrarySubView('albums')
+    }
+  }, [view])
   const [playingId, setPlayingId] = useState(null)
   const [paneOpen, setPaneOpen] = useState(false)
 
@@ -85,6 +91,10 @@ export default function App() {
   const [collectionPlayback, setCollectionPlayback] = useState(null)
   const collectionPlaybackRef = useRef(null)
   collectionPlaybackRef.current = collectionPlayback
+  // Track which view the user was on when they started playback
+  const [playbackOrigin, setPlaybackOrigin] = useState(null)
+  const viewRef = useRef(view)
+  viewRef.current = view
   const isInCollection = view !== 'home' && view !== 'library' && view !== 'collections' && view !== 'digest' && view !== 'settings'
   const artistCount = useMemo(() => {
     const artists = new Set()
@@ -417,6 +427,7 @@ export default function App() {
         }
       }
       if (!err) {
+        setPlaybackOrigin(viewRef.current)
         apiFetch('/home/history/log', {
           method: 'POST',
           body: JSON.stringify({ album_id: albumId }),
@@ -493,18 +504,21 @@ export default function App() {
   }
 
   function handleFocusAlbum(albumId) {
+    // If playback started from a collection, navigate back to that collection
+    if (playbackOrigin && typeof playbackOrigin === 'object' && playbackOrigin.id) {
+      setView(playbackOrigin)
+      return
+    }
+    // Otherwise navigate to library albums view
     if (view !== 'library') {
       setView('library')
-      setTimeout(() => {
-        const el = document.getElementById(`row-album-${albumId}`)
-        el?.focus()
-        el?.scrollIntoView({ block: 'center' })
-      }, 0)
-    } else {
+    }
+    setLibrarySubView('albums')
+    setTimeout(() => {
       const el = document.getElementById(`row-album-${albumId}`)
       el?.focus()
       el?.scrollIntoView({ block: 'center' })
-    }
+    }, 0)
   }
 
   /**
