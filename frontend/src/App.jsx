@@ -54,6 +54,12 @@ export default function App() {
     try { localStorage.setItem('library_view', val) } catch {}
     setLibrarySubViewRaw(val)
   }
+  // Reset library sub-view to albums when navigating away from library
+  useEffect(() => {
+    if (view !== 'library') {
+      setLibrarySubView('albums')
+    }
+  }, [view])
   const [playingId, setPlayingId] = useState(null)
   const [paneOpen, setPaneOpen] = useState(false)
 
@@ -495,16 +501,13 @@ export default function App() {
   function handleFocusAlbum(albumId) {
     if (view !== 'library') {
       setView('library')
-      setTimeout(() => {
-        const el = document.getElementById(`row-album-${albumId}`)
-        el?.focus()
-        el?.scrollIntoView({ block: 'center' })
-      }, 0)
-    } else {
+    }
+    setLibrarySubView('albums')
+    setTimeout(() => {
       const el = document.getElementById(`row-album-${albumId}`)
       el?.focus()
       el?.scrollIntoView({ block: 'center' })
-    }
+    }, 0)
   }
 
   /**
