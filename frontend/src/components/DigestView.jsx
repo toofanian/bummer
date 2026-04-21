@@ -254,15 +254,15 @@ export default function DigestView({ onPlay, session }) {
   if (!isMobile) {
     return (
       <div className="flex h-full">
-        <div className="flex-1 overflow-y-auto border-r border-border">
+        <div className="flex-1 overflow-y-auto pb-20 prompt-row-scroll border-r border-border">
           <div className="px-4 pt-3 pb-2 text-xs font-bold tracking-wider uppercase text-text-dim">Library Changes</div>
           <ChangesSection onPlay={onPlay} session={session} />
         </div>
-        <div className="flex-1 overflow-y-auto border-r border-border">
+        <div className="flex-1 overflow-y-auto pb-20 prompt-row-scroll border-r border-border">
           <div className="px-4 pt-3 pb-2 text-xs font-bold tracking-wider uppercase text-text-dim">Listening History</div>
           <HistorySection onPlay={onPlay} session={session} />
         </div>
-        <div className="flex-1 overflow-y-auto">
+        <div className="flex-1 overflow-y-auto pb-20 prompt-row-scroll">
           <div className="px-4 pt-3 pb-2 text-xs font-bold tracking-wider uppercase text-text-dim">Monthly Stats</div>
           <StatsSection onPlay={onPlay} session={session} />
         </div>
