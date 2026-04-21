@@ -131,4 +131,28 @@ describe('HomePage', () => {
     render(<HomePage onPlay={() => {}} />)
     expect(screen.getByText(/loading/i)).toBeInTheDocument()
   })
+
+  it('desktop column scroll containers have prompt-row-scroll class', async () => {
+    useIsMobile.mockReturnValue(false)
+    const { container } = render(<HomePage onPlay={() => {}} />)
+    await waitFor(() => {
+      expect(screen.getByText('Recently Played')).toBeInTheDocument()
+    })
+    const scrollContainers = container.querySelectorAll('.overflow-y-auto')
+    expect(scrollContainers).toHaveLength(4)
+    scrollContainers.forEach(el => {
+      expect(el.classList.contains('prompt-row-scroll')).toBe(true)
+    })
+  })
+
+  it('mobile scroll container has prompt-row-scroll class', async () => {
+    useIsMobile.mockReturnValue(true)
+    const { container } = render(<HomePage onPlay={() => {}} />)
+    await waitFor(() => {
+      expect(screen.getByAltText('Today Album')).toBeInTheDocument()
+    })
+    const scrollContainers = container.querySelectorAll('.overflow-y-auto')
+    expect(scrollContainers).toHaveLength(1)
+    expect(scrollContainers[0].classList.contains('prompt-row-scroll')).toBe(true)
+  })
 })
