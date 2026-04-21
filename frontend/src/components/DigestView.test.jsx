@@ -129,6 +129,20 @@ describe('DigestView', () => {
     })
   })
 
+  it('desktop columns have bottom padding to clear playback bar', async () => {
+    useIsMobile.mockReturnValue(false)
+    const { container } = render(<DigestView onPlay={() => {}} />)
+    await waitFor(() => {
+      expect(screen.getByText('Library Changes')).toBeInTheDocument()
+    })
+    // All three columns with overflow-y-auto should also have pb-20
+    const columns = container.querySelectorAll('.overflow-y-auto')
+    expect(columns.length).toBe(3)
+    columns.forEach(col => {
+      expect(col.className).toContain('pb-20')
+    })
+  })
+
   it('renders stats with top albums and artists', async () => {
     render(<DigestView onPlay={() => {}} />)
     await waitFor(() => {
