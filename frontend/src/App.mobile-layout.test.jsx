@@ -136,7 +136,7 @@ describe('App layout', () => {
     expect(header).not.toContainElement(albumsTab)
   })
 
-  it('digest columns have bottom padding and hidden scrollbars on desktop', async () => {
+  it('digest wrapper has bottom padding and columns have hidden scrollbars on desktop', async () => {
     mockMatchMedia(false) // desktop
     render(<App />)
     // Navigate to digest view via sidebar
@@ -146,8 +146,11 @@ describe('App layout', () => {
     await waitFor(() => {
       expect(screen.getByText('Library Changes')).toBeInTheDocument()
     })
-    // Each digest column should have pb-20 and prompt-row-scroll
-    const columns = document.querySelectorAll('.overflow-y-auto.pb-20.prompt-row-scroll')
+    // Outer wrapper should have pb-20 (matches other desktop views)
+    const wrapper = document.querySelector('.pb-20')
+    expect(wrapper).toBeTruthy()
+    // Each digest column should have prompt-row-scroll
+    const columns = document.querySelectorAll('.overflow-y-auto.prompt-row-scroll')
     expect(columns.length).toBe(3)
   })
 

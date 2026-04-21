@@ -917,7 +917,7 @@ export default function App() {
           )}
 
           {view === 'digest' && (
-            <div className="flex-1 overflow-hidden">
+            <div className="flex-1 overflow-hidden pb-20">
               <DigestView onPlay={handlePlay} session={session} />
             </div>
           )}
