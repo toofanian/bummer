@@ -129,7 +129,7 @@ describe('DigestView', () => {
     })
   })
 
-  it('desktop columns have hidden scrollbars', async () => {
+  it('desktop columns have bottom padding and hidden scrollbars', async () => {
     useIsMobile.mockReturnValue(false)
     const { container } = render(<DigestView onPlay={() => {}} />)
     await waitFor(() => {
@@ -138,6 +138,7 @@ describe('DigestView', () => {
     const columns = container.querySelectorAll('.overflow-y-auto')
     expect(columns.length).toBe(3)
     columns.forEach(col => {
+      expect(col.className).toContain('pb-20')
       expect(col.className).toContain('prompt-row-scroll')
     })
   })
