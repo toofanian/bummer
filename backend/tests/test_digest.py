@@ -768,3 +768,66 @@ def test_stats_empty_when_no_plays():
         assert data["top_artists"] == []
     finally:
         clear_overrides()
+
+
+def test_stats_top_artists_from_all_plays_not_just_top_albums():
+    """Artists with plays spread across non-top albums should still appear in top_artists."""
+    # 10 top albums (3 plays each) by unique artists → fill top 10
+    # 2 extra albums (2 plays each) by "Prolific Artist" → 4 total plays
+    # "Prolific Artist" should rank above any single-album artist (3 plays) — but only
+    # if artist counts are derived from ALL plays, not just top 10 albums.
+    albums_meta = []
+    plays = []
+    for i in range(1, 11):
+        aid = f"top{i}"
+        albums_meta.append(
+            {
+                "service_id": aid,
+                "name": f"Top Album {i}",
+                "artists": [f"Artist {i}"],
+                "image_url": None,
+            }
+        )
+        for _ in range(3):
+            plays.append({"album_id": aid, "played_at": f"2026-04-{10+i}T10:00:00+00:00"})
+
+    # Two extra albums by "Prolific Artist" (2 plays each = 4 total)
+    for j, aid in enumerate(["extra1", "extra2"]):
+        albums_meta.append(
+            {
+                "service_id": aid,
+                "name": f"Extra Album {j+1}",
+                "artists": ["Prolific Artist"],
+                "image_url": None,
+            }
+        )
+        for _ in range(2):
+            plays.append({"album_id": aid, "played_at": f"2026-04-0{j+1}T10:00:00+00:00"})
+
+    db = MagicMock()
+
+    def table_router(table_name):
+        mock_table = MagicMock()
+        if table_name == "play_history":
+            mock_table.select.return_value.gte.return_value.execute.return_value = (
+                MagicMock(data=plays)
+            )
+        elif table_name == "library_cache":
+            mock_table.select.return_value.eq.return_value.execute.return_value = (
+                MagicMock(data=[{"albums": albums_meta}])
+            )
+        return mock_table
+
+    db.table.side_effect = table_router
+    setup_overrides(db=db)
+    try:
+        res = client.get("/digest/stats")
+        assert res.status_code == 200
+        data = res.json()
+        artist_names = [a["artist"] for a in data["top_artists"]]
+        assert "Prolific Artist" in artist_names
+        # Prolific Artist has 4 plays total, should rank above 3-play artists
+        prolific = next(a for a in data["top_artists"] if a["artist"] == "Prolific Artist")
+        assert prolific["play_count"] == 4
+    finally:
+        clear_overrides()

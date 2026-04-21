@@ -160,7 +160,8 @@ def get_stats(
     top_album_ids = [aid for aid, _ in play_counts.most_common(10)]
 
     album_cache = get_album_cache(db, user_id=user["user_id"])
-    metadata = _resolve_album_metadata(top_album_ids, album_cache, sp)
+    all_album_ids = list(play_counts.keys())
+    metadata = _resolve_album_metadata(all_album_ids, album_cache, sp)
     meta_lookup = {m["service_id"]: m for m in metadata}
 
     top_albums = []
@@ -174,9 +175,9 @@ def get_stats(
                 }
             )
 
-    # Top artists: map album plays to artists
+    # Top artists: map album plays to artists (all plays, not just top albums)
     artist_counts = Counter()
-    for aid in top_album_ids:
+    for aid in play_counts:
         album_meta = meta_lookup.get(aid)
         if album_meta and album_meta.get("artists"):
             for artist in album_meta["artists"]:
