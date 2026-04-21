@@ -462,7 +462,8 @@ export default function App() {
     let err
     if (intent.type === 'album') {
       setPlayingId(intent.albumId)
-      await transferPlayback(deviceId, intent.contextUri)
+      err = await transferPlayback(deviceId, intent.contextUri)
+      if (err) setPlayingId(null)
       // transferPlayback with context_uri is atomic — no separate play() needed
     } else if (intent.type === 'track') {
       await transferPlayback(deviceId)
