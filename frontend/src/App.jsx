@@ -91,6 +91,10 @@ export default function App() {
   const [collectionPlayback, setCollectionPlayback] = useState(null)
   const collectionPlaybackRef = useRef(null)
   collectionPlaybackRef.current = collectionPlayback
+  // Track which view the user was on when they started playback
+  const [playbackOrigin, setPlaybackOrigin] = useState(null)
+  const viewRef = useRef(view)
+  viewRef.current = view
   const isInCollection = view !== 'home' && view !== 'library' && view !== 'collections' && view !== 'digest' && view !== 'settings'
   const artistCount = useMemo(() => {
     const artists = new Set()
@@ -423,6 +427,7 @@ export default function App() {
         }
       }
       if (!err) {
+        setPlaybackOrigin(viewRef.current)
         apiFetch('/home/history/log', {
           method: 'POST',
           body: JSON.stringify({ album_id: albumId }),
@@ -499,6 +504,12 @@ export default function App() {
   }
 
   function handleFocusAlbum(albumId) {
+    // If playback started from a collection, navigate back to that collection
+    if (playbackOrigin && typeof playbackOrigin === 'object' && playbackOrigin.id) {
+      setView(playbackOrigin)
+      return
+    }
+    // Otherwise navigate to library albums view
     if (view !== 'library') {
       setView('library')
     }
