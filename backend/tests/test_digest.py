@@ -885,3 +885,70 @@ def test_stats_top_artists_from_all_plays_not_just_top_albums():
         assert prolific["play_count"] == 4
     finally:
         clear_overrides()
+
+
+def test_stats_resolves_artist_images_via_search_when_no_id():
+    """When cache has old string-format artists (no ID), falls back to Spotify search."""
+    plays = [
+        {"album_id": "a1", "played_at": "2026-04-10T10:00:00+00:00"},
+    ]
+    # Old-format cache: artists as plain strings, no IDs
+    album_cache = [
+        {
+            "service_id": "a1",
+            "name": "Album One",
+            "artists": ["Artist A"],
+            "image_url": "https://img/1.jpg",
+        },
+    ]
+
+    sp = mock_spotify()
+    sp.search.return_value = {
+        "artists": {
+            "items": [
+                {
+                    "id": "artA",
+                    "name": "Artist A",
+                    "images": [
+                        {"url": "https://artist-img/artA.jpg", "height": 64},
+                    ],
+                }
+            ]
+        }
+    }
+    sp.artists.return_value = {
+        "artists": [
+            {
+                "id": "artA",
+                "name": "Artist A",
+                "images": [
+                    {"url": "https://artist-img/artA.jpg", "height": 64},
+                ],
+            }
+        ]
+    }
+
+    db = MagicMock()
+
+    def table_router(table_name):
+        mock_table = MagicMock()
+        if table_name == "play_history":
+            mock_table.select.return_value.gte.return_value.execute.return_value = (
+                MagicMock(data=plays)
+            )
+        elif table_name == "library_cache":
+            mock_table.select.return_value.eq.return_value.execute.return_value = (
+                MagicMock(data=[{"albums": album_cache}])
+            )
+        return mock_table
+
+    db.table.side_effect = table_router
+    setup_overrides(db=db, sp=sp)
+    try:
+        res = client.get("/digest/stats")
+        assert res.status_code == 200
+        data = res.json()
+        assert data["top_artists"][0]["image_url"] == "https://artist-img/artA.jpg"
+        sp.search.assert_called_once()
+    finally:
+        clear_overrides()

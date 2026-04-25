@@ -79,11 +79,26 @@ def _resolve_artist_images(
     result = {}
     ids_to_fetch = []
     name_by_id = {}
+    names_without_id = []
     for name, artist_id in artist_names_and_ids:
         if artist_id:
             ids_to_fetch.append(artist_id)
             name_by_id[artist_id] = name
         else:
+            names_without_id.append(name)
+
+    # Look up IDs for artists missing them (stale cache with string-only artists)
+    for name in names_without_id:
+        try:
+            search = sp.search(q=f'artist:"{name}"', type="artist", limit=1)
+            items = search.get("artists", {}).get("items", [])
+            if items:
+                artist_id = items[0]["id"]
+                ids_to_fetch.append(artist_id)
+                name_by_id[artist_id] = name
+            else:
+                result[name] = None
+        except Exception:
             result[name] = None
 
     for i in range(0, len(ids_to_fetch), 50):
