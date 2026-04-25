@@ -69,6 +69,40 @@ def _resolve_album_metadata(
     return resolved
 
 
+def _resolve_artist_images(
+    artist_names_and_ids: list[tuple[str, str | None]],
+    sp: spotipy.Spotify,
+) -> dict[str, str | None]:
+    """Batch-resolve artist profile images from Spotify.
+    Returns dict mapping artist name -> smallest image URL (or None).
+    """
+    result = {}
+    ids_to_fetch = []
+    name_by_id = {}
+    for name, artist_id in artist_names_and_ids:
+        if artist_id:
+            ids_to_fetch.append(artist_id)
+            name_by_id[artist_id] = name
+        else:
+            result[name] = None
+
+    for i in range(0, len(ids_to_fetch), 50):
+        batch = ids_to_fetch[i : i + 50]
+        try:
+            resp = sp.artists(batch)
+            for artist in resp.get("artists", []):
+                if not artist:
+                    continue
+                name = name_by_id.get(artist["id"], artist["name"])
+                images = artist.get("images", [])
+                smallest = min(images, key=lambda img: img.get("height", 0), default=None)
+                result[name] = smallest["url"] if smallest else None
+        except Exception:
+            for aid in batch:
+                result[name_by_id.get(aid, aid)] = None
+    return result
+
+
 @router.get("/history")
 def get_history(
     limit: int = Query(default=50, ge=1, le=200),
@@ -184,9 +218,29 @@ def get_stats(
                 name = artist["name"] if isinstance(artist, dict) else artist
                 artist_counts[name] += play_counts[aid]
 
+    # Collect artist IDs from metadata for image resolution
+    artist_id_map = {}  # name -> id
+    for aid in play_counts:
+        album_meta = meta_lookup.get(aid)
+        if album_meta and album_meta.get("artists"):
+            for artist in album_meta["artists"]:
+                name = artist["name"] if isinstance(artist, dict) else artist
+                if isinstance(artist, dict) and artist.get("id"):
+                    artist_id_map[name] = artist["id"]
+
+    top_artist_names = [name for name, _ in artist_counts.most_common(10)]
+    artist_images = _resolve_artist_images(
+        [(name, artist_id_map.get(name)) for name in top_artist_names],
+        sp,
+    )
+
     top_artists = [
-        {"artist": name, "play_count": count}
-        for name, count in artist_counts.most_common(10)
+        {
+            "artist": name,
+            "play_count": artist_counts[name],
+            "image_url": artist_images.get(name),
+        }
+        for name in top_artist_names
     ]
 
     return {

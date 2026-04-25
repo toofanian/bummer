@@ -770,6 +770,60 @@ def test_stats_empty_when_no_plays():
         clear_overrides()
 
 
+def test_stats_returns_artist_image_urls():
+    """Stats response includes image_url for each top artist."""
+    plays = [
+        {"album_id": "a1", "played_at": "2026-04-10T10:00:00+00:00"},
+    ]
+    album_cache = [
+        {
+            "service_id": "a1",
+            "name": "Album One",
+            "artists": [{"name": "Artist A", "id": "artA"}],
+            "image_url": "https://img/1.jpg",
+        },
+    ]
+
+    sp = mock_spotify()
+    sp.artists.return_value = {
+        "artists": [
+            {
+                "id": "artA",
+                "name": "Artist A",
+                "images": [
+                    {"url": "https://artist-img/artA-large.jpg", "height": 640},
+                    {"url": "https://artist-img/artA-small.jpg", "height": 64},
+                ],
+            }
+        ]
+    }
+
+    db = MagicMock()
+
+    def table_router(table_name):
+        mock_table = MagicMock()
+        if table_name == "play_history":
+            mock_table.select.return_value.gte.return_value.execute.return_value = (
+                MagicMock(data=plays)
+            )
+        elif table_name == "library_cache":
+            mock_table.select.return_value.eq.return_value.execute.return_value = (
+                MagicMock(data=[{"albums": album_cache}])
+            )
+        return mock_table
+
+    db.table.side_effect = table_router
+    setup_overrides(db=db, sp=sp)
+    try:
+        res = client.get("/digest/stats")
+        assert res.status_code == 200
+        data = res.json()
+        assert data["top_artists"][0]["image_url"] == "https://artist-img/artA-small.jpg"
+        sp.artists.assert_called_once_with(["artA"])
+    finally:
+        clear_overrides()
+
+
 def test_stats_top_artists_from_all_plays_not_just_top_albums():
     """Artists with plays spread across non-top albums should still appear in top_artists."""
     # 10 top albums (3 plays each) by unique artists → fill top 10
