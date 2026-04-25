@@ -263,18 +263,22 @@ export default function DigestView({ onPlay, session }) {
 
   if (!isMobile) {
     return (
-      <div className="flex h-full">
-        <div className="flex-1 overflow-y-auto border-r border-border">
-          <div className="px-4 pt-3 pb-2 text-xs font-bold tracking-wider uppercase text-text-dim">Library Changes</div>
-          <ChangesSection onPlay={onPlay} session={session} />
+      <div className="flex flex-col h-full">
+        <div className="flex border-b border-border flex-shrink-0">
+          <div className="flex-1 py-3 text-xs font-semibold tracking-wider uppercase text-center text-text">Library Changes</div>
+          <div className="flex-1 py-3 text-xs font-semibold tracking-wider uppercase text-center text-text">Listening History</div>
+          <div className="flex-1 py-3 text-xs font-semibold tracking-wider uppercase text-center text-text">Monthly Stats</div>
         </div>
-        <div className="flex-1 overflow-y-auto border-r border-border">
-          <div className="px-4 pt-3 pb-2 text-xs font-bold tracking-wider uppercase text-text-dim">Listening History</div>
-          <HistorySection onPlay={onPlay} session={session} />
-        </div>
-        <div className="flex-1 overflow-y-auto">
-          <div className="px-4 pt-3 pb-2 text-xs font-bold tracking-wider uppercase text-text-dim">Monthly Stats</div>
-          <StatsSection onPlay={onPlay} session={session} />
+        <div className="flex flex-1 min-h-0">
+          <div className="flex-1 overflow-y-auto border-r border-border">
+            <ChangesSection onPlay={onPlay} session={session} />
+          </div>
+          <div className="flex-1 overflow-y-auto border-r border-border">
+            <HistorySection onPlay={onPlay} session={session} />
+          </div>
+          <div className="flex-1 overflow-y-auto">
+            <StatsSection onPlay={onPlay} session={session} />
+          </div>
         </div>
       </div>
     )
