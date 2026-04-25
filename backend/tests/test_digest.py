@@ -52,13 +52,13 @@ def test_snapshot_creates_row():
                     {
                         "service_id": "a1",
                         "name": "Album1",
-                        "artists": ["X"],
+                        "artists": [{"name": "X", "id": "artX"}],
                         "image_url": None,
                     },
                     {
                         "service_id": "a2",
                         "name": "Album2",
-                        "artists": ["Y"],
+                        "artists": [{"name": "Y", "id": "artY"}],
                         "image_url": None,
                     },
                 ],
@@ -130,19 +130,19 @@ ALBUM_CACHE = [
     {
         "service_id": "a1",
         "name": "Album One",
-        "artists": ["Artist A"],
+        "artists": [{"name": "Artist A", "id": "artA"}],
         "image_url": "https://img/1.jpg",
     },
     {
         "service_id": "a2",
         "name": "Album Two",
-        "artists": ["Artist B"],
+        "artists": [{"name": "Artist B", "id": "artB"}],
         "image_url": "https://img/2.jpg",
     },
     {
         "service_id": "a3",
         "name": "Album Three",
-        "artists": ["Artist C"],
+        "artists": [{"name": "Artist C", "id": "artC"}],
         "image_url": "https://img/3.jpg",
     },
 ]
@@ -281,8 +281,8 @@ def test_ensure_snapshot_creates_when_none_exists(mock_date, mock_cache):
     mock_date.today.return_value = date(2026, 3, 15)
     mock_date.side_effect = lambda *a, **kw: date(*a, **kw)
     mock_cache.return_value = [
-        {"service_id": "a1", "name": "Album1", "artists": ["X"], "image_url": None},
-        {"service_id": "a2", "name": "Album2", "artists": ["Y"], "image_url": None},
+        {"service_id": "a1", "name": "Album1", "artists": [{"name": "X", "id": "artX"}], "image_url": None},
+        {"service_id": "a2", "name": "Album2", "artists": [{"name": "Y", "id": "artY"}], "image_url": None},
     ]
     db = MagicMock()
     # No existing snapshot for today (.eq(snapshot_date).eq(user_id).execute())
@@ -784,7 +784,7 @@ def test_stats_top_artists_from_all_plays_not_just_top_albums():
             {
                 "service_id": aid,
                 "name": f"Top Album {i}",
-                "artists": [f"Artist {i}"],
+                "artists": [{"name": f"Artist {i}", "id": f"art{i}"}],
                 "image_url": None,
             }
         )
@@ -797,7 +797,7 @@ def test_stats_top_artists_from_all_plays_not_just_top_albums():
             {
                 "service_id": aid,
                 "name": f"Extra Album {j+1}",
-                "artists": ["Prolific Artist"],
+                "artists": [{"name": "Prolific Artist", "id": "artProlific"}],
                 "image_url": None,
             }
         )

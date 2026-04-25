@@ -66,7 +66,7 @@ def _normalize_album(item: dict) -> dict:
     return {
         "service_id": album["id"],
         "name": album["name"],
-        "artists": [a["name"] for a in album.get("artists", [])],
+        "artists": [{"name": a["name"], "id": a["id"]} for a in album.get("artists", [])],
         "release_date": album.get("release_date"),
         "total_tracks": album.get("total_tracks"),
         "image_url": largest_image["url"] if largest_image else None,

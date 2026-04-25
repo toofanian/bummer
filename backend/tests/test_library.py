@@ -111,7 +111,7 @@ def test_get_albums_returns_cache_row_with_last_synced():
         {
             "service_id": "abc123",
             "name": "Cached Album",
-            "artists": ["Artist"],
+            "artists": [{"name": "Artist", "id": "artArtist"}],
             "release_date": "2020",
             "total_tracks": 10,
             "image_url": None,
@@ -357,7 +357,7 @@ def test_sync_complete_writes_atomically():
         {
             "service_id": "abc123",
             "name": "Dummy Album",
-            "artists": ["Artist One"],
+            "artists": [{"name": "Artist One", "id": "art1"}],
             "release_date": "2020-05-01",
             "total_tracks": 10,
             "image_url": "https://example.com/large.jpg",
@@ -366,7 +366,7 @@ def test_sync_complete_writes_atomically():
         {
             "service_id": "xyz789",
             "name": "Second Album",
-            "artists": ["Artist Two"],
+            "artists": [{"name": "Artist Two", "id": "art2"}],
             "release_date": "2019-03-01",
             "total_tracks": 8,
             "image_url": None,
@@ -520,6 +520,17 @@ def test_sync_propagates_spotify_errors():
     assert response.status_code >= 500
 
     clear_overrides()
+
+
+def test_normalize_album_stores_artist_objects():
+    """_normalize_album must store artists as {name, id} dicts, not plain strings."""
+    from routers.library import _normalize_album
+
+    result = _normalize_album(SAVED_ALBUM)
+    assert result["artists"] == [
+        {"name": "Artist One", "id": "art1"},
+        {"name": "Artist Two", "id": "art2"},
+    ]
 
 
 def test_sync_handles_empty_library():

@@ -53,7 +53,7 @@ def _resolve_album_metadata(
                     {
                         "service_id": aid,
                         "name": album["name"],
-                        "artists": [a["name"] for a in album.get("artists", [])],
+                        "artists": [{"name": a["name"], "id": a["id"]} for a in album.get("artists", [])],
                         "image_url": largest["url"] if largest else None,
                     }
                 )
@@ -181,7 +181,8 @@ def get_stats(
         album_meta = meta_lookup.get(aid)
         if album_meta and album_meta.get("artists"):
             for artist in album_meta["artists"]:
-                artist_counts[artist] += play_counts[aid]
+                name = artist["name"] if isinstance(artist, dict) else artist
+                artist_counts[name] += play_counts[aid]
 
     top_artists = [
         {"artist": name, "play_count": count}
