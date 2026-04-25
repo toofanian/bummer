@@ -234,9 +234,19 @@ function StatsSection({ onPlay, session }) {
 
       <div className="px-4 pt-4 pb-1 text-xs font-bold tracking-wider uppercase text-text-dim">Top Artists</div>
       {stats.top_artists.map((item, i) => (
-        <div key={item.artist}
-          className="flex items-center gap-2.5 px-4 py-1.5">
+        <div key={item.artist} className="flex items-center gap-2.5 px-4 py-1.5">
           <span className="text-xs font-semibold text-text-dim w-5 text-right flex-shrink-0">{i + 1}</span>
+          {item.image_url ? (
+            <img
+              src={item.image_url}
+              alt={item.artist}
+              className="w-8 h-8 rounded-full object-cover flex-shrink-0"
+            />
+          ) : (
+            <div className="w-8 h-8 rounded-full bg-surface-2 flex items-center justify-center text-text-dim text-sm font-semibold flex-shrink-0">
+              {item.artist.charAt(0).toUpperCase()}
+            </div>
+          )}
           <div className="flex-1 min-w-0">
             <div className="text-sm font-medium text-text truncate">{item.artist}</div>
           </div>
