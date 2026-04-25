@@ -59,6 +59,22 @@ def _save_supabase_cache(db: Client, albums: list, total: int, user_id: str = No
     ).execute()
 
 
+def _artist_names(artists: list) -> list[str]:
+    """Extract artist name strings from either string or {name, id} format."""
+    return [
+        a["name"] if isinstance(a, dict) else a
+        for a in artists
+    ]
+
+
+def _flatten_artists_for_response(albums: list[dict]) -> list[dict]:
+    """Return album dicts with artists flattened to plain name strings for frontend."""
+    return [
+        {**album, "artists": _artist_names(album.get("artists", []))}
+        for album in albums
+    ]
+
+
 def _normalize_album(item: dict) -> dict:
     album = item["album"]
     images = album.get("images", [])
@@ -90,7 +106,7 @@ def get_albums(
         return {"albums": [], "total": 0, "last_synced": None}
     albums = row.get("albums") or []
     return {
-        "albums": albums,
+        "albums": _flatten_artists_for_response(albums),
         "total": len(albums),
         "last_synced": row.get("synced_at"),
     }
@@ -115,7 +131,7 @@ def sync_one_page(
     done = result["next"] is None
 
     return {
-        "albums": new_albums,
+        "albums": _flatten_artists_for_response(new_albums),
         "synced_this_page": len(new_albums),
         "spotify_total": spotify_total,
         "next_offset": body.offset + len(new_albums),
