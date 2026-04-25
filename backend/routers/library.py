@@ -182,6 +182,28 @@ def get_listen_counts(
     return {"counts": counts}
 
 
+@router.get("/artist-images")
+def get_artist_images(
+    sp: spotipy.Spotify = Depends(get_user_spotify),
+    db: Client = Depends(get_authed_db),
+    user: dict = Depends(get_current_user),
+):
+    """Return artist name -> image_url map for all artists in user's library."""
+    from routers.digest import _resolve_artist_images
+
+    albums = get_album_cache(db, user_id=user["user_id"])
+    artist_id_map = {}
+    for album in albums:
+        for artist in album.get("artists", []):
+            if isinstance(artist, dict) and artist.get("id"):
+                artist_id_map[artist["name"]] = artist["id"]
+            elif isinstance(artist, str):
+                artist_id_map[artist] = None
+
+    images = _resolve_artist_images(list(artist_id_map.items()), sp)
+    return {"artist_images": images}
+
+
 def get_album_cache(db: Client = None, user_id: str | None = None):
     """Return cached album list from Supabase, or empty list if absent.
 

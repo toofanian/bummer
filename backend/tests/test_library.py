@@ -555,3 +555,27 @@ def test_sync_handles_empty_library():
     assert data["next_offset"] == 0
 
     clear_overrides()
+
+
+def test_artist_images_returns_image_map():
+    sp = MagicMock()
+    sp.artists.return_value = {
+        "artists": [
+            {"id": "art1", "name": "Artist One", "images": [{"url": "https://img/art1.jpg", "height": 64}]},
+        ]
+    }
+    db = MagicMock()
+    db.table.return_value.select.return_value.eq.return_value.execute.return_value = MagicMock(
+        data=[{"albums": [
+            {"service_id": "a1", "name": "Album", "artists": [{"name": "Artist One", "id": "art1"}], "image_url": None},
+        ]}]
+    )
+    override_db(db)
+    override_spotify(sp)
+    try:
+        res = client.get("/library/artist-images")
+        assert res.status_code == 200
+        data = res.json()
+        assert data["artist_images"]["Artist One"] == "https://img/art1.jpg"
+    finally:
+        clear_overrides()

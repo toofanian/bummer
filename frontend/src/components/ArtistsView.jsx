@@ -7,8 +7,9 @@ function groupByArtist(albums) {
   const map = {}
   for (const album of albums) {
     for (const artist of album.artists) {
-      if (!map[artist]) map[artist] = []
-      map[artist].push(album)
+      const artistName = typeof artist === 'string' ? artist : artist.name
+      if (!map[artistName]) map[artistName] = []
+      map[artistName].push(album)
     }
   }
   return Object.entries(map)
@@ -22,6 +23,27 @@ function filterArtistGroups(groups, search) {
   return groups.filter(group =>
     group.name.toLowerCase().includes(q) ||
     group.albums.some(a => a.name.toLowerCase().includes(q))
+  )
+}
+
+function ArtistProfileImage({ name, imageUrl, size = 40 }) {
+  if (imageUrl) {
+    return (
+      <img
+        src={imageUrl}
+        alt={name}
+        className="rounded-full object-cover flex-shrink-0"
+        style={{ width: size, height: size }}
+      />
+    )
+  }
+  return (
+    <div
+      className="rounded-full bg-surface-2 flex items-center justify-center text-text-dim font-semibold flex-shrink-0"
+      style={{ width: size, height: size, fontSize: size * 0.4 }}
+    >
+      {name.charAt(0).toUpperCase()}
+    </div>
   )
 }
 
@@ -57,6 +79,7 @@ export default function ArtistsView({
   targetArtist = null,
   onClearTargetArtist,
   listenCounts = {},
+  artistImages = {},
 }) {
   const [selectedArtist, setSelectedArtist] = useState(null)
   const isMobile = useIsMobile()
@@ -74,7 +97,11 @@ export default function ArtistsView({
 
   // Artist detail view
   if (selectedArtist) {
-    const artistAlbums = albums.filter(a => a.artists.includes(selectedArtist))
+    const artistAlbums = albums.filter(a =>
+      a.artists.some(artist =>
+        (typeof artist === 'string' ? artist : artist.name) === selectedArtist
+      )
+    )
     return (
       <div className="flex flex-col h-full overflow-hidden">
         <div className="flex items-center gap-3 px-4 py-2 border-b border-border bg-surface flex-shrink-0">
@@ -124,7 +151,8 @@ export default function ArtistsView({
           {isMobile ? (
             <>
               <div className="flex items-center px-4 py-2">
-                <div className="min-w-0 flex-1">
+                <ArtistProfileImage name={group.name} imageUrl={artistImages[group.name]} />
+                <div className="min-w-0 flex-1 ml-3">
                   <div className="flex items-center gap-2">
                     <span data-testid="artist-name" className="text-sm font-semibold text-text">{group.name}</span>
                     <span className="text-xs text-text-dim">{group.albums.length} {group.albums.length === 1 ? 'album' : 'albums'}</span>
@@ -135,7 +163,8 @@ export default function ArtistsView({
             </>
           ) : (
             <div className="flex items-stretch">
-              <div className="w-48 flex-shrink-0 flex items-center px-4">
+              <div className="w-48 flex-shrink-0 flex items-center px-4 gap-3">
+                <ArtistProfileImage name={group.name} imageUrl={artistImages[group.name]} />
                 <div className="min-w-0">
                   <div data-testid="artist-name" className="text-sm font-semibold text-text truncate">{group.name}</div>
                   <div className="text-xs text-text-dim mt-0.5">{group.albums.length} {group.albums.length === 1 ? 'album' : 'albums'}</div>
