@@ -221,6 +221,8 @@ describe('HomePage', () => {
     })
     const card = screen.getByTestId('album-item-a1')
     expect(card.className).toContain('hover:scale-105')
+    expect(card.className).toContain('hover:shadow-lg')
+    expect(card.className).toContain('hover:brightness-110')
   })
 
   it('mobile scroll container has prompt-row-scroll class', async () => {
