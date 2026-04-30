@@ -23,7 +23,6 @@ class SeekRequest(BaseModel):
 
 class TransferRequest(BaseModel):
     device_id: str
-    context_uri: str | None = None
 
 
 def _is_no_active_device(exc: spotipy.exceptions.SpotifyException) -> bool:
@@ -206,15 +205,5 @@ def transfer_playback(
         if _is_restricted_device(e):
             raise HTTPException(status_code=409, detail="restricted_device")
         raise
-
-    if body.context_uri:
-        try:
-            sp.start_playback(context_uri=body.context_uri)
-        except spotipy.exceptions.SpotifyException as e:
-            if _is_restricted_device(e):
-                raise HTTPException(status_code=409, detail="restricted_device")
-            if _is_no_active_device(e):
-                raise HTTPException(status_code=409, detail="no_device")
-            raise
 
     return Response(status_code=204)

@@ -53,6 +53,7 @@ export default function DevicePicker({
   onFetchDevices,
   onDeviceSelected,
   restrictedDevice,
+  connectingDeviceId,
   bottom = '68px',
 }) {
   const [devices, setDevices] = useState([])
@@ -148,7 +149,7 @@ export default function DevicePicker({
             aria-selected={d.is_active}
             className={`flex items-center gap-2.5 py-2 px-3 text-sm select-none cursor-pointer hover:bg-surface-2 ${
               d.is_active ? 'text-accent' : 'text-text'
-            }`}
+            }${connectingDeviceId === d.id ? ' animate-pulse' : ''}`}
             onClick={() => handleDeviceClick(d.id)}
           >
             <span className="flex-shrink-0 flex items-center" style={{ color: d.is_active ? 'var(--accent)' : 'var(--text-dim)' }}>

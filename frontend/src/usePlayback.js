@@ -185,13 +185,16 @@ export function usePlayback(session = null) {
     return res.json()
   }, [])
 
-  const transferPlayback = useCallback(async (deviceId, contextUri = null) => {
+  const transferPlayback = useCallback(async (deviceId) => {
     const payload = { device_id: deviceId }
-    if (contextUri) payload.context_uri = contextUri
-    await apiFetch('/playback/transfer', {
+    const transferRes = await apiFetch('/playback/transfer', {
       method: 'PUT',
       body: JSON.stringify(payload),
     }, sessionRef.current)
+    if (!transferRes.ok) {
+      const detail = await transferRes.json().catch(() => ({}))
+      return detail.detail || 'transfer_failed'
+    }
     // Give Spotify time to process the transfer before refreshing state
     await new Promise(resolve => setTimeout(resolve, 500))
     const res = await apiFetch('/playback/state', {}, sessionRef.current)
@@ -200,6 +203,7 @@ export function usePlayback(session = null) {
       lastPollDataRef.current = data
       setState(prev => ({ ...prev, ...data }))
     }
+    return null
   }, [])
 
   const seek = useCallback(async (positionMs) => {

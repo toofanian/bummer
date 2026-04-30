@@ -543,6 +543,72 @@ describe('transferPlayback', () => {
     expect(body.device_id).toBe('abc123')
     expect(transferCall[1].method).toBe('PUT')
   })
+
+  it('returns error string when backend returns 409 with no_device', async () => {
+    fetchMock = vi.fn().mockImplementation((url) => {
+      if (url.includes('/playback/transfer')) {
+        return Promise.resolve({ ok: false, status: 409, json: async () => ({ detail: 'no_device' }) })
+      }
+      if (url.includes('/playback/state')) {
+        return Promise.resolve({ ok: true, json: async () => IDLE_STATE })
+      }
+      return Promise.resolve({ ok: true, status: 204 })
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    const { result } = renderHook(() => usePlayback({ access_token: 'test-jwt' }))
+
+    let returnValue
+    await act(async () => {
+      returnValue = await result.current.transferPlayback('abc123')
+    })
+
+    expect(returnValue).toBe('no_device')
+  })
+
+  it('returns error string when backend returns 409 with restricted_device', async () => {
+    fetchMock = vi.fn().mockImplementation((url) => {
+      if (url.includes('/playback/transfer')) {
+        return Promise.resolve({ ok: false, status: 409, json: async () => ({ detail: 'restricted_device' }) })
+      }
+      if (url.includes('/playback/state')) {
+        return Promise.resolve({ ok: true, json: async () => IDLE_STATE })
+      }
+      return Promise.resolve({ ok: true, status: 204 })
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    const { result } = renderHook(() => usePlayback({ access_token: 'test-jwt' }))
+
+    let returnValue
+    await act(async () => {
+      returnValue = await result.current.transferPlayback('abc123')
+    })
+
+    expect(returnValue).toBe('restricted_device')
+  })
+
+  it('returns null on success', async () => {
+    fetchMock = vi.fn().mockImplementation((url) => {
+      if (url.includes('/playback/transfer')) {
+        return Promise.resolve({ ok: true, json: async () => ({}) })
+      }
+      if (url.includes('/playback/state')) {
+        return Promise.resolve({ ok: true, json: async () => IDLE_STATE })
+      }
+      return Promise.resolve({ ok: true, status: 204 })
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    const { result } = renderHook(() => usePlayback({ access_token: 'test-jwt' }))
+
+    let returnValue
+    await act(async () => {
+      returnValue = await result.current.transferPlayback('abc123')
+    })
+
+    expect(returnValue).toBeNull()
+  })
 })
 
 describe('fetchQueue', () => {
