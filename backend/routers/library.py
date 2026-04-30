@@ -59,6 +59,19 @@ def _save_supabase_cache(db: Client, albums: list, total: int, user_id: str = No
     ).execute()
 
 
+def _artist_names(artists: list) -> list[str]:
+    """Extract artist name strings from either string or {name, id} format."""
+    return [a["name"] if isinstance(a, dict) else a for a in artists]
+
+
+def _flatten_artists_for_response(albums: list[dict]) -> list[dict]:
+    """Return album dicts with artists flattened to plain name strings for frontend."""
+    return [
+        {**album, "artists": _artist_names(album.get("artists", []))}
+        for album in albums
+    ]
+
+
 def _normalize_album(item: dict) -> dict:
     album = item["album"]
     images = album.get("images", [])
@@ -66,7 +79,9 @@ def _normalize_album(item: dict) -> dict:
     return {
         "service_id": album["id"],
         "name": album["name"],
-        "artists": [a["name"] for a in album.get("artists", [])],
+        "artists": [
+            {"name": a["name"], "id": a["id"]} for a in album.get("artists", [])
+        ],
         "release_date": album.get("release_date"),
         "total_tracks": album.get("total_tracks"),
         "image_url": largest_image["url"] if largest_image else None,
@@ -90,7 +105,7 @@ def get_albums(
         return {"albums": [], "total": 0, "last_synced": None}
     albums = row.get("albums") or []
     return {
-        "albums": albums,
+        "albums": _flatten_artists_for_response(albums),
         "total": len(albums),
         "last_synced": row.get("synced_at"),
     }
@@ -115,7 +130,7 @@ def sync_one_page(
     done = result["next"] is None
 
     return {
-        "albums": new_albums,
+        "albums": _flatten_artists_for_response(new_albums),
         "synced_this_page": len(new_albums),
         "spotify_total": spotify_total,
         "next_offset": body.offset + len(new_albums),
@@ -180,6 +195,28 @@ def get_listen_counts(
         aid = row["album_id"]
         counts[aid] = counts.get(aid, 0) + 1
     return {"counts": counts}
+
+
+@router.get("/artist-images")
+def get_artist_images(
+    sp: spotipy.Spotify = Depends(get_user_spotify),
+    db: Client = Depends(get_authed_db),
+    user: dict = Depends(get_current_user),
+):
+    """Return artist name -> image_url map for all artists in user's library."""
+    from routers.digest import _resolve_artist_images
+
+    albums = get_album_cache(db, user_id=user["user_id"])
+    artist_id_map = {}
+    for album in albums:
+        for artist in album.get("artists", []):
+            if isinstance(artist, dict) and artist.get("id"):
+                artist_id_map[artist["name"]] = artist["id"]
+            elif isinstance(artist, str):
+                artist_id_map[artist] = None
+
+    images = _resolve_artist_images(list(artist_id_map.items()), sp)
+    return {"artist_images": images}
 
 
 def get_album_cache(db: Client = None, user_id: str | None = None):

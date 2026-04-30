@@ -4,10 +4,10 @@ import { describe, it, expect, vi } from 'vitest'
 import ArtistsView from './ArtistsView'
 
 const ALBUMS = [
-  { service_id: 'a1', name: 'OK Computer', artists: ['Radiohead'], image_url: '/rc1.jpg', release_date: '1997', added_at: '2024-01-01', total_tracks: 12 },
-  { service_id: 'a2', name: 'Kid A', artists: ['Radiohead'], image_url: '/rc2.jpg', release_date: '2000', added_at: '2024-02-01', total_tracks: 10 },
-  { service_id: 'a3', name: 'Blue Train', artists: ['John Coltrane'], image_url: '/jc1.jpg', release_date: '1958', added_at: '2024-03-01', total_tracks: 5 },
-  { service_id: 'a4', name: 'Dummy', artists: ['Portishead'], image_url: '/ph1.jpg', release_date: '1994', added_at: '2024-04-01', total_tracks: 11 },
+  { service_id: 'a1', name: 'OK Computer', artists: [{ name: 'Radiohead', id: 'rh1' }], image_url: '/rc1.jpg', release_date: '1997', added_at: '2024-01-01', total_tracks: 12 },
+  { service_id: 'a2', name: 'Kid A', artists: [{ name: 'Radiohead', id: 'rh1' }], image_url: '/rc2.jpg', release_date: '2000', added_at: '2024-02-01', total_tracks: 10 },
+  { service_id: 'a3', name: 'Blue Train', artists: [{ name: 'John Coltrane', id: 'jc1' }], image_url: '/jc1.jpg', release_date: '1958', added_at: '2024-03-01', total_tracks: 5 },
+  { service_id: 'a4', name: 'Dummy', artists: [{ name: 'Portishead', id: 'ph1' }], image_url: '/ph1.jpg', release_date: '1994', added_at: '2024-04-01', total_tracks: 11 },
 ]
 
 const defaultProps = {
@@ -118,5 +118,23 @@ describe('ArtistsView — targetArtist navigation', () => {
     render(<ArtistsView {...defaultProps} targetArtist={null} />)
     expect(screen.getByTestId('artist-row-Radiohead')).toBeInTheDocument()
     expect(screen.getByTestId('artist-row-John Coltrane')).toBeInTheDocument()
+  })
+})
+
+describe('ArtistsView — artist profile images', () => {
+  it('renders artist profile image when artistImages prop provides URL', () => {
+    const artistImages = { 'John Coltrane': 'https://img/jc.jpg' }
+    render(<ArtistsView {...defaultProps} artistImages={artistImages} />)
+    const row = screen.getByTestId('artist-row-John Coltrane')
+    const img = within(row).getByAltText('John Coltrane')
+    expect(img).toBeInTheDocument()
+    expect(img.src).toContain('https://img/jc.jpg')
+    expect(img.className).toContain('rounded-full')
+  })
+
+  it('renders letter fallback when artistImages has no URL for artist', () => {
+    render(<ArtistsView {...defaultProps} artistImages={{}} />)
+    const row = screen.getByTestId('artist-row-John Coltrane')
+    expect(within(row).queryByAltText('John Coltrane')).not.toBeInTheDocument()
   })
 })

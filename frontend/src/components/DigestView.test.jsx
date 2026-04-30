@@ -41,8 +41,8 @@ const statsData = {
     { album: { service_id: 's2', name: 'Top Album Two', artists: ['Another Stats Artist'], image_url: 'https://img/s2.jpg' }, play_count: 30 },
   ],
   top_artists: [
-    { artist: 'Popular Artist', play_count: 55 },
-    { artist: 'Second Artist', play_count: 33 },
+    { artist: 'Popular Artist', play_count: 55, image_url: 'https://img/popular.jpg' },
+    { artist: 'Second Artist', play_count: 33, image_url: null },
   ],
 }
 
@@ -126,6 +126,23 @@ describe('DigestView', () => {
       expect(screen.getByText('2026-04-16')).toBeInTheDocument()
       expect(screen.getByText('Played Album')).toBeInTheDocument()
       expect(screen.getByText('Another Play')).toBeInTheDocument()
+    })
+  })
+
+  it('renders artist profile images in top artists', async () => {
+    render(<DigestView onPlay={() => {}} />)
+    await waitFor(() => {
+      const img = screen.getByAltText('Popular Artist')
+      expect(img).toBeInTheDocument()
+      expect(img.src).toContain('https://img/popular.jpg')
+      expect(img.className).toContain('rounded-full')
+    })
+  })
+
+  it('renders letter fallback when artist has no image', async () => {
+    render(<DigestView onPlay={() => {}} />)
+    await waitFor(() => {
+      expect(screen.queryByAltText('Second Artist')).not.toBeInTheDocument()
     })
   })
 

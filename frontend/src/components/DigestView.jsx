@@ -234,9 +234,19 @@ function StatsSection({ onPlay, session }) {
 
       <div className="px-4 pt-4 pb-1 text-xs font-bold tracking-wider uppercase text-text-dim">Top Artists</div>
       {stats.top_artists.map((item, i) => (
-        <div key={item.artist}
-          className="flex items-center gap-2.5 px-4 py-1.5">
+        <div key={item.artist} className="flex items-center gap-2.5 px-4 py-1.5">
           <span className="text-xs font-semibold text-text-dim w-5 text-right flex-shrink-0">{i + 1}</span>
+          {item.image_url ? (
+            <img
+              src={item.image_url}
+              alt={item.artist}
+              className="w-8 h-8 rounded-full object-cover flex-shrink-0"
+            />
+          ) : (
+            <div className="w-8 h-8 rounded-full bg-surface-2 flex items-center justify-center text-text-dim text-sm font-semibold flex-shrink-0">
+              {item.artist.charAt(0).toUpperCase()}
+            </div>
+          )}
           <div className="flex-1 min-w-0">
             <div className="text-sm font-medium text-text truncate">{item.artist}</div>
           </div>
@@ -253,18 +263,22 @@ export default function DigestView({ onPlay, session }) {
 
   if (!isMobile) {
     return (
-      <div className="flex h-full">
-        <div className="flex-1 overflow-y-auto pb-20 prompt-row-scroll border-r border-border">
-          <div className="px-4 pt-3 pb-2 text-xs font-bold tracking-wider uppercase text-text-dim">Library Changes</div>
-          <ChangesSection onPlay={onPlay} session={session} />
+      <div className="flex flex-col h-full">
+        <div className="flex flex-shrink-0">
+          <div className="flex-1 px-4 py-2 text-sm font-bold tracking-wider uppercase text-text text-center flex items-center justify-center" style={{ height: 40 }}>Library Changes</div>
+          <div className="flex-1 px-4 py-2 text-sm font-bold tracking-wider uppercase text-text text-center flex items-center justify-center" style={{ height: 40 }}>Listening History</div>
+          <div className="flex-1 px-4 py-2 text-sm font-bold tracking-wider uppercase text-text text-center flex items-center justify-center" style={{ height: 40 }}>Monthly Stats</div>
         </div>
-        <div className="flex-1 overflow-y-auto pb-20 prompt-row-scroll border-r border-border">
-          <div className="px-4 pt-3 pb-2 text-xs font-bold tracking-wider uppercase text-text-dim">Listening History</div>
-          <HistorySection onPlay={onPlay} session={session} />
-        </div>
-        <div className="flex-1 overflow-y-auto pb-20 prompt-row-scroll">
-          <div className="px-4 pt-3 pb-2 text-xs font-bold tracking-wider uppercase text-text-dim">Monthly Stats</div>
-          <StatsSection onPlay={onPlay} session={session} />
+        <div className="flex flex-1 min-h-0">
+          <div className="flex-1 overflow-y-auto pb-20 prompt-row-scroll">
+            <ChangesSection onPlay={onPlay} session={session} />
+          </div>
+          <div className="flex-1 overflow-y-auto pb-20 prompt-row-scroll">
+            <HistorySection onPlay={onPlay} session={session} />
+          </div>
+          <div className="flex-1 overflow-y-auto pb-20 prompt-row-scroll">
+            <StatsSection onPlay={onPlay} session={session} />
+          </div>
         </div>
       </div>
     )

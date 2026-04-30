@@ -86,6 +86,7 @@ export default function App() {
   const selectedAlbumIdSet = useMemo(() => new Set(selectedAlbumIds), [selectedAlbumIds])
   const [pickerAlbumIds, setPickerAlbumIds] = useState(null)
   const [targetArtist, setTargetArtist] = useState(null)
+  const [artistImages, setArtistImages] = useState({})
   const [showCollectionCreate, setShowCollectionCreate] = useState(false)
   const [collectionCreateName, setCollectionCreateName] = useState('')
   // Collection playback: null | { collectionId: string, albumIds: string[], currentIndex: number }
@@ -265,6 +266,16 @@ export default function App() {
       apiFetch('/digest/ensure-snapshot', { method: 'POST' }, sessionRef.current).catch(() => {})
     }
   }, [albumsLoading, albums.length])
+
+  // Fetch artist images when the artists view becomes active and albums are loaded
+  useEffect(() => {
+    if (librarySubView === 'artists' && albums.length > 0) {
+      apiFetch('/library/artist-images', {}, sessionRef.current)
+        .then(r => r.json())
+        .then(data => setArtistImages(data.artist_images || {}))
+        .catch(() => {})
+    }
+  }, [librarySubView, albums.length])
 
   // Reset create-collection inline form when navigating away
   useEffect(() => {
@@ -893,6 +904,7 @@ export default function App() {
                     targetArtist={targetArtist}
                     onClearTargetArtist={() => setTargetArtist(null)}
                     listenCounts={listenCounts}
+                    artistImages={artistImages}
                   />
                 )}
               </div>
@@ -1237,6 +1249,7 @@ export default function App() {
                 targetArtist={targetArtist}
                 onClearTargetArtist={() => setTargetArtist(null)}
                 listenCounts={listenCounts}
+                artistImages={artistImages}
               />
             )}
           </div>

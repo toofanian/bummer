@@ -52,13 +52,13 @@ def test_snapshot_creates_row():
                     {
                         "service_id": "a1",
                         "name": "Album1",
-                        "artists": ["X"],
+                        "artists": [{"name": "X", "id": "artX"}],
                         "image_url": None,
                     },
                     {
                         "service_id": "a2",
                         "name": "Album2",
-                        "artists": ["Y"],
+                        "artists": [{"name": "Y", "id": "artY"}],
                         "image_url": None,
                     },
                 ],
@@ -130,19 +130,19 @@ ALBUM_CACHE = [
     {
         "service_id": "a1",
         "name": "Album One",
-        "artists": ["Artist A"],
+        "artists": [{"name": "Artist A", "id": "artA"}],
         "image_url": "https://img/1.jpg",
     },
     {
         "service_id": "a2",
         "name": "Album Two",
-        "artists": ["Artist B"],
+        "artists": [{"name": "Artist B", "id": "artB"}],
         "image_url": "https://img/2.jpg",
     },
     {
         "service_id": "a3",
         "name": "Album Three",
-        "artists": ["Artist C"],
+        "artists": [{"name": "Artist C", "id": "artC"}],
         "image_url": "https://img/3.jpg",
     },
 ]
@@ -281,8 +281,18 @@ def test_ensure_snapshot_creates_when_none_exists(mock_date, mock_cache):
     mock_date.today.return_value = date(2026, 3, 15)
     mock_date.side_effect = lambda *a, **kw: date(*a, **kw)
     mock_cache.return_value = [
-        {"service_id": "a1", "name": "Album1", "artists": ["X"], "image_url": None},
-        {"service_id": "a2", "name": "Album2", "artists": ["Y"], "image_url": None},
+        {
+            "service_id": "a1",
+            "name": "Album1",
+            "artists": [{"name": "X", "id": "artX"}],
+            "image_url": None,
+        },
+        {
+            "service_id": "a2",
+            "name": "Album2",
+            "artists": [{"name": "Y", "id": "artY"}],
+            "image_url": None,
+        },
     ]
     db = MagicMock()
     # No existing snapshot for today (.eq(snapshot_date).eq(user_id).execute())
@@ -766,5 +776,197 @@ def test_stats_empty_when_no_plays():
         assert data["period_days"] == 30
         assert data["top_albums"] == []
         assert data["top_artists"] == []
+    finally:
+        clear_overrides()
+
+
+def test_stats_returns_artist_image_urls():
+    """Stats response includes image_url for each top artist."""
+    plays = [
+        {"album_id": "a1", "played_at": "2026-04-10T10:00:00+00:00"},
+    ]
+    album_cache = [
+        {
+            "service_id": "a1",
+            "name": "Album One",
+            "artists": [{"name": "Artist A", "id": "artA"}],
+            "image_url": "https://img/1.jpg",
+        },
+    ]
+
+    sp = mock_spotify()
+    sp.artists.return_value = {
+        "artists": [
+            {
+                "id": "artA",
+                "name": "Artist A",
+                "images": [
+                    {"url": "https://artist-img/artA-large.jpg", "height": 640},
+                    {"url": "https://artist-img/artA-small.jpg", "height": 64},
+                ],
+            }
+        ]
+    }
+
+    db = MagicMock()
+
+    def table_router(table_name):
+        mock_table = MagicMock()
+        if table_name == "play_history":
+            mock_table.select.return_value.gte.return_value.execute.return_value = (
+                MagicMock(data=plays)
+            )
+        elif table_name == "library_cache":
+            mock_table.select.return_value.eq.return_value.execute.return_value = (
+                MagicMock(data=[{"albums": album_cache}])
+            )
+        return mock_table
+
+    db.table.side_effect = table_router
+    setup_overrides(db=db, sp=sp)
+    try:
+        res = client.get("/digest/stats")
+        assert res.status_code == 200
+        data = res.json()
+        assert (
+            data["top_artists"][0]["image_url"] == "https://artist-img/artA-small.jpg"
+        )
+        sp.artists.assert_called_once_with(["artA"])
+    finally:
+        clear_overrides()
+
+
+def test_stats_top_artists_from_all_plays_not_just_top_albums():
+    """Artists with plays spread across non-top albums should still appear in top_artists."""
+    # 10 top albums (3 plays each) by unique artists → fill top 10
+    # 2 extra albums (2 plays each) by "Prolific Artist" → 4 total plays
+    # "Prolific Artist" should rank above any single-album artist (3 plays) — but only
+    # if artist counts are derived from ALL plays, not just top 10 albums.
+    albums_meta = []
+    plays = []
+    for i in range(1, 11):
+        aid = f"top{i}"
+        albums_meta.append(
+            {
+                "service_id": aid,
+                "name": f"Top Album {i}",
+                "artists": [{"name": f"Artist {i}", "id": f"art{i}"}],
+                "image_url": None,
+            }
+        )
+        for _ in range(3):
+            plays.append(
+                {"album_id": aid, "played_at": f"2026-04-{10 + i}T10:00:00+00:00"}
+            )
+
+    # Two extra albums by "Prolific Artist" (2 plays each = 4 total)
+    for j, aid in enumerate(["extra1", "extra2"]):
+        albums_meta.append(
+            {
+                "service_id": aid,
+                "name": f"Extra Album {j + 1}",
+                "artists": [{"name": "Prolific Artist", "id": "artProlific"}],
+                "image_url": None,
+            }
+        )
+        for _ in range(2):
+            plays.append(
+                {"album_id": aid, "played_at": f"2026-04-0{j + 1}T10:00:00+00:00"}
+            )
+
+    db = MagicMock()
+
+    def table_router(table_name):
+        mock_table = MagicMock()
+        if table_name == "play_history":
+            mock_table.select.return_value.gte.return_value.execute.return_value = (
+                MagicMock(data=plays)
+            )
+        elif table_name == "library_cache":
+            mock_table.select.return_value.eq.return_value.execute.return_value = (
+                MagicMock(data=[{"albums": albums_meta}])
+            )
+        return mock_table
+
+    db.table.side_effect = table_router
+    setup_overrides(db=db)
+    try:
+        res = client.get("/digest/stats")
+        assert res.status_code == 200
+        data = res.json()
+        artist_names = [a["artist"] for a in data["top_artists"]]
+        assert "Prolific Artist" in artist_names
+        # Prolific Artist has 4 plays total, should rank above 3-play artists
+        prolific = next(
+            a for a in data["top_artists"] if a["artist"] == "Prolific Artist"
+        )
+        assert prolific["play_count"] == 4
+    finally:
+        clear_overrides()
+
+
+def test_stats_resolves_artist_images_via_search_when_no_id():
+    """When cache has old string-format artists (no ID), falls back to Spotify search."""
+    plays = [
+        {"album_id": "a1", "played_at": "2026-04-10T10:00:00+00:00"},
+    ]
+    # Old-format cache: artists as plain strings, no IDs
+    album_cache = [
+        {
+            "service_id": "a1",
+            "name": "Album One",
+            "artists": ["Artist A"],
+            "image_url": "https://img/1.jpg",
+        },
+    ]
+
+    sp = mock_spotify()
+    sp.search.return_value = {
+        "artists": {
+            "items": [
+                {
+                    "id": "artA",
+                    "name": "Artist A",
+                    "images": [
+                        {"url": "https://artist-img/artA.jpg", "height": 64},
+                    ],
+                }
+            ]
+        }
+    }
+    sp.artists.return_value = {
+        "artists": [
+            {
+                "id": "artA",
+                "name": "Artist A",
+                "images": [
+                    {"url": "https://artist-img/artA.jpg", "height": 64},
+                ],
+            }
+        ]
+    }
+
+    db = MagicMock()
+
+    def table_router(table_name):
+        mock_table = MagicMock()
+        if table_name == "play_history":
+            mock_table.select.return_value.gte.return_value.execute.return_value = (
+                MagicMock(data=plays)
+            )
+        elif table_name == "library_cache":
+            mock_table.select.return_value.eq.return_value.execute.return_value = (
+                MagicMock(data=[{"albums": album_cache}])
+            )
+        return mock_table
+
+    db.table.side_effect = table_router
+    setup_overrides(db=db, sp=sp)
+    try:
+        res = client.get("/digest/stats")
+        assert res.status_code == 200
+        data = res.json()
+        assert data["top_artists"][0]["image_url"] == "https://artist-img/artA.jpg"
+        sp.search.assert_called_once()
     finally:
         clear_overrides()
