@@ -796,6 +796,59 @@ describe('PlaybackBar', () => {
 
   // --- Volume slider ---
 
+  it('initializes volume slider from state.device.volume_percent instead of hardcoded 50', () => {
+    const stateWithVolume = {
+      ...PLAYING_STATE,
+      device: { ...PLAYING_STATE.device, volume_percent: 75 },
+    }
+    render(
+      <PlaybackBar
+        state={stateWithVolume}
+        onPlay={vi.fn()}
+        onPause={vi.fn()}
+        paneOpen={false}
+        onTogglePane={vi.fn()}
+        onSetVolume={vi.fn()}
+      />
+    )
+    const slider = screen.getByRole('slider', { name: 'Volume' })
+    expect(slider).toHaveAttribute('aria-valuenow', '75')
+  })
+
+  it('syncs volume slider when state.device.volume_percent changes', () => {
+    const stateWithVolume = {
+      ...PLAYING_STATE,
+      device: { ...PLAYING_STATE.device, volume_percent: 40 },
+    }
+    const { rerender } = render(
+      <PlaybackBar
+        state={stateWithVolume}
+        onPlay={vi.fn()}
+        onPause={vi.fn()}
+        paneOpen={false}
+        onTogglePane={vi.fn()}
+        onSetVolume={vi.fn()}
+      />
+    )
+    expect(screen.getByRole('slider', { name: 'Volume' })).toHaveAttribute('aria-valuenow', '40')
+
+    const updatedState = {
+      ...PLAYING_STATE,
+      device: { ...PLAYING_STATE.device, volume_percent: 80 },
+    }
+    rerender(
+      <PlaybackBar
+        state={updatedState}
+        onPlay={vi.fn()}
+        onPause={vi.fn()}
+        paneOpen={false}
+        onTogglePane={vi.fn()}
+        onSetVolume={vi.fn()}
+      />
+    )
+    expect(screen.getByRole('slider', { name: 'Volume' })).toHaveAttribute('aria-valuenow', '80')
+  })
+
   it('renders a volume slider in the right zone', () => {
     render(
       <PlaybackBar

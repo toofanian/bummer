@@ -22,7 +22,7 @@ PLAYBACK_STATE = {
         },
         "artists": [{"name": "Artist A"}, {"name": "Artist B"}],
     },
-    "device": {"id": "device-id-abc", "name": "My Mac", "type": "Computer"},
+    "device": {"id": "device-id-abc", "name": "My Mac", "type": "Computer", "volume_percent": 72},
 }
 
 
@@ -62,6 +62,7 @@ def test_get_playback_state_returns_simplified_shape():
     assert data["device"]["id"] == "device-id-abc"
     assert data["device"]["name"] == "My Mac"
     assert data["device"]["type"] == "Computer"
+    assert data["device"]["volume_percent"] == 72
 
     clear_overrides()
 

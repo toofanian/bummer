@@ -60,6 +60,7 @@ def get_playback_state(sp: spotipy.Spotify = Depends(get_user_spotify)):
             "id": device.get("id"),
             "name": device["name"],
             "type": device["type"],
+            "volume_percent": device.get("volume_percent"),
         }
         if device
         else None,
