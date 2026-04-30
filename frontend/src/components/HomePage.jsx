@@ -41,7 +41,7 @@ function AlbumList({ albums, onPlay }) {
           key={album.service_id}
           data-testid={`album-item-${album.service_id}`}
           onClick={() => onPlay(album.service_id)}
-          className="cursor-pointer active:scale-95 active:opacity-80 transition-transform duration-150"
+          className="cursor-pointer hover:scale-105 active:scale-95 active:opacity-80 transition-transform duration-150"
         >
           {album.image_url ? (
             <img src={album.image_url} alt={album.name} className="w-full aspect-square rounded-md object-cover block" />

@@ -213,6 +213,16 @@ describe('HomePage', () => {
     })
   })
 
+  it('album cards have hover:scale-105 class for desktop hover effect', async () => {
+    useIsMobile.mockReturnValue(false)
+    render(<HomePage onPlay={() => {}} />)
+    await waitFor(() => {
+      expect(screen.getByAltText('Today Album')).toBeInTheDocument()
+    })
+    const card = screen.getByTestId('album-item-a1')
+    expect(card.className).toContain('hover:scale-105')
+  })
+
   it('mobile scroll container has prompt-row-scroll class', async () => {
     useIsMobile.mockReturnValue(true)
     const { container } = render(<HomePage onPlay={() => {}} />)
