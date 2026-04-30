@@ -146,6 +146,20 @@ describe('DigestView', () => {
     })
   })
 
+  it('desktop columns have bottom padding and hidden scrollbars', async () => {
+    useIsMobile.mockReturnValue(false)
+    const { container } = render(<DigestView onPlay={() => {}} />)
+    await waitFor(() => {
+      expect(screen.getByText('Library Changes')).toBeInTheDocument()
+    })
+    const columns = container.querySelectorAll('.overflow-y-auto')
+    expect(columns.length).toBe(3)
+    columns.forEach(col => {
+      expect(col.className).toContain('pb-20')
+      expect(col.className).toContain('prompt-row-scroll')
+    })
+  })
+
   it('renders stats with top albums and artists', async () => {
     render(<DigestView onPlay={() => {}} />)
     await waitFor(() => {

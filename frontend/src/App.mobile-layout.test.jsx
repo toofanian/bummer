@@ -46,6 +46,18 @@ beforeEach(() => {
     if (url.includes('/home')) {
       return Promise.resolve({ ok: true, json: () => Promise.resolve({ recently_played: [], recently_added: [], rediscover: [], recommended: [] }) })
     }
+    if (url.includes('/digest/changelog')) {
+      return Promise.resolve({ ok: true, json: () => Promise.resolve({ entries: [], has_more: false, next_cursor: null }) })
+    }
+    if (url.includes('/digest/history')) {
+      return Promise.resolve({ ok: true, json: () => Promise.resolve({ days: [], has_more: false, next_cursor: null }) })
+    }
+    if (url.includes('/digest/stats')) {
+      return Promise.resolve({ ok: true, json: () => Promise.resolve({ period_days: 30, top_albums: [], top_artists: [] }) })
+    }
+    if (url.includes('/digest/ensure-snapshot')) {
+      return Promise.resolve({ ok: true, json: () => Promise.resolve({}) })
+    }
     // Default for playback polling etc
     return Promise.resolve({ ok: true, json: () => Promise.resolve({}) })
   })
@@ -122,6 +134,21 @@ describe('App layout', () => {
     // Tabs should NOT be inside the header
     const header = document.querySelector('header')
     expect(header).not.toContainElement(albumsTab)
+  })
+
+  it('digest columns have bottom padding and hidden scrollbars on desktop', async () => {
+    mockMatchMedia(false) // desktop
+    render(<App />)
+    // Navigate to digest view via sidebar
+    const digestBtn = await waitFor(() => screen.getByLabelText('Library digest'))
+    await userEvent.click(digestBtn)
+    // Wait for digest content to render
+    await waitFor(() => {
+      expect(screen.getByText('Library Changes')).toBeInTheDocument()
+    })
+    // Each digest column should have pb-20 and prompt-row-scroll
+    const columns = document.querySelectorAll('.overflow-y-auto.pb-20.prompt-row-scroll')
+    expect(columns.length).toBe(3)
   })
 
   it('reserves MiniPlaybackBar padding even when no track is playing (Connect a device state)', async () => {

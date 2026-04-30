@@ -270,13 +270,13 @@ export default function DigestView({ onPlay, session }) {
           <div className="flex-1 py-3 text-xs font-semibold tracking-wider uppercase text-center text-text">Monthly Stats</div>
         </div>
         <div className="flex flex-1 min-h-0">
-          <div className="flex-1 overflow-y-auto border-r border-border">
+          <div className="flex-1 overflow-y-auto pb-20 prompt-row-scroll border-r border-border">
             <ChangesSection onPlay={onPlay} session={session} />
           </div>
-          <div className="flex-1 overflow-y-auto border-r border-border">
+          <div className="flex-1 overflow-y-auto pb-20 prompt-row-scroll border-r border-border">
             <HistorySection onPlay={onPlay} session={session} />
           </div>
-          <div className="flex-1 overflow-y-auto">
+          <div className="flex-1 overflow-y-auto pb-20 prompt-row-scroll">
             <StatsSection onPlay={onPlay} session={session} />
           </div>
         </div>

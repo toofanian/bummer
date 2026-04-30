@@ -650,7 +650,7 @@ describe('App — localStorage cache + syncing pulse', () => {
     clearLocalStorageCache()
   })
 
-  it('librarySubView persists when navigating away and back', async () => {
+  it('librarySubView resets to albums when navigating away and back', async () => {
     window.matchMedia = vi.fn().mockImplementation(query => ({
       matches: false,
       media: query,
@@ -684,9 +684,9 @@ describe('App — localStorage cache + syncing pulse', () => {
     // Navigate away to Collections
     await userEvent.click(screen.getByRole('button', { name: /collections/i }))
 
-    // Navigate back to Library — should still be on Artists
+    // Navigate back to Library — should reset to Albums (not persist Artists)
     await userEvent.click(screen.getByRole('button', { name: /^library( syncing)?$/i }))
-    expect(await screen.findByTestId('artist-row-Test Artist')).toBeInTheDocument()
+    expect(screen.queryByTestId('artist-row-Test Artist')).not.toBeInTheDocument()
 
     clearLocalStorageCache()
   })
@@ -732,7 +732,7 @@ describe('App — localStorage cache + syncing pulse', () => {
     clearLocalStorageCache()
   })
 
-  it('reads library_view from localStorage on mount and restores artists sub-view', async () => {
+  it('library always opens in albums view regardless of localStorage', async () => {
     window.matchMedia = vi.fn().mockImplementation(query => ({
       matches: false,
       media: query,
@@ -760,9 +760,10 @@ describe('App — localStorage cache + syncing pulse', () => {
 
     render(<App />)
 
-    // Navigate to Library — should open directly on Artists sub-view (restored from localStorage)
+    // Navigate to Library — should open in Albums view (localStorage 'artists' is overridden)
     await userEvent.click(await screen.findByRole('button', { name: /^library( syncing)?$/i }))
-    expect(await screen.findByTestId('artist-row-Test Artist')).toBeInTheDocument()
+    // Should NOT see artist row — sub-view resets to albums regardless of localStorage
+    expect(screen.queryByTestId('artist-row-Test Artist')).not.toBeInTheDocument()
 
     clearLocalStorageCache()
     localStorage.removeItem('library_view')
