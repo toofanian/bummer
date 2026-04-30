@@ -93,7 +93,9 @@ def test_changelog_returns_added_events():
         res = client.get("/digest/changelog")
         assert res.status_code == 200
         data = res.json()
-        events = data["events"]
+        days = data["days"]
+        assert len(days) == 1
+        events = days[0]["events"]
         assert len(events) == 1
         assert events[0]["type"] == "added"
         assert events[0]["album"]["service_id"] == "a1"
@@ -134,7 +136,9 @@ def test_changelog_returns_removed_events():
         res = client.get("/digest/changelog")
         assert res.status_code == 200
         data = res.json()
-        events = data["events"]
+        days = data["days"]
+        assert len(days) == 1
+        events = days[0]["events"]
         assert len(events) == 1
         assert events[0]["type"] == "removed"
         assert events[0]["album"]["service_id"] == "a2"
@@ -180,7 +184,9 @@ def test_changelog_detects_bounced_albums():
         res = client.get("/digest/changelog")
         assert res.status_code == 200
         data = res.json()
-        events = data["events"]
+        days = data["days"]
+        assert len(days) == 1
+        events = days[0]["events"]
         assert len(events) == 1
         assert events[0]["type"] == "bounced"
         assert events[0]["album"]["service_id"] == "a1"
@@ -211,7 +217,7 @@ def test_changelog_empty_when_no_changes():
         res = client.get("/digest/changelog")
         assert res.status_code == 200
         data = res.json()
-        assert data["events"] == []
+        assert data["days"] == []
     finally:
         clear_overrides()
 
@@ -259,11 +265,12 @@ def test_changelog_events_sorted_most_recent_first():
     try:
         res = client.get("/digest/changelog")
         assert res.status_code == 200
-        events = res.json()["events"]
-        assert len(events) == 3
-        assert events[0]["album"]["service_id"] == "a1"
-        assert events[1]["album"]["service_id"] == "a3"
-        assert events[2]["album"]["service_id"] == "a2"
+        days = res.json()["days"]
+        assert len(days) == 3
+        # Most recent day first
+        assert days[0]["events"][0]["album"]["service_id"] == "a1"
+        assert days[1]["events"][0]["album"]["service_id"] == "a3"
+        assert days[2]["events"][0]["album"]["service_id"] == "a2"
     finally:
         clear_overrides()
 

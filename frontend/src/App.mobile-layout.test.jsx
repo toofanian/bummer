@@ -47,7 +47,7 @@ beforeEach(() => {
       return Promise.resolve({ ok: true, json: () => Promise.resolve({ recently_played: [], recently_added: [], rediscover: [], recommended: [] }) })
     }
     if (url.includes('/digest/changelog')) {
-      return Promise.resolve({ ok: true, json: () => Promise.resolve({ events: [] }) })
+      return Promise.resolve({ ok: true, json: () => Promise.resolve({ days: [] }) })
     }
     if (url.includes('/digest/history')) {
       return Promise.resolve({ ok: true, json: () => Promise.resolve({ days: [], has_more: false, next_cursor: null }) })

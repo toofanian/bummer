@@ -9,10 +9,25 @@ vi.mock('../hooks/useIsMobile', () => ({
 }))
 
 const changelogData = {
-  events: [
-    { type: 'added', album: { service_id: 'a1', name: 'New Album', artists: ['Artist A'], image_url: 'https://img/1.jpg' }, changed_at: '2026-04-29T10:00:00Z' },
-    { type: 'removed', album: { service_id: 'a2', name: 'Old Album', artists: ['Artist B'], image_url: 'https://img/2.jpg' }, changed_at: '2026-04-28T10:00:00Z' },
-    { type: 'bounced', album: { service_id: 'a3', name: 'Tried Album', artists: ['Artist C'], image_url: 'https://img/3.jpg' }, changed_at: '2026-04-27T10:00:00Z' },
+  days: [
+    {
+      date: '2026-04-29',
+      events: [
+        { type: 'added', album: { service_id: 'a1', name: 'New Album', artists: ['Artist A'], image_url: 'https://img/1.jpg' }, changed_at: '2026-04-29T10:00:00Z' },
+      ],
+    },
+    {
+      date: '2026-04-28',
+      events: [
+        { type: 'removed', album: { service_id: 'a2', name: 'Old Album', artists: ['Artist B'], image_url: 'https://img/2.jpg' }, changed_at: '2026-04-28T10:00:00Z' },
+      ],
+    },
+    {
+      date: '2026-04-27',
+      events: [
+        { type: 'bounced', album: { service_id: 'a3', name: 'Tried Album', artists: ['Artist C'], image_url: 'https://img/3.jpg' }, changed_at: '2026-04-27T10:00:00Z' },
+      ],
+    },
   ],
 }
 
@@ -106,9 +121,12 @@ describe('DigestView', () => {
     })
   })
 
-  it('renders change events with type badges', async () => {
+  it('renders change events grouped by date with type badges', async () => {
     render(<DigestView onPlay={() => {}} />)
     await waitFor(() => {
+      expect(screen.getByText('2026-04-29')).toBeInTheDocument()
+      expect(screen.getByText('2026-04-28')).toBeInTheDocument()
+      expect(screen.getByText('2026-04-27')).toBeInTheDocument()
       expect(screen.getByText('New Album')).toBeInTheDocument()
       expect(screen.getByText('Old Album')).toBeInTheDocument()
       expect(screen.getByText('Tried Album')).toBeInTheDocument()

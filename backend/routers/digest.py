@@ -279,7 +279,7 @@ def get_changelog(
     ).data
 
     if not rows:
-        return {"events": []}
+        return {"days": []}
 
     # Collect all album appearances with timestamps
     added_albums = {}  # album_id -> latest changed_at
@@ -330,6 +330,16 @@ def get_changelog(
                 }
             )
 
-    return {"events": events}
+    # Group by date, preserving sort order
+    grouped = defaultdict(list)
+    for event in events:
+        day = event["changed_at"][:10]
+        grouped[day].append(event)
+
+    days = []
+    for day_date in dict.fromkeys(e["changed_at"][:10] for e in events):
+        days.append({"date": day_date, "events": grouped[day_date]})
+
+    return {"days": days}
 
 

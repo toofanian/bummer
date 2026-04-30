@@ -4,7 +4,7 @@ import { useIsMobile } from '../hooks/useIsMobile'
 import TabBar from './TabBar'
 
 function ChangesSection({ onPlay, session }) {
-  const [events, setEvents] = useState([])
+  const [days, setDays] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
 
@@ -20,7 +20,7 @@ function ChangesSection({ onPlay, session }) {
       })
       .then(json => {
         if (cancelled || !json) return
-        setEvents(json.events)
+        setDays(json.days)
         setLoading(false)
       })
       .catch(err => {
@@ -31,9 +31,14 @@ function ChangesSection({ onPlay, session }) {
     return () => { cancelled = true }
   }, [])
 
+  function formatTime(isoString) {
+    const d = new Date(isoString)
+    return d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })
+  }
+
   if (loading) return <div className="px-4 py-6 text-text-dim text-sm">Loading changes...</div>
   if (error) return <div className="px-4 py-6 text-[#f88] text-sm">Error: {error}</div>
-  if (events.length === 0) return <div className="px-4 py-6 text-text-dim text-sm italic">No changes recorded yet.</div>
+  if (days.length === 0) return <div className="px-4 py-6 text-text-dim text-sm italic">No changes recorded yet.</div>
 
   const badgeMap = {
     added: { symbol: '+', color: 'text-green-400' },
@@ -43,22 +48,28 @@ function ChangesSection({ onPlay, session }) {
 
   return (
     <div>
-      {events.map(event => {
-        const badge = badgeMap[event.type] || badgeMap.added
-        const dimStyle = event.type === 'removed' ? { opacity: 0.5 } : {}
-        return (
-          <div key={event.album.service_id} onClick={() => onPlay(event.album.service_id)}
-            className="flex items-center gap-2.5 px-4 py-1.5 cursor-pointer transition-colors duration-150 hover:bg-surface-2"
-            style={dimStyle}>
-            <span className={`${badge.color} text-xs font-bold flex-shrink-0`}>{badge.symbol}</span>
-            {event.album.image_url && <img src={event.album.image_url} alt="" className="w-9 h-9 rounded-[3px] flex-shrink-0 object-cover" />}
-            <div className="flex-1 min-w-0">
-              <div className="text-sm font-medium text-text truncate">{event.album.name ?? 'Unknown album'}</div>
-              <div className="text-xs text-text-dim truncate">{event.album.artists?.join(', ') ?? 'Unknown artist'}</div>
-            </div>
-          </div>
-        )
-      })}
+      {days.map(day => (
+        <div key={day.date} className="py-2">
+          <div className="px-4 py-1 text-xs font-bold tracking-wider text-text-dim">{day.date}</div>
+          {day.events.map(event => {
+            const badge = badgeMap[event.type] || badgeMap.added
+            const dimStyle = event.type === 'removed' ? { opacity: 0.5 } : {}
+            return (
+              <div key={event.album.service_id} onClick={() => onPlay(event.album.service_id)}
+                className="flex items-center gap-2.5 px-4 py-1.5 cursor-pointer transition-colors duration-150 hover:bg-surface-2"
+                style={dimStyle}>
+                <span className={`${badge.color} text-xs font-bold flex-shrink-0`}>{badge.symbol}</span>
+                {event.album.image_url && <img src={event.album.image_url} alt="" className="w-9 h-9 rounded-[3px] flex-shrink-0 object-cover" />}
+                <div className="flex-1 min-w-0">
+                  <div className="text-sm font-medium text-text truncate">{event.album.name ?? 'Unknown album'}</div>
+                  <div className="text-xs text-text-dim truncate">{event.album.artists?.join(', ') ?? 'Unknown artist'}</div>
+                </div>
+                <span className="text-xs text-text-dim flex-shrink-0">{formatTime(event.changed_at)}</span>
+              </div>
+            )
+          })}
+        </div>
+      ))}
     </div>
   )
 }
