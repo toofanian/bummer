@@ -170,7 +170,7 @@ def test_digest_returns_added_and_removed():
         if table_name == "library_snapshots":
             snapshot = end_snapshot if call_count["n"] > 0 else start_snapshot
             call_count["n"] += 1
-            mock_table.select.return_value.lte.return_value.order.return_value.limit.return_value.execute.return_value = MagicMock(
+            mock_table.select.return_value.eq.return_value.lte.return_value.order.return_value.limit.return_value.execute.return_value = MagicMock(
                 data=[snapshot]
             )
         elif table_name == "play_history":
@@ -212,7 +212,7 @@ def test_digest_returns_listened_with_play_counts():
     def table_router(table_name):
         mock_table = MagicMock()
         if table_name == "library_snapshots":
-            mock_table.select.return_value.lte.return_value.order.return_value.limit.return_value.execute.return_value = MagicMock(
+            mock_table.select.return_value.eq.return_value.lte.return_value.order.return_value.limit.return_value.execute.return_value = MagicMock(
                 data=[snapshot]
             )
         elif table_name == "play_history":
@@ -245,7 +245,7 @@ def test_digest_404_when_no_snapshots():
     def table_router(table_name):
         mock_table = MagicMock()
         if table_name == "library_snapshots":
-            mock_table.select.return_value.lte.return_value.order.return_value.limit.return_value.execute.return_value = MagicMock(
+            mock_table.select.return_value.eq.return_value.lte.return_value.order.return_value.limit.return_value.execute.return_value = MagicMock(
                 data=[]
             )
         elif table_name == "library_cache":
@@ -368,6 +368,85 @@ def test_ensure_snapshot_returns_503_when_cache_empty(mock_date, mock_cache):
 # --- GET /digest/changelog ---
 
 
+def test_changelog_filters_snapshots_by_user_id():
+    """get_changelog must filter snapshots by the current user's user_id."""
+    snapshots = [
+        {"snapshot_date": "2026-04-02", "album_ids": ["a1", "a2"], "total": 2},
+        {"snapshot_date": "2026-04-01", "album_ids": ["a1"], "total": 1},
+    ]
+
+    db = MagicMock()
+    snapshots_mock = None
+
+    def table_router(table_name):
+        nonlocal snapshots_mock
+        mock_table = MagicMock()
+        if table_name == "library_snapshots":
+            snapshots_mock = mock_table
+            mock_table.select.return_value.eq.return_value.order.return_value.limit.return_value.execute.return_value = MagicMock(
+                data=snapshots
+            )
+        elif table_name == "library_cache":
+            mock_table.select.return_value.eq.return_value.execute.return_value = (
+                MagicMock(data=[{"albums": ALBUM_CACHE}])
+            )
+        return mock_table
+
+    db.table.side_effect = table_router
+    setup_overrides(db=db)
+    try:
+        res = client.get("/digest/changelog")
+        assert res.status_code == 200
+        # Verify .eq("user_id", ...) was called on the snapshot query
+        snapshots_mock.select.return_value.eq.assert_called_once_with(
+            "user_id", FAKE_USER_ID
+        )
+    finally:
+        clear_overrides()
+
+
+def test_find_snapshot_filters_by_user_id():
+    """_find_snapshot (used by GET /digest) must filter by user_id."""
+    snapshot = {
+        "snapshot_date": "2026-03-01",
+        "album_ids": ["a1"],
+        "total": 1,
+    }
+
+    db = MagicMock()
+    snapshots_mock = None
+
+    def table_router(table_name):
+        nonlocal snapshots_mock
+        mock_table = MagicMock()
+        if table_name == "library_snapshots":
+            snapshots_mock = mock_table
+            mock_table.select.return_value.eq.return_value.lte.return_value.order.return_value.limit.return_value.execute.return_value = MagicMock(
+                data=[snapshot]
+            )
+        elif table_name == "play_history":
+            mock_table.select.return_value.gte.return_value.lte.return_value.execute.return_value = MagicMock(
+                data=[]
+            )
+        elif table_name == "library_cache":
+            mock_table.select.return_value.eq.return_value.execute.return_value = (
+                MagicMock(data=[{"albums": ALBUM_CACHE}])
+            )
+        return mock_table
+
+    db.table.side_effect = table_router
+    setup_overrides(db=db)
+    try:
+        res = client.get("/digest", params={"start": "2026-03-01", "end": "2026-03-08"})
+        assert res.status_code == 200
+        # Verify .eq("user_id", ...) was called on snapshot queries
+        eq_calls = snapshots_mock.select.return_value.eq.call_args_list
+        user_id_calls = [c for c in eq_calls if c[0] == ("user_id", FAKE_USER_ID)]
+        assert len(user_id_calls) >= 1, "Expected _find_snapshot to filter by user_id"
+    finally:
+        clear_overrides()
+
+
 def test_changelog_returns_entries_from_consecutive_snapshots():
     """Three snapshots → two entries, each showing adds/removes between consecutive pairs."""
     snapshots = [
@@ -382,7 +461,7 @@ def test_changelog_returns_entries_from_consecutive_snapshots():
         mock_table = MagicMock()
         if table_name == "library_snapshots":
             # First call: fetch snapshots list (limit+1 rows, ordered desc)
-            mock_table.select.return_value.order.return_value.limit.return_value.execute.return_value = MagicMock(
+            mock_table.select.return_value.eq.return_value.order.return_value.limit.return_value.execute.return_value = MagicMock(
                 data=snapshots
             )
             return mock_table
@@ -422,7 +501,7 @@ def test_changelog_empty_when_no_snapshots():
     def table_router(table_name):
         mock_table = MagicMock()
         if table_name == "library_snapshots":
-            mock_table.select.return_value.order.return_value.limit.return_value.execute.return_value = MagicMock(
+            mock_table.select.return_value.eq.return_value.order.return_value.limit.return_value.execute.return_value = MagicMock(
                 data=[]
             )
         elif table_name == "library_cache":
@@ -450,7 +529,7 @@ def test_changelog_empty_when_one_snapshot():
     def table_router(table_name):
         mock_table = MagicMock()
         if table_name == "library_snapshots":
-            mock_table.select.return_value.order.return_value.limit.return_value.execute.return_value = MagicMock(
+            mock_table.select.return_value.eq.return_value.order.return_value.limit.return_value.execute.return_value = MagicMock(
                 data=[{"snapshot_date": "2026-04-01", "album_ids": ["a1"], "total": 1}]
             )
         elif table_name == "library_cache":
@@ -483,7 +562,7 @@ def test_changelog_includes_removals():
     def table_router(table_name):
         mock_table = MagicMock()
         if table_name == "library_snapshots":
-            mock_table.select.return_value.order.return_value.limit.return_value.execute.return_value = MagicMock(
+            mock_table.select.return_value.eq.return_value.order.return_value.limit.return_value.execute.return_value = MagicMock(
                 data=snapshots
             )
         elif table_name == "library_cache":
@@ -521,7 +600,7 @@ def test_changelog_skips_unchanged_pairs():
     def table_router(table_name):
         mock_table = MagicMock()
         if table_name == "library_snapshots":
-            mock_table.select.return_value.order.return_value.limit.return_value.execute.return_value = MagicMock(
+            mock_table.select.return_value.eq.return_value.order.return_value.limit.return_value.execute.return_value = MagicMock(
                 data=snapshots
             )
         elif table_name == "library_cache":
@@ -560,8 +639,8 @@ def test_changelog_before_cursor():
         mock_table = MagicMock()
         if table_name == "library_snapshots":
             snapshots_mock = mock_table
-            # The endpoint builds .select().order().limit() then appends .lt() when before is set
-            mock_table.select.return_value.order.return_value.limit.return_value.lt.return_value.execute.return_value = MagicMock(
+            # The endpoint builds .select().eq().order().limit() then appends .lt() when before is set
+            mock_table.select.return_value.eq.return_value.order.return_value.limit.return_value.lt.return_value.execute.return_value = MagicMock(
                 data=snapshots
             )
         elif table_name == "library_cache":
@@ -578,7 +657,7 @@ def test_changelog_before_cursor():
         data = res.json()
         assert len(data["entries"]) == 1
         # Verify .lt was called on the query chain
-        snapshots_mock.select.return_value.order.return_value.limit.return_value.lt.assert_called()
+        snapshots_mock.select.return_value.eq.return_value.order.return_value.limit.return_value.lt.assert_called()
     finally:
         clear_overrides()
 

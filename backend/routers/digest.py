@@ -22,11 +22,12 @@ def _flatten_album_artists(album_meta: dict) -> dict:
     return album_meta
 
 
-def _find_snapshot(db: Client, target_date: str):
+def _find_snapshot(db: Client, target_date: str, user_id: str):
     """Find the snapshot with the greatest date <= target_date (floor strategy)."""
     result = (
         db.table("library_snapshots")
         .select("*")
+        .eq("user_id", user_id)
         .lte("snapshot_date", target_date)
         .order("snapshot_date", desc=True)
         .limit(1)
@@ -288,8 +289,8 @@ def get_digest(
 ):
     start_str = str(start)
     end_str = str(end)
-    start_snap = _find_snapshot(db, start_str)
-    end_snap = _find_snapshot(db, end_str)
+    start_snap = _find_snapshot(db, start_str, user["user_id"])
+    end_snap = _find_snapshot(db, end_str, user["user_id"])
 
     if not start_snap or not end_snap:
         raise HTTPException(
@@ -363,6 +364,7 @@ def get_changelog(
     query = (
         db.table("library_snapshots")
         .select("snapshot_date, album_ids")
+        .eq("user_id", user["user_id"])
         .order("snapshot_date", desc=True)
         .limit(limit + 1)
     )
