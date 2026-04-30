@@ -145,6 +145,23 @@ def sync_complete(
     user: dict = Depends(get_current_user),
 ):
     user_id = user["user_id"]
+
+    # Read current cache to compute diff
+    existing = _get_supabase_cache(db, user_id=user_id)
+    if existing and existing.get("albums"):
+        old_ids = {a["service_id"] for a in existing["albums"]}
+        new_ids = {a["service_id"] for a in body.albums}
+        added = list(new_ids - old_ids)
+        removed = list(old_ids - new_ids)
+        if added or removed:
+            db.table("library_changes").insert(
+                {
+                    "user_id": user_id,
+                    "added_ids": added,
+                    "removed_ids": removed,
+                }
+            ).execute()
+
     _save_supabase_cache(db, body.albums, len(body.albums), user_id)
     return {"total": len(body.albums)}
 
