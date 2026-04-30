@@ -17,7 +17,6 @@
     },
     { "source": "/((?!api/).*)", "destination": "/app.html" }
   ],
-  "crons": [{ "path": "/api/digest/snapshot", "schedule": "0 6 * * *" }],
   "functions": {
     "api/index.py": {
       "runtime": "@vercel/python@4.3.0",
