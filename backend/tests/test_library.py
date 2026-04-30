@@ -561,14 +561,29 @@ def test_artist_images_returns_image_map():
     sp = MagicMock()
     sp.artists.return_value = {
         "artists": [
-            {"id": "art1", "name": "Artist One", "images": [{"url": "https://img/art1.jpg", "height": 64}]},
+            {
+                "id": "art1",
+                "name": "Artist One",
+                "images": [{"url": "https://img/art1.jpg", "height": 64}],
+            },
         ]
     }
     db = MagicMock()
-    db.table.return_value.select.return_value.eq.return_value.execute.return_value = MagicMock(
-        data=[{"albums": [
-            {"service_id": "a1", "name": "Album", "artists": [{"name": "Artist One", "id": "art1"}], "image_url": None},
-        ]}]
+    db.table.return_value.select.return_value.eq.return_value.execute.return_value = (
+        MagicMock(
+            data=[
+                {
+                    "albums": [
+                        {
+                            "service_id": "a1",
+                            "name": "Album",
+                            "artists": [{"name": "Artist One", "id": "art1"}],
+                            "image_url": None,
+                        },
+                    ]
+                }
+            ]
+        )
     )
     override_db(db)
     override_spotify(sp)

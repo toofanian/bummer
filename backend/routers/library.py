@@ -61,10 +61,7 @@ def _save_supabase_cache(db: Client, albums: list, total: int, user_id: str = No
 
 def _artist_names(artists: list) -> list[str]:
     """Extract artist name strings from either string or {name, id} format."""
-    return [
-        a["name"] if isinstance(a, dict) else a
-        for a in artists
-    ]
+    return [a["name"] if isinstance(a, dict) else a for a in artists]
 
 
 def _flatten_artists_for_response(albums: list[dict]) -> list[dict]:
@@ -82,7 +79,9 @@ def _normalize_album(item: dict) -> dict:
     return {
         "service_id": album["id"],
         "name": album["name"],
-        "artists": [{"name": a["name"], "id": a["id"]} for a in album.get("artists", [])],
+        "artists": [
+            {"name": a["name"], "id": a["id"]} for a in album.get("artists", [])
+        ],
         "release_date": album.get("release_date"),
         "total_tracks": album.get("total_tracks"),
         "image_url": largest_image["url"] if largest_image else None,

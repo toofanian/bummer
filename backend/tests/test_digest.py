@@ -281,8 +281,18 @@ def test_ensure_snapshot_creates_when_none_exists(mock_date, mock_cache):
     mock_date.today.return_value = date(2026, 3, 15)
     mock_date.side_effect = lambda *a, **kw: date(*a, **kw)
     mock_cache.return_value = [
-        {"service_id": "a1", "name": "Album1", "artists": [{"name": "X", "id": "artX"}], "image_url": None},
-        {"service_id": "a2", "name": "Album2", "artists": [{"name": "Y", "id": "artY"}], "image_url": None},
+        {
+            "service_id": "a1",
+            "name": "Album1",
+            "artists": [{"name": "X", "id": "artX"}],
+            "image_url": None,
+        },
+        {
+            "service_id": "a2",
+            "name": "Album2",
+            "artists": [{"name": "Y", "id": "artY"}],
+            "image_url": None,
+        },
     ]
     db = MagicMock()
     # No existing snapshot for today (.eq(snapshot_date).eq(user_id).execute())
@@ -818,7 +828,9 @@ def test_stats_returns_artist_image_urls():
         res = client.get("/digest/stats")
         assert res.status_code == 200
         data = res.json()
-        assert data["top_artists"][0]["image_url"] == "https://artist-img/artA-small.jpg"
+        assert (
+            data["top_artists"][0]["image_url"] == "https://artist-img/artA-small.jpg"
+        )
         sp.artists.assert_called_once_with(["artA"])
     finally:
         clear_overrides()
@@ -843,20 +855,24 @@ def test_stats_top_artists_from_all_plays_not_just_top_albums():
             }
         )
         for _ in range(3):
-            plays.append({"album_id": aid, "played_at": f"2026-04-{10+i}T10:00:00+00:00"})
+            plays.append(
+                {"album_id": aid, "played_at": f"2026-04-{10 + i}T10:00:00+00:00"}
+            )
 
     # Two extra albums by "Prolific Artist" (2 plays each = 4 total)
     for j, aid in enumerate(["extra1", "extra2"]):
         albums_meta.append(
             {
                 "service_id": aid,
-                "name": f"Extra Album {j+1}",
+                "name": f"Extra Album {j + 1}",
                 "artists": [{"name": "Prolific Artist", "id": "artProlific"}],
                 "image_url": None,
             }
         )
         for _ in range(2):
-            plays.append({"album_id": aid, "played_at": f"2026-04-0{j+1}T10:00:00+00:00"})
+            plays.append(
+                {"album_id": aid, "played_at": f"2026-04-0{j + 1}T10:00:00+00:00"}
+            )
 
     db = MagicMock()
 
@@ -881,7 +897,9 @@ def test_stats_top_artists_from_all_plays_not_just_top_albums():
         artist_names = [a["artist"] for a in data["top_artists"]]
         assert "Prolific Artist" in artist_names
         # Prolific Artist has 4 plays total, should rank above 3-play artists
-        prolific = next(a for a in data["top_artists"] if a["artist"] == "Prolific Artist")
+        prolific = next(
+            a for a in data["top_artists"] if a["artist"] == "Prolific Artist"
+        )
         assert prolific["play_count"] == 4
     finally:
         clear_overrides()

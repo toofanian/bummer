@@ -61,7 +61,10 @@ def _resolve_album_metadata(
                     {
                         "service_id": aid,
                         "name": album["name"],
-                        "artists": [{"name": a["name"], "id": a["id"]} for a in album.get("artists", [])],
+                        "artists": [
+                            {"name": a["name"], "id": a["id"]}
+                            for a in album.get("artists", [])
+                        ],
                         "image_url": largest["url"] if largest else None,
                     }
                 )
@@ -118,7 +121,9 @@ def _resolve_artist_images(
                     continue
                 name = name_by_id.get(artist["id"], artist["name"])
                 images = artist.get("images", [])
-                smallest = min(images, key=lambda img: img.get("height", 0), default=None)
+                smallest = min(
+                    images, key=lambda img: img.get("height", 0), default=None
+                )
                 result[name] = smallest["url"] if smallest else None
         except Exception:
             for aid in batch:
@@ -316,13 +321,20 @@ def get_digest(
     meta_lookup = {m["service_id"]: m for m in metadata}
 
     def enrich(ids):
-        return [_flatten_album_artists(meta_lookup[aid]) for aid in ids if aid in meta_lookup]
+        return [
+            _flatten_album_artists(meta_lookup[aid])
+            for aid in ids
+            if aid in meta_lookup
+        ]
 
     def enrich_listened(ids):
         result = []
         for aid in ids:
             if aid in meta_lookup:
-                entry = {**_flatten_album_artists(meta_lookup[aid]), "play_count": play_counts[aid]}
+                entry = {
+                    **_flatten_album_artists(meta_lookup[aid]),
+                    "play_count": play_counts[aid],
+                }
                 result.append(entry)
         return result
 
@@ -396,7 +408,9 @@ def get_changelog(
             {
                 "date": entry["date"],
                 "added": [
-                    _flatten_album_artists(meta_lookup[aid]) for aid in entry["added_ids"] if aid in meta_lookup
+                    _flatten_album_artists(meta_lookup[aid])
+                    for aid in entry["added_ids"]
+                    if aid in meta_lookup
                 ],
                 "removed": [
                     _flatten_album_artists(meta_lookup[aid])
