@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react'
+import { render, screen, waitFor, act } from '@testing-library/react'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import userEvent from '@testing-library/user-event'
 import HomePage from './HomePage'
@@ -7,6 +7,17 @@ import { useIsMobile } from '../hooks/useIsMobile'
 vi.mock('../hooks/useIsMobile', () => ({
   useIsMobile: vi.fn(() => false)
 }))
+
+let intersectionCallback = null
+const mockObserverInstance = {
+  observe: vi.fn(),
+  disconnect: vi.fn(),
+  unobserve: vi.fn(),
+}
+global.IntersectionObserver = vi.fn(function (callback) {
+  intersectionCallback = callback
+  return mockObserverInstance
+})
 
 const HOME_DATA = {
   recently_played: [
@@ -23,6 +34,13 @@ const HOME_DATA = {
     { service_id: 'a4', name: 'Try This', artists: ['Artist A'], image_url: 'https://img/4.jpg' },
   ],
 }
+
+const LARGE_SECTION = Array.from({ length: 45 }, (_, i) => ({
+  service_id: `lg${i}`,
+  name: `Large Album ${i}`,
+  artists: ['Artist X'],
+  image_url: `https://img/lg${i}.jpg`,
+}))
 
 beforeEach(() => {
   vi.restoreAllMocks()
@@ -124,6 +142,56 @@ describe('HomePage', () => {
     await waitFor(() => {
       expect(screen.getByText(/start playing albums/i)).toBeInTheDocument()
     })
+  })
+
+  it('renders only first 30 albums initially when section has more', async () => {
+    const largeData = {
+      ...HOME_DATA,
+      recently_played: LARGE_SECTION,
+    }
+    global.fetch.mockImplementation(() =>
+      Promise.resolve({ ok: true, json: () => Promise.resolve(largeData) })
+    )
+    useIsMobile.mockReturnValue(true)
+    render(<HomePage onPlay={() => {}} />)
+    await waitFor(() => {
+      expect(screen.getByTestId('album-item-lg0')).toBeInTheDocument()
+    })
+    expect(screen.getByTestId('album-item-lg29')).toBeInTheDocument()
+    expect(screen.queryByTestId('album-item-lg30')).not.toBeInTheDocument()
+  })
+
+  it('renders remaining albums when sentinel becomes visible', async () => {
+    const largeData = {
+      ...HOME_DATA,
+      recently_played: LARGE_SECTION,
+    }
+    global.fetch.mockImplementation(() =>
+      Promise.resolve({ ok: true, json: () => Promise.resolve(largeData) })
+    )
+    useIsMobile.mockReturnValue(true)
+    render(<HomePage onPlay={() => {}} />)
+    await waitFor(() => {
+      expect(screen.getByTestId('album-item-lg0')).toBeInTheDocument()
+    })
+
+    act(() => {
+      intersectionCallback([{ isIntersecting: true }])
+    })
+
+    await waitFor(() => {
+      expect(screen.getByTestId('album-item-lg44')).toBeInTheDocument()
+    })
+    expect(screen.queryByTestId('load-more-sentinel')).not.toBeInTheDocument()
+  })
+
+  it('renders all items without sentinel when section has 30 or fewer', async () => {
+    useIsMobile.mockReturnValue(true)
+    render(<HomePage onPlay={() => {}} />)
+    await waitFor(() => {
+      expect(screen.getByTestId('album-item-a1')).toBeInTheDocument()
+    })
+    expect(screen.queryByTestId('load-more-sentinel')).not.toBeInTheDocument()
   })
 
   it('shows loading state initially', () => {
