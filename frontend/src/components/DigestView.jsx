@@ -4,12 +4,9 @@ import { useIsMobile } from '../hooks/useIsMobile'
 import TabBar from './TabBar'
 
 function ChangesSection({ onPlay, session }) {
-  const [entries, setEntries] = useState([])
+  const [events, setEvents] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
-  const [hasMore, setHasMore] = useState(false)
-  const [nextCursor, setNextCursor] = useState(null)
-  const [loadingMore, setLoadingMore] = useState(false)
 
   useEffect(() => {
     let cancelled = false
@@ -23,9 +20,7 @@ function ChangesSection({ onPlay, session }) {
       })
       .then(json => {
         if (cancelled || !json) return
-        setEntries(json.entries)
-        setHasMore(json.has_more)
-        setNextCursor(json.next_cursor)
+        setEvents(json.events)
         setLoading(false)
       })
       .catch(err => {
@@ -36,63 +31,34 @@ function ChangesSection({ onPlay, session }) {
     return () => { cancelled = true }
   }, [])
 
-  function handleLoadMore() {
-    if (!nextCursor || loadingMore) return
-    setLoadingMore(true)
-    apiFetch(`/digest/changelog?before=${encodeURIComponent(nextCursor)}`, {}, session)
-      .then(res => {
-        if (!res.ok) throw new Error('Failed to load more')
-        return res.json()
-      })
-      .then(json => {
-        setEntries(prev => [...prev, ...json.entries])
-        setHasMore(json.has_more)
-        setNextCursor(json.next_cursor)
-        setLoadingMore(false)
-      })
-      .catch(() => setLoadingMore(false))
-  }
-
   if (loading) return <div className="px-4 py-6 text-text-dim text-sm">Loading changes...</div>
   if (error) return <div className="px-4 py-6 text-[#f88] text-sm">Error: {error}</div>
-  if (entries.length === 0) return <div className="px-4 py-6 text-text-dim text-sm italic">No changes recorded yet.</div>
+  if (events.length === 0) return <div className="px-4 py-6 text-text-dim text-sm italic">No changes recorded yet.</div>
+
+  const badgeMap = {
+    added: { symbol: '+', color: 'text-green-400' },
+    removed: { symbol: '\u2212', color: 'text-red-400' },
+    bounced: { symbol: '\u2195', color: 'text-amber-400' },
+  }
 
   return (
     <div>
-      {entries.map((entry, i) => (
-        <div key={entry.date + i} className="py-2">
-          <div className="px-4 py-1 text-xs font-bold tracking-wider text-text-dim">{entry.date}</div>
-          {entry.added.map(album => (
-            <div key={album.service_id} onClick={() => onPlay(album.service_id)}
-              className="flex items-center gap-2.5 px-4 py-1.5 cursor-pointer transition-colors duration-150 hover:bg-surface-2">
-              <span className="text-green-400 text-xs font-bold flex-shrink-0">+</span>
-              {album.image_url && <img src={album.image_url} alt="" className="w-9 h-9 rounded-[3px] flex-shrink-0 object-cover" />}
-              <div className="flex-1 min-w-0">
-                <div className="text-sm font-medium text-text truncate">{album.name ?? 'Unknown album'}</div>
-                <div className="text-xs text-text-dim truncate">{album.artists?.join(', ') ?? 'Unknown artist'}</div>
-              </div>
+      {events.map(event => {
+        const badge = badgeMap[event.type] || badgeMap.added
+        const dimStyle = event.type === 'removed' ? { opacity: 0.5 } : {}
+        return (
+          <div key={event.album.service_id} onClick={() => onPlay(event.album.service_id)}
+            className="flex items-center gap-2.5 px-4 py-1.5 cursor-pointer transition-colors duration-150 hover:bg-surface-2"
+            style={dimStyle}>
+            <span className={`${badge.color} text-xs font-bold flex-shrink-0`}>{badge.symbol}</span>
+            {event.album.image_url && <img src={event.album.image_url} alt="" className="w-9 h-9 rounded-[3px] flex-shrink-0 object-cover" />}
+            <div className="flex-1 min-w-0">
+              <div className="text-sm font-medium text-text truncate">{event.album.name ?? 'Unknown album'}</div>
+              <div className="text-xs text-text-dim truncate">{event.album.artists?.join(', ') ?? 'Unknown artist'}</div>
             </div>
-          ))}
-          {entry.removed.map(album => (
-            <div key={album.service_id} onClick={() => onPlay(album.service_id)}
-              className="flex items-center gap-2.5 px-4 py-1.5 cursor-pointer transition-colors duration-150 hover:bg-surface-2"
-              style={{ opacity: 0.5 }}>
-              <span className="text-red-400 text-xs font-bold flex-shrink-0">&minus;</span>
-              {album.image_url && <img src={album.image_url} alt="" className="w-9 h-9 rounded-[3px] flex-shrink-0 object-cover" />}
-              <div className="flex-1 min-w-0">
-                <div className="text-sm font-medium text-text truncate">{album.name ?? 'Unknown album'}</div>
-                <div className="text-xs text-text-dim truncate">{album.artists?.join(', ') ?? 'Unknown artist'}</div>
-              </div>
-            </div>
-          ))}
-        </div>
-      ))}
-      {hasMore && (
-        <button onClick={handleLoadMore} disabled={loadingMore}
-          className="w-full py-3 text-xs text-text-dim hover:text-text transition-colors duration-150 disabled:opacity-50">
-          {loadingMore ? 'Loading...' : 'Load more'}
-        </button>
-      )}
+          </div>
+        )
+      })}
     </div>
   )
 }
