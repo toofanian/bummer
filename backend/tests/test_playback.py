@@ -22,7 +22,12 @@ PLAYBACK_STATE = {
         },
         "artists": [{"name": "Artist A"}, {"name": "Artist B"}],
     },
-    "device": {"id": "device-id-abc", "name": "My Mac", "type": "Computer", "volume_percent": 72},
+    "device": {
+        "id": "device-id-abc",
+        "name": "My Mac",
+        "type": "Computer",
+        "volume_percent": 72,
+    },
 }
 
 
