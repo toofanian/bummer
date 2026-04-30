@@ -264,10 +264,10 @@ export default function DigestView({ onPlay, session }) {
   if (!isMobile) {
     return (
       <div className="flex flex-col h-full">
-        <div className="flex border-b border-border flex-shrink-0">
-          <div className="flex-1 py-3 text-xs font-semibold tracking-wider uppercase text-center text-text">Library Changes</div>
-          <div className="flex-1 py-3 text-xs font-semibold tracking-wider uppercase text-center text-text">Listening History</div>
-          <div className="flex-1 py-3 text-xs font-semibold tracking-wider uppercase text-center text-text">Monthly Stats</div>
+        <div className="flex flex-shrink-0">
+          <div className="flex-1 px-4 py-2 text-sm font-bold tracking-wider uppercase text-text text-center flex items-center justify-center" style={{ height: 40 }}>Library Changes</div>
+          <div className="flex-1 px-4 py-2 text-sm font-bold tracking-wider uppercase text-text text-center flex items-center justify-center" style={{ height: 40 }}>Listening History</div>
+          <div className="flex-1 px-4 py-2 text-sm font-bold tracking-wider uppercase text-text text-center flex items-center justify-center" style={{ height: 40 }}>Monthly Stats</div>
         </div>
         <div className="flex flex-1 min-h-0">
           <div className="flex-1 overflow-y-auto pb-20 prompt-row-scroll border-r border-border">
