@@ -126,6 +126,7 @@ _USER_DATA_TABLES = (
     "collection_albums",
     "collections",
     "library_cache",
+    "library_changes",
     "library_snapshots",
     "play_history",
 )
