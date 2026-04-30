@@ -79,6 +79,7 @@ export default function App() {
   // Shape: null | { type: 'album'|'track', contextUri?, trackUri?, albumId? }
   const [devicePickerOpen, setDevicePickerOpen] = useState(false)
   const [pickerRestrictedDevice, setPickerRestrictedDevice] = useState(false)
+  const [connectingDeviceId, setConnectingDeviceId] = useState(null)
   // Picker is shown when: devicePickerOpen OR pendingPlayIntent !== null
   const isMobile = useIsMobile()
   const [selectedAlbumIds, setSelectedAlbumIds] = useState([])
@@ -452,9 +453,11 @@ export default function App() {
   }
 
   const handleModalDeviceSelected = useCallback(async (deviceId) => {
+    setConnectingDeviceId(deviceId)
     const intent = pendingPlayIntent
     if (!intent) {
       await transferPlayback(deviceId)
+      setConnectingDeviceId(null)
       setDevicePickerOpen(false)
       return
     }
@@ -464,17 +467,27 @@ export default function App() {
       setPlayingId(intent.albumId)
       err = await transferPlayback(deviceId)
       if (!err) {
-        await new Promise(resolve => setTimeout(resolve, 500))
-        err = await play(intent.contextUri)
+        // Retry play up to 3 times — device may not be active yet after transfer
+        for (let attempt = 0; attempt < 3; attempt++) {
+          await new Promise(resolve => setTimeout(resolve, 500))
+          err = await play(intent.contextUri)
+          if (err !== 'no_device') break
+        }
       }
       if (err) setPlayingId(null)
     } else if (intent.type === 'track') {
-      await transferPlayback(deviceId)
-      // Small delay to let the device activate before playing a track
-      await new Promise(resolve => setTimeout(resolve, 500))
-      err = await playTrack(intent.trackUri)
+      err = await transferPlayback(deviceId)
+      if (!err) {
+        // Retry playTrack up to 3 times — device may not be active yet after transfer
+        for (let attempt = 0; attempt < 3; attempt++) {
+          await new Promise(resolve => setTimeout(resolve, 500))
+          err = await playTrack(intent.trackUri)
+          if (err !== 'no_device') break
+        }
+      }
     }
 
+    setConnectingDeviceId(null)
     if (err === 'no_device') {
       // Reopen picker with same intent
       setPendingPlayIntent(intent)
@@ -1063,6 +1076,7 @@ export default function App() {
             onFetchDevices={fetchDevices}
             onDeviceSelected={handleModalDeviceSelected}
             restrictedDevice={pickerRestrictedDevice}
+            connectingDeviceId={connectingDeviceId}
             bottom="calc(114px + env(safe-area-inset-bottom, 0px))"
           />
         )}
@@ -1368,6 +1382,7 @@ export default function App() {
           onFetchDevices={fetchDevices}
           onDeviceSelected={handleModalDeviceSelected}
           restrictedDevice={pickerRestrictedDevice}
+          connectingDeviceId={connectingDeviceId}
         />
       )}
     </div>
