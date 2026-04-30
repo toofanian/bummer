@@ -1689,6 +1689,61 @@ describe('App — listen counts', () => {
   })
 })
 
+describe('App — BulkAddBar clears on view change', () => {
+  it('clears selected albums and hides BulkAddBar when navigating away from library', async () => {
+    window.matchMedia = vi.fn().mockImplementation(query => ({
+      matches: false,
+      media: query,
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+    }))
+
+    const TEST_ALBUMS = [
+      { service_id: 'sel-1', name: 'Selectable Album', artists: ['Artist'], image_url: null, release_date: '2020', total_tracks: 10, added_at: '2021-01-01T00:00:00Z' },
+    ]
+    seedLocalStorageCache(TEST_ALBUMS)
+    global.fetch = vi.fn().mockImplementation((url, options) => {
+      if (url.includes('/library/sync') && !url.includes('/sync-complete') && options?.method === 'POST') {
+        return Promise.resolve({ ok: true, json: () => Promise.resolve(SYNC_DONE) })
+      }
+      if (url.includes('/library/sync-complete') && options?.method === 'POST') {
+        return Promise.resolve({ ok: true, json: () => Promise.resolve({ ok: true }) })
+      }
+      if (url.includes('/library/albums') && !url.includes('/tracks')) {
+        return Promise.resolve({ ok: true, json: () => Promise.resolve({ albums: TEST_ALBUMS, total: 1 }) })
+      }
+      if (url.includes('/collections')) {
+        return Promise.resolve({ ok: true, json: () => Promise.resolve(COLLECTIONS_OK) })
+      }
+      if (url.includes('/home')) {
+        return Promise.resolve({ ok: true, json: () => Promise.resolve(HOME_OK) })
+      }
+      return Promise.resolve({ ok: true, json: () => Promise.resolve({}) })
+    })
+
+    render(<App />)
+
+    // Navigate to Library
+    await userEvent.click(await screen.findByRole('button', { name: /^library( syncing)?$/i }))
+    expect(await screen.findByText('Selectable Album')).toBeInTheDocument()
+
+    // Select an album via the toggle button
+    const selectBtn = screen.getByRole('button', { name: /add to collection/i })
+    await userEvent.click(selectBtn)
+
+    // BulkAddBar should now be visible
+    expect(screen.getByRole('button', { name: /clear selection/i })).toBeInTheDocument()
+
+    // Navigate away to Home
+    await userEvent.click(screen.getByRole('button', { name: /home/i }))
+
+    // BulkAddBar should be gone (selection cleared)
+    expect(screen.queryByRole('button', { name: /clear selection/i })).not.toBeInTheDocument()
+
+    clearLocalStorageCache()
+  })
+})
+
 describe('App — create collection from nav bar', () => {
   it('shows a create collection button in nav when on collections view', async () => {
     seedLocalStorageCache()
