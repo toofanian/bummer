@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react'
+import { render, screen, waitFor, act } from '@testing-library/react'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import userEvent from '@testing-library/user-event'
 import HomePage from './HomePage'
@@ -175,7 +175,9 @@ describe('HomePage', () => {
       expect(screen.getByTestId('album-item-lg0')).toBeInTheDocument()
     })
 
-    intersectionCallback([{ isIntersecting: true }])
+    act(() => {
+      intersectionCallback([{ isIntersecting: true }])
+    })
 
     await waitFor(() => {
       expect(screen.getByTestId('album-item-lg44')).toBeInTheDocument()
