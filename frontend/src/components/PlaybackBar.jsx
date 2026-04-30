@@ -150,7 +150,13 @@ export default function PlaybackBar({
   onOpenDevicePicker,
 }) {
   const { is_playing, track, device } = state
-  const [volume, setVolume] = useState(50)
+  const [volume, setVolume] = useState(state?.device?.volume_percent ?? 50)
+
+  useEffect(() => {
+    if (state?.device?.volume_percent != null) {
+      setVolume(state.device.volume_percent)
+    }
+  }, [state?.device?.volume_percent])
 
   const artistLine = track ? track.artists.join(', ') : null
 

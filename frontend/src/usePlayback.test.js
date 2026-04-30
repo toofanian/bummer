@@ -10,7 +10,7 @@ const PLAYBACK_STATE = {
     progress_ms: 45000,
     duration_ms: 240000,
   },
-  device: { id: 'device-id-abc', name: 'My Mac', type: 'Computer' },
+  device: { id: 'device-id-abc', name: 'My Mac', type: 'Computer', volume_percent: 72 },
 }
 
 const IDLE_STATE = { is_playing: false, track: null, device: null }
@@ -516,7 +516,7 @@ describe('transferPlayback', () => {
     const newState = {
       is_playing: true,
       track: { name: 'Song', album: 'Album', artists: ['Artist'], progress_ms: 0, duration_ms: 200000 },
-      device: { id: 'device-id-abc', name: 'My Mac', type: 'Computer' },
+      device: { id: 'device-id-abc', name: 'My Mac', type: 'Computer', volume_percent: 72 },
     }
 
     fetchMock = vi.fn().mockImplementation((url, opts) => {
