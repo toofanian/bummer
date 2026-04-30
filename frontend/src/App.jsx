@@ -283,6 +283,14 @@ export default function App() {
     setCollectionCreateName('')
   }, [view])
 
+  // Clear album selection when navigating away from library
+  useEffect(() => {
+    if (view !== 'library') {
+      setSelectedAlbumIds([])
+      setPickerAlbumIds(null)
+    }
+  }, [view])
+
   // Escape key clears selection
   useEffect(() => {
     function handleKeyDown(e) {
