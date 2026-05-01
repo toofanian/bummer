@@ -1168,13 +1168,15 @@ export default function App() {
             )
           )}
         </nav>
-        {(view === 'library' || view === 'collections' || isInCollection) && (
+        {(view === 'library' || view === 'collections' || isInCollection) ? (
           <input
             className="ml-auto w-48 bg-surface-2 text-text border border-border rounded px-2.5 py-1 text-sm"
             placeholder="Search…"
             value={search}
             onChange={e => setSearch(e.target.value)}
           />
+        ) : (
+          <div className="ml-auto" />
         )}
         <button
           onClick={() => { setView('digest'); setSearch('') }}
