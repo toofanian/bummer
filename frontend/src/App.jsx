@@ -818,7 +818,7 @@ export default function App() {
     return (
       <div className="app flex flex-col h-dvh">
         <header className="sticky top-0 z-[100] bg-surface border-b border-border flex items-center px-4 py-2 gap-3" style={{ paddingTop: 'env(safe-area-inset-top, 0px)' }}>
-          <h1 className="flex-1 text-base font-semibold">Bummer</h1>
+          <h1 className="flex-1 text-base">Bummer</h1>
           <button
             onClick={() => setSearchOpen(true)}
             aria-label="Search"
