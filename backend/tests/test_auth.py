@@ -282,6 +282,57 @@ def test_store_spotify_token_accepts_max_expires_in():
     _clear_overrides()
 
 
+# --- refresh-spotify-token tests (M2: server-side token refresh) ---
+
+
+def test_refresh_spotify_token_returns_new_access_token():
+    """POST /auth/refresh-spotify-token should refresh via backend and return new token."""
+    _override_current_user()
+    mock_db = MagicMock()
+    # get_spotify_for_user internally refreshes if expired
+    mock_spotify = MagicMock()
+    # After refresh, reading back the token
+    mock_db.table.return_value.select.return_value.eq.return_value.execute.return_value.data = [
+        {"access_token": "new-sp-access", "expires_at": "2026-05-01T12:00:00+00:00"}
+    ]
+
+    with (
+        patch("routers.auth.get_service_db", return_value=mock_db),
+        patch("routers.auth.get_spotify_for_user", return_value=mock_spotify),
+    ):
+        response = client.post("/auth/refresh-spotify-token")
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["access_token"] == "new-sp-access"
+    assert data["expires_at"] == "2026-05-01T12:00:00+00:00"
+    _clear_overrides()
+
+
+def test_refresh_spotify_token_returns_401_when_no_credentials():
+    """POST /auth/refresh-spotify-token should 401 if no tokens stored."""
+    _override_current_user()
+    mock_db = MagicMock()
+    mock_db.table.return_value.select.return_value.eq.return_value.execute.return_value.data = []
+    mock_spotify = MagicMock()
+
+    with (
+        patch("routers.auth.get_service_db", return_value=mock_db),
+        patch("routers.auth.get_spotify_for_user", return_value=mock_spotify),
+    ):
+        response = client.post("/auth/refresh-spotify-token")
+
+    assert response.status_code == 401
+    assert "No Spotify credentials" in response.json()["detail"]
+    _clear_overrides()
+
+
+def test_refresh_spotify_token_requires_auth():
+    """POST /auth/refresh-spotify-token should require authentication."""
+    response = client.post("/auth/refresh-spotify-token")
+    assert response.status_code in (401, 403, 422)
+
+
 def test_delete_account_rate_limited():
     _override_current_user()
     mock_db = MagicMock()

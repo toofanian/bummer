@@ -1,8 +1,9 @@
 from datetime import datetime, timedelta, timezone
 
-from fastapi import (  # HTTPException unused while invite bypass active (issue #79)
+from fastapi import (
     APIRouter,
     Depends,
+    HTTPException,
     Request,
 )
 from pydantic import BaseModel, Field
@@ -10,7 +11,9 @@ from slowapi import Limiter
 from slowapi.util import get_remote_address
 
 from auth_middleware import get_current_user
+from crypto import encrypt_token
 from db import get_service_db
+from spotify_client import get_spotify_for_user
 
 limiter = Limiter(key_func=get_remote_address)
 
@@ -80,7 +83,7 @@ def store_spotify_token(
         {
             "user_id": user["user_id"],
             "access_token": body.access_token,
-            "refresh_token": body.refresh_token,
+            "refresh_token": encrypt_token(body.refresh_token),
             "expires_at": (now + timedelta(seconds=body.expires_in)).isoformat(),
             "client_id": body.client_id,
             "updated_at": now.isoformat(),
@@ -97,6 +100,27 @@ def delete_spotify_token(
     db = get_service_db()
     db.table("music_tokens").delete().eq("user_id", user["user_id"]).execute()
     return {"status": "ok"}
+
+
+@router.post("/refresh-spotify-token")
+def refresh_spotify_token(
+    user: dict = Depends(get_current_user),
+):
+    """Refresh Spotify access token server-side and return new access token."""
+    db = get_service_db()
+    # Trigger server-side refresh if token is expired
+    get_spotify_for_user(user["user_id"], db)
+    # Read the current token back
+    result = (
+        db.table("music_tokens")
+        .select("access_token, expires_at")
+        .eq("user_id", user["user_id"])
+        .execute()
+    )
+    if not result.data:
+        raise HTTPException(status_code=401, detail="No Spotify credentials")
+    token = result.data[0]
+    return {"access_token": token["access_token"], "expires_at": token["expires_at"]}
 
 
 @router.get("/spotify-status")
