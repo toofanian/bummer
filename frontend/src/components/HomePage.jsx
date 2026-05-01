@@ -90,7 +90,7 @@ export default function HomePage({ onPlay, session }) {
     <div className="flex h-full">
       {TABS.map((tab, i) => (
         <div key={tab.id} className="flex-1 flex flex-col">
-          <div className="px-4 py-2 text-sm font-bold tracking-wider uppercase text-text text-center flex-shrink-0 flex items-center justify-center" style={{ height: 40 }}>{tab.label}</div>
+          <div className="px-4 py-2 text-base font-bold font-mono tracking-widest uppercase text-text text-center flex-shrink-0 flex items-center justify-center" style={{ height: 40 }}>{tab.label}</div>
           <div className="flex-1 overflow-y-auto prompt-row-scroll">
             <AlbumList albums={sections[tab.id]} onPlay={onPlay} />
           </div>

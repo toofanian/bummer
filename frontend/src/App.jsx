@@ -818,7 +818,7 @@ export default function App() {
     return (
       <div className="app flex flex-col h-dvh">
         <header className="sticky top-0 z-[100] bg-surface border-b border-border flex items-center px-4 py-2 gap-3" style={{ paddingTop: 'env(safe-area-inset-top, 0px)' }}>
-          <h1 className="flex-1 text-base font-semibold">Bummer</h1>
+          <h1 className="flex-1 text-base">Bummer</h1>
           <button
             onClick={() => setSearchOpen(true)}
             aria-label="Search"
@@ -1166,12 +1166,16 @@ export default function App() {
             )
           )}
         </nav>
-        <input
-          className="ml-auto w-48 bg-surface-2 text-text border border-border rounded px-2.5 py-1 text-sm"
-          placeholder="Search…"
-          value={search}
-          onChange={e => setSearch(e.target.value)}
-        />
+        {(view === 'library' || view === 'collections' || isInCollection) ? (
+          <input
+            className="ml-auto w-48 bg-surface-2 text-text border border-border rounded px-2.5 py-1 text-sm"
+            placeholder="Search…"
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+          />
+        ) : (
+          <div className="ml-auto" />
+        )}
         <button
           onClick={() => { setView('digest'); setSearch('') }}
           aria-label="Library digest"

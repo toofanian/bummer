@@ -22,6 +22,9 @@
   --breakpoint-sm: 390px;
   --breakpoint-md: 768px;
   --breakpoint-lg: 1024px;
+
+  /* Typography */
+  --font-mono: 'Space Mono', ui-monospace, monospace;
 }
 
 /* === Light mode overrides ===
@@ -98,8 +101,8 @@
 
   input:not([type="checkbox"]):focus { border-color: var(--color-focus-border); }
 
-  h1 { font-size: 1.2rem; font-weight: 600; }
-  h2 { font-size: 1rem; font-weight: 600; }
+  h1 { font-size: 1.2rem; font-weight: 900; letter-spacing: -0.02em; text-transform: uppercase; }
+  h2 { font-size: 1rem; font-weight: 700; font-family: var(--font-mono); letter-spacing: 0.08em; text-transform: uppercase; }
 }
 
 /* === Animations (used across components) === */
