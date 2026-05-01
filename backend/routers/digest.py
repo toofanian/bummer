@@ -2,7 +2,7 @@ from collections import Counter, defaultdict
 from datetime import datetime, timedelta
 
 import spotipy
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends
 from supabase import Client
 
 from auth_middleware import get_authed_db, get_current_user
@@ -118,31 +118,24 @@ def _resolve_artist_images(
 
 @router.get("/history")
 def get_history(
-    limit: int = Query(default=50, ge=1, le=200),
-    before: datetime | None = None,
     sp: spotipy.Spotify = Depends(get_user_spotify),
     db: Client = Depends(get_authed_db),
     user: dict = Depends(get_current_user),
 ):
-    query = (
+    cutoff = (datetime.now() - timedelta(days=30)).isoformat()
+    rows = (
         db.table("play_history")
         .select("album_id, played_at")
+        .gte("played_at", cutoff)
         .order("played_at", desc=True)
-        .limit(limit + 1)
+        .execute()
+        .data
     )
-    if before:
-        query = query.lt("played_at", str(before))
 
-    rows = query.execute().data
-
-    has_more = len(rows) > limit
-    # Keep only `limit` rows for the response
-    result_rows = rows[:limit]
+    result_rows = rows
 
     if not result_rows:
-        return {"days": [], "has_more": False, "next_cursor": None}
-
-    next_cursor = result_rows[-1]["played_at"] if has_more else None
+        return {"days": []}
 
     # Resolve album metadata
     unique_ids = list({r["album_id"] for r in result_rows})
@@ -180,7 +173,7 @@ def get_history(
             }
         )
 
-    return {"days": days, "has_more": has_more, "next_cursor": next_cursor}
+    return {"days": days}
 
 
 @router.get("/stats")

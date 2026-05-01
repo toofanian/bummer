@@ -1,4 +1,15 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+
+// Normalize artist entries to plain strings. Backend may send either
+// "Artist Name" or {"name": "Artist Name", "id": "..."} depending on
+// cache state. This ensures the frontend always sees strings.
+function flattenArtists(albums) {
+  return albums.map(a => ({
+    ...a,
+    artists: (a.artists || []).map(art => typeof art === 'string' ? art : art.name),
+  }))
+}
+
 import AlbumTable from './components/AlbumTable'
 import CollectionsPane from './components/CollectionsPane'
 import CollectionDetailHeader from './components/CollectionDetailHeader'
@@ -138,7 +149,7 @@ export default function App() {
 
     if (!isColdStart) {
       // Warm start: render cached albums immediately, show subtle syncing pulse
-      setAlbums(cached.albums)
+      setAlbums(flattenArtists(cached.albums))
       setAlbumsLoading(false)
       setSyncing(true)
     } else {
@@ -192,7 +203,7 @@ export default function App() {
         .catch(() => {})
 
       if (serverAlbums.length > 0) {
-        setAlbums(serverAlbums)
+        setAlbums(flattenArtists(serverAlbums))
         setAlbumsLoading(false)
         try {
           localStorage.setItem(CACHE_KEY, JSON.stringify({
@@ -228,7 +239,7 @@ export default function App() {
 
         // Re-fetch authoritative album list (server may have deduped)
         const freshResp = await apiFetch('/library/albums', {}, sessionRef.current).then(r => r.json())
-        const freshAlbums = freshResp.albums || accumulated
+        const freshAlbums = flattenArtists(freshResp.albums || accumulated)
         if (freshAlbums.length > 0) {
           setAlbums(freshAlbums)
           try {
@@ -262,12 +273,14 @@ export default function App() {
   const hasSession = !!session
 
   // Fetch artist images when the artists view becomes active and albums are loaded
+  const artistImagesFetched = useRef(false)
   useEffect(() => {
-    if (librarySubView === 'artists' && albums.length > 0) {
+    if (librarySubView === 'artists' && albums.length > 0 && !artistImagesFetched.current) {
+      artistImagesFetched.current = true
       apiFetch('/library/artist-images', {}, sessionRef.current)
         .then(r => r.json())
         .then(data => setArtistImages(data.artist_images || {}))
-        .catch(() => {})
+        .catch(() => { artistImagesFetched.current = false })
     }
   }, [librarySubView, albums.length])
 

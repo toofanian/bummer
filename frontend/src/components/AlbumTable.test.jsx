@@ -724,6 +724,39 @@ describe('AlbumTable mobile card list', () => {
     expect(document.querySelector('.album-card-year')).not.toBeInTheDocument()
   })
 
+  it('renders only first 30 mobile cards initially when list exceeds batch size', () => {
+    const manyAlbums = Array.from({ length: 45 }, (_, i) => ({
+      service_id: `alb${i}`,
+      name: `Album ${i}`,
+      artists: ['Artist'],
+      image_url: `https://img/${i}.jpg`,
+      release_date: '2024-01-01',
+      added_at: '2024-01-01T00:00:00Z',
+    }))
+    render(<AlbumTable albums={manyAlbums} loading={false} />)
+    const cards = document.querySelectorAll('.album-card')
+    expect(cards).toHaveLength(30)
+    expect(document.querySelector('[data-testid="load-more-sentinel"]')).toBeInTheDocument()
+  })
+
+  it('renders all mobile cards when list is 30 or fewer', () => {
+    render(<AlbumTable albums={ALBUMS} loading={false} />)
+    expect(document.querySelector('[data-testid="load-more-sentinel"]')).not.toBeInTheDocument()
+  })
+
+  it('does not apply lazy rendering in reorderable mode on mobile', () => {
+    const manyAlbums = Array.from({ length: 45 }, (_, i) => ({
+      service_id: `alb${i}`,
+      name: `Album ${i}`,
+      artists: ['Artist'],
+      image_url: `https://img/${i}.jpg`,
+      release_date: '2024-01-01',
+      added_at: '2024-01-01T00:00:00Z',
+    }))
+    render(<AlbumTable albums={manyAlbums} loading={false} reorderable onReorder={() => {}} />)
+    const cards = document.querySelectorAll('.album-card')
+    expect(cards).toHaveLength(45)
+  })
 
 })
 
@@ -955,5 +988,53 @@ describe('AlbumTable — artist click navigation', () => {
     await userEvent.click(artistLink)
     expect(onArtistClick).toHaveBeenCalledWith('Sade')
     useIsMobile.mockReturnValue(false)
+  })
+})
+
+describe('AlbumTable — lazy rendering (desktop)', () => {
+  let intersectionCallback = null
+  const mockObserverInstance = {
+    observe: vi.fn(),
+    disconnect: vi.fn(),
+    unobserve: vi.fn(),
+  }
+
+  beforeEach(() => {
+    useIsMobile.mockReturnValue(false)
+    intersectionCallback = null
+    global.IntersectionObserver = vi.fn(function (callback) {
+      intersectionCallback = callback
+      return mockObserverInstance
+    })
+  })
+
+  afterEach(() => useIsMobile.mockReturnValue(false))
+
+  it('renders only first 30 desktop rows initially when list exceeds batch size', () => {
+    const manyAlbums = Array.from({ length: 45 }, (_, i) => ({
+      service_id: `alb${i}`,
+      name: `Album ${i}`,
+      artists: ['Artist'],
+      image_url: `https://img/${i}.jpg`,
+      release_date: '2024-01-01',
+      added_at: '2024-01-01T00:00:00Z',
+    }))
+    render(<AlbumTable albums={manyAlbums} loading={false} />)
+    const albumRows = screen.getAllByRole('row').filter(r => r.classList.contains('album-row'))
+    expect(albumRows).toHaveLength(30)
+  })
+
+  it('does not apply lazy rendering in reorderable mode on desktop', () => {
+    const manyAlbums = Array.from({ length: 45 }, (_, i) => ({
+      service_id: `alb${i}`,
+      name: `Album ${i}`,
+      artists: ['Artist'],
+      image_url: `https://img/${i}.jpg`,
+      release_date: '2024-01-01',
+      added_at: '2024-01-01T00:00:00Z',
+    }))
+    render(<AlbumTable albums={manyAlbums} loading={false} reorderable onReorder={() => {}} />)
+    const albumRows = screen.getAllByRole('row').filter(r => r.classList.contains('album-row'))
+    expect(albumRows).toHaveLength(45)
   })
 })

@@ -190,3 +190,81 @@ describe('DigestView', () => {
     })
   })
 })
+
+describe('DigestView — lazy rendering', () => {
+  let intersectionCallback = null
+  const mockObserverInstance = {
+    observe: vi.fn(),
+    disconnect: vi.fn(),
+    unobserve: vi.fn(),
+  }
+
+  beforeEach(() => {
+    vi.restoreAllMocks()
+    useIsMobile.mockReturnValue(false)
+    intersectionCallback = null
+    global.IntersectionObserver = vi.fn(function (callback) {
+      intersectionCallback = callback
+      return mockObserverInstance
+    })
+  })
+
+  afterEach(() => {
+    delete global.fetch
+  })
+
+  it('renders only first 30 change events when list exceeds batch size', async () => {
+    const manyEvents = Array.from({ length: 35 }, (_, i) => ({
+      type: 'added',
+      album: { service_id: `ce${i}`, name: `Change Album ${i}`, artists: ['Artist'], image_url: `https://img/ce${i}.jpg` },
+      changed_at: `2026-04-29T${String(i).padStart(2, '0')}:00:00Z`,
+    }))
+    const largeChangelog = { days: [{ date: '2026-04-29', events: manyEvents }] }
+    global.fetch = vi.fn((url) => {
+      if (url.includes('/digest/changelog')) {
+        return Promise.resolve({ ok: true, json: () => Promise.resolve(largeChangelog) })
+      }
+      if (url.includes('/digest/history')) {
+        return Promise.resolve({ ok: true, json: () => Promise.resolve(historyData) })
+      }
+      if (url.includes('/digest/stats')) {
+        return Promise.resolve({ ok: true, json: () => Promise.resolve(statsData) })
+      }
+      return Promise.resolve({ ok: false })
+    })
+
+    render(<DigestView onPlay={() => {}} />)
+    await waitFor(() => {
+      expect(screen.getByText('Change Album 0')).toBeInTheDocument()
+    })
+    expect(screen.getByText('Change Album 29')).toBeInTheDocument()
+    expect(screen.queryByText('Change Album 30')).not.toBeInTheDocument()
+  })
+
+  it('renders only first 30 history plays when list exceeds batch size', async () => {
+    const manyPlays = Array.from({ length: 35 }, (_, i) => ({
+      album: { service_id: `hp${i}`, name: `History Album ${i}`, artists: ['Artist'], image_url: `https://img/hp${i}.jpg` },
+      played_at: `2026-04-16T${String(i).padStart(2, '0')}:00:00Z`,
+    }))
+    const largeHistory = { days: [{ date: '2026-04-16', plays: manyPlays }], has_more: false, next_cursor: null }
+    global.fetch = vi.fn((url) => {
+      if (url.includes('/digest/changelog')) {
+        return Promise.resolve({ ok: true, json: () => Promise.resolve(changelogData) })
+      }
+      if (url.includes('/digest/history')) {
+        return Promise.resolve({ ok: true, json: () => Promise.resolve(largeHistory) })
+      }
+      if (url.includes('/digest/stats')) {
+        return Promise.resolve({ ok: true, json: () => Promise.resolve(statsData) })
+      }
+      return Promise.resolve({ ok: false })
+    })
+
+    render(<DigestView onPlay={() => {}} />)
+    await waitFor(() => {
+      expect(screen.getByText('History Album 0')).toBeInTheDocument()
+    })
+    expect(screen.getByText('History Album 29')).toBeInTheDocument()
+    expect(screen.queryByText('History Album 30')).not.toBeInTheDocument()
+  })
+})

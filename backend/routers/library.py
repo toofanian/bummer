@@ -46,7 +46,11 @@ def _get_supabase_cache(db: Client, user_id: str = None):
 
 
 def _save_supabase_cache(db: Client, albums: list, total: int, user_id: str = None):
-    """Upsert the album list into Supabase library_cache."""
+    """Upsert the album list into Supabase library_cache.
+
+    Clears artist_images cache so it gets re-resolved on next request
+    (new artists may have been added or removed).
+    """
     cache_key = user_id or "albums"
     db.table("library_cache").upsert(
         {
@@ -54,6 +58,7 @@ def _save_supabase_cache(db: Client, albums: list, total: int, user_id: str = No
             "user_id": user_id,
             "albums": albums,
             "total": total,
+            "artist_images": {},
             "synced_at": "now()",
         }
     ).execute()
@@ -105,7 +110,7 @@ def get_albums(
         return {"albums": [], "total": 0, "last_synced": None}
     albums = row.get("albums") or []
     return {
-        "albums": _flatten_artists_for_response(albums),
+        "albums": albums,
         "total": len(albums),
         "last_synced": row.get("synced_at"),
     }
@@ -130,7 +135,7 @@ def sync_one_page(
     done = result["next"] is None
 
     return {
-        "albums": _flatten_artists_for_response(new_albums),
+        "albums": new_albums,
         "synced_this_page": len(new_albums),
         "spotify_total": spotify_total,
         "next_offset": body.offset + len(new_albums),
@@ -239,19 +244,34 @@ def get_artist_images(
     db: Client = Depends(get_authed_db),
     user: dict = Depends(get_current_user),
 ):
-    """Return artist name -> image_url map for all artists in user's library."""
+    """Return artist name -> image_url map for all artists in user's library.
+
+    Uses a write-through cache in library_cache.artist_images. First request
+    resolves from Spotify and persists; subsequent requests return cached data.
+    """
     from routers.digest import _resolve_artist_images
 
+    # Check cache first
+    cache_row = _get_supabase_cache(db, user_id=user["user_id"])
+    cached_images = (cache_row or {}).get("artist_images") or {}
+    if cached_images:
+        return {"artist_images": cached_images}
+
+    # Cache miss — resolve from Spotify
     albums = get_album_cache(db, user_id=user["user_id"])
     artist_id_map = {}
     for album in albums:
         for artist in album.get("artists", []):
             if isinstance(artist, dict) and artist.get("id"):
                 artist_id_map[artist["name"]] = artist["id"]
-            elif isinstance(artist, str):
-                artist_id_map[artist] = None
 
     images = _resolve_artist_images(list(artist_id_map.items()), sp)
+
+    # Write to cache
+    db.table("library_cache").update({"artist_images": images}).eq(
+        "id", user["user_id"]
+    ).execute()
+
     return {"artist_images": images}
 
 

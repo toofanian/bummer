@@ -1,6 +1,7 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useMemo } from 'react'
 import { apiFetch } from '../api'
 import { useIsMobile } from '../hooks/useIsMobile'
+import { useLazyRender } from '../hooks/useLazyRender'
 import TabBar from './TabBar'
 
 function ChangesSection({ onPlay, session }) {
@@ -36,6 +37,18 @@ function ChangesSection({ onPlay, session }) {
     return d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })
   }
 
+  const allEvents = useMemo(() => {
+    const flat = []
+    for (const day of days) {
+      for (const event of day.events) {
+        flat.push({ ...event, _date: day.date })
+      }
+    }
+    return flat
+  }, [days])
+
+  const { visible, hasMore, sentinelRef } = useLazyRender(allEvents)
+
   if (loading) return <div className="px-4 py-6 text-text-dim text-sm">Loading changes...</div>
   if (error) return <div className="px-4 py-6 text-[#f88] text-sm">Error: {error}</div>
   if (days.length === 0) return <div className="px-4 py-6 text-text-dim text-sm italic">No changes recorded yet.</div>
@@ -46,30 +59,35 @@ function ChangesSection({ onPlay, session }) {
     bounced: { symbol: '\u2195', color: 'text-amber-400' },
   }
 
+  let lastDate = null
+
   return (
     <div>
-      {days.map(day => (
-        <div key={day.date} className="py-2">
-          <div className="px-4 py-1 text-xs font-bold tracking-wider text-text-dim">{day.date}</div>
-          {day.events.map(event => {
-            const badge = badgeMap[event.type] || badgeMap.added
-            const dimStyle = event.type === 'removed' ? { opacity: 0.5 } : {}
-            return (
-              <div key={event.album.service_id} onClick={() => onPlay(event.album.service_id)}
-                className="flex items-center gap-2.5 px-4 py-1.5 cursor-pointer transition-colors duration-150 hover:bg-surface-2"
-                style={dimStyle}>
-                <span className={`${badge.color} text-xs font-bold flex-shrink-0`}>{badge.symbol}</span>
-                {event.album.image_url && <img src={event.album.image_url} alt="" className="w-9 h-9 rounded-[3px] flex-shrink-0 object-cover" />}
-                <div className="flex-1 min-w-0">
-                  <div className="text-sm font-medium text-text truncate">{event.album.name ?? 'Unknown album'}</div>
-                  <div className="text-xs text-text-dim truncate">{event.album.artists?.join(', ') ?? 'Unknown artist'}</div>
-                </div>
-                <span className="text-xs text-text-dim flex-shrink-0">{formatTime(event.changed_at)}</span>
+      {visible.map((event, i) => {
+        const showDate = event._date !== lastDate
+        lastDate = event._date
+        const badge = badgeMap[event.type] || badgeMap.added
+        const dimStyle = event.type === 'removed' ? { opacity: 0.5 } : {}
+        return (
+          <div key={`${event.album.service_id}-${i}`}>
+            {showDate && (
+              <div className="px-4 py-1 text-xs font-bold tracking-wider text-text-dim">{event._date}</div>
+            )}
+            <div onClick={() => onPlay(event.album.service_id)}
+              className="flex items-center gap-2.5 px-4 py-1.5 cursor-pointer transition-colors duration-150 hover:bg-surface-2"
+              style={dimStyle}>
+              <span className={`${badge.color} text-xs font-bold flex-shrink-0`}>{badge.symbol}</span>
+              {event.album.image_url && <img src={event.album.image_url} alt="" className="w-9 h-9 rounded-[3px] flex-shrink-0 object-cover" />}
+              <div className="flex-1 min-w-0">
+                <div className="text-sm font-medium text-text truncate">{event.album.name ?? 'Unknown album'}</div>
+                <div className="text-xs text-text-dim truncate">{event.album.artists?.join(', ') ?? 'Unknown artist'}</div>
               </div>
-            )
-          })}
-        </div>
-      ))}
+              <span className="text-xs text-text-dim flex-shrink-0">{formatTime(event.changed_at)}</span>
+            </div>
+          </div>
+        )
+      })}
+      {hasMore && <div ref={sentinelRef} data-testid="load-more-sentinel" className="h-1" />}
     </div>
   )
 }
@@ -78,9 +96,6 @@ function HistorySection({ onPlay, session }) {
   const [days, setDays] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
-  const [hasMore, setHasMore] = useState(false)
-  const [nextCursor, setNextCursor] = useState(null)
-  const [loadingMore, setLoadingMore] = useState(false)
 
   useEffect(() => {
     let cancelled = false
@@ -95,8 +110,6 @@ function HistorySection({ onPlay, session }) {
       .then(json => {
         if (cancelled || !json) return
         setDays(json.days)
-        setHasMore(json.has_more)
-        setNextCursor(json.next_cursor)
         setLoading(false)
       })
       .catch(err => {
@@ -107,39 +120,40 @@ function HistorySection({ onPlay, session }) {
     return () => { cancelled = true }
   }, [])
 
-  function handleLoadMore() {
-    if (!nextCursor || loadingMore) return
-    setLoadingMore(true)
-    apiFetch(`/digest/history?before=${encodeURIComponent(nextCursor)}`, {}, session)
-      .then(res => {
-        if (!res.ok) throw new Error('Failed to load more')
-        return res.json()
-      })
-      .then(json => {
-        setDays(prev => [...prev, ...json.days])
-        setHasMore(json.has_more)
-        setNextCursor(json.next_cursor)
-        setLoadingMore(false)
-      })
-      .catch(() => setLoadingMore(false))
-  }
-
   function formatTime(isoString) {
     const d = new Date(isoString)
     return d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })
   }
 
+  const allPlays = useMemo(() => {
+    const flat = []
+    for (const day of days) {
+      for (const play of day.plays) {
+        flat.push({ ...play, _date: day.date })
+      }
+    }
+    return flat
+  }, [days])
+
+  const { visible: visiblePlays, hasMore: hasMorePlays, sentinelRef: playsSentinelRef } = useLazyRender(allPlays)
+
   if (loading) return <div className="px-4 py-6 text-text-dim text-sm">Loading history...</div>
   if (error) return <div className="px-4 py-6 text-[#f88] text-sm">Error: {error}</div>
   if (days.length === 0) return <div className="px-4 py-6 text-text-dim text-sm italic">No listening history yet.</div>
 
+  let lastPlayDate = null
+
   return (
     <div>
-      {days.map(day => (
-        <div key={day.date} className="py-2">
-          <div className="px-4 py-1 text-xs font-bold tracking-wider text-text-dim">{day.date}</div>
-          {day.plays.map((play, i) => (
-            <div key={play.album.service_id + i} onClick={() => onPlay(play.album.service_id)}
+      {visiblePlays.map((play, i) => {
+        const showDate = play._date !== lastPlayDate
+        lastPlayDate = play._date
+        return (
+          <div key={`${play.album.service_id}-${i}`}>
+            {showDate && (
+              <div className="px-4 py-1 text-xs font-bold tracking-wider text-text-dim">{play._date}</div>
+            )}
+            <div onClick={() => onPlay(play.album.service_id)}
               className="flex items-center gap-2.5 px-4 py-1.5 cursor-pointer transition-colors duration-150 hover:bg-surface-2">
               {play.album.image_url && <img src={play.album.image_url} alt="" className="w-9 h-9 rounded-[3px] flex-shrink-0 object-cover" />}
               <div className="flex-1 min-w-0">
@@ -148,15 +162,10 @@ function HistorySection({ onPlay, session }) {
               </div>
               <span className="text-xs text-text-dim flex-shrink-0">{formatTime(play.played_at)}</span>
             </div>
-          ))}
-        </div>
-      ))}
-      {hasMore && (
-        <button onClick={handleLoadMore} disabled={loadingMore}
-          className="w-full py-3 text-xs text-text-dim hover:text-text transition-colors duration-150 disabled:opacity-50">
-          {loadingMore ? 'Loading...' : 'Load more'}
-        </button>
-      )}
+          </div>
+        )
+      })}
+      {hasMorePlays && <div ref={playsSentinelRef} data-testid="load-more-sentinel" className="h-1" />}
     </div>
   )
 }

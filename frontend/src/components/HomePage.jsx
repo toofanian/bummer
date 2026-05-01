@@ -1,38 +1,15 @@
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect } from 'react'
 import { apiFetch } from '../api'
 import { useIsMobile } from '../hooks/useIsMobile'
 import TabBar from './TabBar'
-
-const BATCH_SIZE = 30
+import { useLazyRender } from '../hooks/useLazyRender'
 
 function AlbumList({ albums, onPlay }) {
-  const [visibleCount, setVisibleCount] = useState(BATCH_SIZE)
-  const sentinelRef = useRef(null)
-
-  useEffect(() => {
-    setVisibleCount(BATCH_SIZE)
-  }, [albums])
-
-  const handleIntersect = useCallback((entries) => {
-    if (entries[0].isIntersecting) {
-      setVisibleCount(prev => Math.min(prev + BATCH_SIZE, albums.length))
-    }
-  }, [albums.length])
-
-  useEffect(() => {
-    const sentinel = sentinelRef.current
-    if (!sentinel) return
-    const observer = new IntersectionObserver(handleIntersect, { threshold: 0 })
-    observer.observe(sentinel)
-    return () => observer.disconnect()
-  }, [handleIntersect])
+  const { visible, hasMore, sentinelRef } = useLazyRender(albums)
 
   if (!albums || albums.length === 0) {
     return <div className="px-4 py-6 text-text-dim text-sm italic">Nothing yet</div>
   }
-
-  const visible = albums.slice(0, visibleCount)
-  const hasMore = visibleCount < albums.length
 
   return (
     <div className="grid grid-cols-3 gap-1 pt-0 px-2 pb-2">

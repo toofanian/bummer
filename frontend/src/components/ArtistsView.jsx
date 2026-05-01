@@ -2,6 +2,7 @@ import { useState, useMemo, useEffect } from 'react'
 import AlbumTable from './AlbumTable'
 import AlbumArtStrip from './AlbumArtStrip'
 import { useIsMobile } from '../hooks/useIsMobile'
+import { useLazyRender } from '../hooks/useLazyRender'
 
 function groupByArtist(albums) {
   const map = {}
@@ -94,6 +95,7 @@ export default function ArtistsView({
 
   const allGroups = useMemo(() => groupByArtist(albums), [albums])
   const filteredGroups = useMemo(() => filterArtistGroups(allGroups, search), [allGroups, search])
+  const { visible: lazyGroups, hasMore, sentinelRef } = useLazyRender(filteredGroups)
 
   // Artist detail view
   if (selectedArtist) {
@@ -140,7 +142,7 @@ export default function ArtistsView({
 
   return (
     <div className="flex flex-col">
-      {filteredGroups.map(group => (
+      {lazyGroups.map(group => (
         <div
           key={group.name}
           data-testid={`artist-row-${group.name}`}
@@ -163,7 +165,7 @@ export default function ArtistsView({
             </>
           ) : (
             <div className="flex items-stretch">
-              <div className="w-48 flex-shrink-0 flex items-center px-4 gap-3">
+              <div className="w-64 flex-shrink-0 flex items-center px-4 gap-3">
                 <ArtistProfileImage name={group.name} imageUrl={artistImages[group.name]} />
                 <div className="min-w-0">
                   <div data-testid="artist-name" className="text-sm font-semibold text-text truncate">{group.name}</div>
@@ -177,6 +179,7 @@ export default function ArtistsView({
           )}
         </div>
       ))}
+      {hasMore && <div ref={sentinelRef} data-testid="load-more-sentinel" className="h-1" />}
     </div>
   )
 }
