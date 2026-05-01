@@ -1,5 +1,9 @@
-# Secrets
-backend/.env
+# Secrets — all .env variants at any depth
+.env
+.env.*
+**/.env
+**/.env.*
+!**/.env.example
 backend/.spotify_cache
 
 # Python
@@ -10,8 +14,6 @@ __pycache__/
 # Node
 frontend/node_modules/
 frontend/dist/
-frontend/.env
-frontend/.env.local
 
 # Playwright
 frontend/e2e/screenshots/
@@ -19,7 +21,6 @@ frontend/test-results/
 
 # Vercel
 .vercel
-.env.tmp.*
 
 # AI tooling — track hookify rules, ignore local settings and ephemeral
 .claude/settings.local.json

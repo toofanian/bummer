@@ -84,15 +84,15 @@ def apple_music_status(user: dict = Depends(get_current_user)):
     if not profile.data or profile.data[0].get("service_type") != "apple_music":
         return {"has_credentials": False}
 
-    # Check for stored token
+    # Check for stored token (only need to know if a row exists)
     result = (
         db.table("music_tokens")
-        .select("access_token")
+        .select("user_id")
         .eq("user_id", user["user_id"])
         .execute()
     )
 
-    if not result.data or not result.data[0].get("access_token"):
+    if not result.data:
         return {"has_credentials": False}
 
     return {"has_credentials": True}

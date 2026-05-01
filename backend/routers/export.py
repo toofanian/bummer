@@ -24,9 +24,30 @@ def export_library(user=Depends(get_current_user), db=Depends(get_authed_db)):
     )
     albums = cache_rows[0]["albums"] if cache_rows else []
 
-    collections = db.table("collections").select("*").execute().data or []
-    collection_albums = db.table("collection_albums").select("*").execute().data or []
-    tiers = db.table("album_metadata").select("service_id,tier").execute().data or []
+    collections = (
+        db.table("collections")
+        .select("*")
+        .eq("user_id", user["user_id"])
+        .execute()
+        .data
+        or []
+    )
+    collection_albums = (
+        db.table("collection_albums")
+        .select("*")
+        .eq("user_id", user["user_id"])
+        .execute()
+        .data
+        or []
+    )
+    tiers = (
+        db.table("album_metadata")
+        .select("service_id,tier")
+        .eq("user_id", user["user_id"])
+        .execute()
+        .data
+        or []
+    )
 
     tier_map = {t["service_id"]: t["tier"] for t in tiers}
     collection_map = {c["id"]: c["name"] for c in collections}

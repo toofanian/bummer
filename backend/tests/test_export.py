@@ -57,25 +57,40 @@ FAKE_TIERS = [
 
 def _mock_db():
     db = MagicMock()
+    # Keep stable references so assertions work across repeated db.table() calls
+    _tables = {}
 
     def table_router(table_name):
+        if table_name in _tables:
+            return _tables[table_name]
         mock_table = MagicMock()
         if table_name == "library_cache":
             mock_table.select.return_value.eq.return_value.execute.return_value = (
                 MagicMock(data=[{"albums": FAKE_ALBUMS}])
             )
         elif table_name == "collections":
+            # Support both filtered (.eq) and unfiltered (.execute) paths
+            mock_table.select.return_value.eq.return_value.execute.return_value = (
+                MagicMock(data=FAKE_COLLECTIONS)
+            )
             mock_table.select.return_value.execute.return_value = MagicMock(
                 data=FAKE_COLLECTIONS
             )
         elif table_name == "collection_albums":
+            mock_table.select.return_value.eq.return_value.execute.return_value = (
+                MagicMock(data=FAKE_COLLECTION_ALBUMS)
+            )
             mock_table.select.return_value.execute.return_value = MagicMock(
                 data=FAKE_COLLECTION_ALBUMS
             )
         elif table_name == "album_metadata":
+            mock_table.select.return_value.eq.return_value.execute.return_value = (
+                MagicMock(data=FAKE_TIERS)
+            )
             mock_table.select.return_value.execute.return_value = MagicMock(
                 data=FAKE_TIERS
             )
+        _tables[table_name] = mock_table
         return mock_table
 
     db.table.side_effect = table_router
@@ -191,17 +206,36 @@ def test_export_unauthenticated():
     assert res.status_code in (401, 403)
 
 
+def test_export_filters_by_user_id():
+    """Collections, collection_albums, and album_metadata must be filtered by user_id."""
+    db = _mock_db()
+    _override(db)
+    try:
+        res = client.get("/export")
+        assert res.status_code == 200
+
+        # Verify that collections, collection_albums, and album_metadata queries
+        # include a .eq("user_id", ...) filter.
+        # Access cached table mocks via the _tables dict built by _mock_db.
+        for table_name in ("collections", "collection_albums", "album_metadata"):
+            # Trigger table_router to get the cached mock
+            table_mock = db.table(table_name)
+            table_mock.select.return_value.eq.assert_called_with(
+                "user_id", FAKE_USER_ID
+            )
+    finally:
+        _clear()
+
+
 def test_export_empty_library():
     db = MagicMock()
 
     def table_router(table_name):
         mock_table = MagicMock()
-        if table_name == "library_cache":
-            mock_table.select.return_value.eq.return_value.execute.return_value = (
-                MagicMock(data=[])
-            )
-        else:
-            mock_table.select.return_value.execute.return_value = MagicMock(data=[])
+        # All tables now use .select(...).eq(...).execute() chain
+        mock_table.select.return_value.eq.return_value.execute.return_value = MagicMock(
+            data=[]
+        )
         return mock_table
 
     db.table.side_effect = table_router

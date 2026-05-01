@@ -45,7 +45,10 @@ class _LazyApp:
             return self._error_app()
 
     def _error_app(self) -> FastAPI:
-        err = self._import_error or "unknown import error"
+        import os
+
+        is_prod = os.getenv("ENVIRONMENT") == "production"
+        err = "Internal server error" if is_prod else (self._import_error or "unknown import error")
         error_app = FastAPI()
 
         @error_app.get("/{full_path:path}")

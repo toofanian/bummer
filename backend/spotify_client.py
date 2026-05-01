@@ -17,7 +17,12 @@ SCOPES = [
 
 
 def get_spotify_for_user(user_id: str, db: Client) -> spotipy.Spotify:
-    result = db.table("music_tokens").select("*").eq("user_id", user_id).execute()
+    result = (
+        db.table("music_tokens")
+        .select("access_token, refresh_token, client_id, expires_at")
+        .eq("user_id", user_id)
+        .execute()
+    )
     if not result.data:
         raise HTTPException(
             status_code=401,

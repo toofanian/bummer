@@ -112,9 +112,9 @@ def test_apple_music_status_returns_true_when_configured():
     # Profile query returns apple_music
     profile_result = MagicMock()
     profile_result.data = [{"service_type": "apple_music"}]
-    # Token query returns a token
+    # Token query returns a row (doesn't need access_token value)
     token_result = MagicMock()
-    token_result.data = [{"access_token": "user-token"}]
+    token_result.data = [{"user_id": "test-user-123"}]
 
     def table_side_effect(name):
         mock_table = MagicMock()
@@ -136,6 +136,46 @@ def test_apple_music_status_returns_true_when_configured():
 
     assert response.status_code == 200
     assert response.json()["has_credentials"] is True
+    clear_overrides()
+
+
+def test_apple_music_status_does_not_select_access_token():
+    """The /status endpoint only checks existence — should not fetch access_token."""
+    db = MagicMock()
+    profile_result = MagicMock()
+    profile_result.data = [{"service_type": "apple_music"}]
+    token_result = MagicMock()
+    token_result.data = [{"user_id": "test-user-123"}]
+
+    _tables = {}
+
+    def table_side_effect(name):
+        if name in _tables:
+            return _tables[name]
+        mock_table = MagicMock()
+        if name == "profiles":
+            mock_table.select.return_value.eq.return_value.execute.return_value = (
+                profile_result
+            )
+        else:
+            mock_table.select.return_value.eq.return_value.execute.return_value = (
+                token_result
+            )
+        _tables[name] = mock_table
+        return mock_table
+
+    db.table.side_effect = table_side_effect
+    setup_overrides()
+
+    with patch("routers.apple_music_auth.get_service_db", return_value=db):
+        client.get("/auth/apple-music/status")
+
+    # Verify the music_tokens select does NOT request access_token
+    tokens_table = _tables["music_tokens"]
+    selected_cols = tokens_table.select.call_args[0][0]
+    assert "access_token" not in selected_cols, (
+        "Status endpoint should not fetch access_token — only check row existence"
+    )
     clear_overrides()
 
 

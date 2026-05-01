@@ -82,7 +82,7 @@ def _get_preview_session() -> dict:
     except Exception as exc:  # noqa: BLE001
         raise HTTPException(
             status_code=500,
-            detail=f"Preview mode sign-in failed: {exc}",
+            detail="Preview mode authentication failed",
         ) from exc
 
     session = getattr(resp, "session", None)
@@ -139,13 +139,13 @@ async def get_current_user(authorization: str | None = Header(default=None)) -> 
         payload = pyjwt.decode(
             token,
             signing_key.key,
-            algorithms=["ES256", "HS256"],  # Accept both during transition
+            algorithms=["ES256"],
             audience="authenticated",
         )
     except pyjwt.ExpiredSignatureError:
         raise HTTPException(status_code=401, detail="Token expired")
-    except pyjwt.InvalidTokenError as e:
-        raise HTTPException(status_code=401, detail=f"Invalid token: {e}")
+    except pyjwt.InvalidTokenError:
+        raise HTTPException(status_code=401, detail="Invalid token")
 
     user_id = payload.get("sub")
     if not user_id:

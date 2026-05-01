@@ -792,6 +792,123 @@ def test_create_collection_assigns_next_position():
     clear_overrides()
 
 
+# --- Ownership checks (user_id scoping) ---
+
+OTHER_USER_ID = "other-user-id-456"
+OTHER_USER = {"user_id": OTHER_USER_ID, "token": "other-fake-token"}
+
+
+def _override_as_other_user(db):
+    """Override deps so the request is made by OTHER_USER, not FAKE_USER."""
+    app.dependency_overrides[get_authed_db] = lambda: db
+    app.dependency_overrides[get_current_user] = lambda: OTHER_USER
+    app.dependency_overrides[get_user_spotify] = mock_spotify
+
+
+def _has_user_id_filter(db):
+    """Check if any .eq('user_id', ...) call was made on the db mock."""
+    all_calls_str = str(db.mock_calls)
+    return ".eq('user_id'" in all_calls_str or '.eq("user_id"' in all_calls_str
+
+
+def test_delete_collection_scopes_by_user_id():
+    """DELETE /collections/{id} must include .eq('user_id', ...) in the query."""
+    db = mock_db()
+    _override_as_other_user(db)
+
+    client.delete("/collections/col-uuid-1")
+
+    delete_chain = db.table.return_value.delete.return_value
+    assert _has_user_id_filter(delete_chain), "delete_collection must filter by user_id"
+
+    clear_overrides()
+
+
+def test_rename_collection_scopes_by_user_id():
+    """PATCH /collections/{id} must include .eq('user_id', ...) in the query."""
+    db = mock_db(execute_data=[{**COLLECTION, "name": "New name"}])
+    _override_as_other_user(db)
+
+    client.patch("/collections/col-uuid-1", json={"name": "New name"})
+
+    update_chain = db.table.return_value.update.return_value
+    assert _has_user_id_filter(update_chain), "rename_collection must filter by user_id"
+
+    clear_overrides()
+
+
+def test_update_collection_description_scopes_by_user_id():
+    """PUT /collections/{id}/description must include .eq('user_id', ...)."""
+    db = mock_db(execute_data=[{**COLLECTION, "description": "test"}])
+    _override_as_other_user(db)
+
+    client.put("/collections/col-uuid-1/description", json={"description": "test"})
+
+    update_chain = db.table.return_value.update.return_value
+    assert _has_user_id_filter(update_chain), (
+        "update_collection_description must filter by user_id"
+    )
+
+    clear_overrides()
+
+
+def test_set_collection_cover_scopes_by_user_id():
+    """PUT /collections/{id}/cover must include .eq('user_id', ...)."""
+    db = mock_db(execute_data=[{**COLLECTION, "cover_album_id": "album-id-1"}])
+    _override_as_other_user(db)
+
+    client.put(
+        "/collections/col-uuid-1/cover",
+        json={"cover_album_id": "album-id-1"},
+    )
+
+    update_chain = db.table.return_value.update.return_value
+    assert _has_user_id_filter(update_chain), (
+        "set_collection_cover must filter by user_id"
+    )
+
+    clear_overrides()
+
+
+def test_reorder_collection_albums_scopes_by_user_id():
+    """PUT /collections/{id}/albums/reorder must include .eq('user_id', ...)."""
+    db = mock_db()
+    db.table.return_value.update.return_value.eq.return_value.eq.return_value.eq.return_value.execute.return_value = MagicMock(
+        data=[]
+    )
+    _override_as_other_user(db)
+
+    client.put(
+        "/collections/col-uuid-1/albums/reorder",
+        json={"album_ids": ["id1", "id2"]},
+    )
+
+    update_chain = db.table.return_value.update.return_value
+    assert _has_user_id_filter(update_chain), (
+        "reorder_collection_albums must filter by user_id"
+    )
+
+    clear_overrides()
+
+
+def test_remove_album_from_collection_scopes_by_user_id():
+    """DELETE /collections/{id}/albums/{album_id} must include .eq('user_id', ...)."""
+    db = mock_db()
+    db.table.return_value.delete.return_value.eq.return_value.eq.return_value.eq.return_value.execute.return_value = MagicMock(
+        data=[]
+    )
+    _override_as_other_user(db)
+
+    client.delete("/collections/col-uuid-1/albums/abc123")
+
+    delete_chain = db.table.return_value.delete.return_value
+    assert _has_user_id_filter(delete_chain), (
+        "remove_album_from_collection must filter by user_id"
+    )
+
+    clear_overrides()
+
+
 def test_list_collections_works_without_spotify_token():
     """list_collections should not depend on Spotify — it only reads from DB."""
     db = mock_db(execute_data=[COLLECTION])

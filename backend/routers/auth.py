@@ -5,7 +5,7 @@ from fastapi import (  # HTTPException unused while invite bypass active (issue 
     Depends,
     Request,
 )
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from slowapi import Limiter
 from slowapi.util import get_remote_address
 
@@ -27,7 +27,7 @@ class RedeemInviteRequest(BaseModel):
 class StoreSpotifyTokenRequest(BaseModel):
     access_token: str
     refresh_token: str
-    expires_in: int
+    expires_in: int = Field(..., gt=0, le=7200)
     client_id: str
 
 
