@@ -1,0 +1,36 @@
+{
+  "permissions": {
+    "allow": [
+      "Read",
+      "Edit(*)",
+      "Write(*)",
+      "Skill(*)",
+      "Bash(gh:*)",
+      "Bash(npm:*)",
+      "Bash(npx:*)",
+      "Bash(node:*)",
+      "Bash(python:*)",
+      "Bash(python3:*)",
+      "Bash(pip:*)",
+      "Bash(pytest:*)",
+      "Bash(make:*)",
+      "Bash(wt:*)",
+      "Bash(vercel:*)",
+      "Bash(cd:*)",
+      "Bash(ls:*)",
+      "Bash(rm:*)",
+      "Bash(mv:*)",
+      "Bash(cp:*)",
+      "Bash(mkdir:*)",
+      "Bash(curl:*)",
+      "Bash(source:*)",
+      "Bash(supabase:*)",
+      "Bash(./*)",
+      "Bash(*/.venv/bin/*)",
+      "Bash(cd * && *)",
+      "Bash(source * && *)",
+      "mcp__supabase__*"
+    ],
+    "additionalDirectories": []
+  }
+}

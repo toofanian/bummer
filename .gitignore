@@ -21,8 +21,7 @@ frontend/test-results/
 .vercel
 .env.tmp.*
 
-# AI tooling — track hookify rules, ignore settings (sandbox-blocked) and ephemeral
-.claude/settings.json
+# AI tooling — track hookify rules, ignore local settings and ephemeral
 .claude/settings.local.json
 .claude/worktrees/
 

@@ -78,14 +78,17 @@ Avoid patterns that trigger sandbox approval prompts:
 
 ## Git workflow
 
+- **`main` is production** — merging to main triggers a Vercel production deploy to live users. Treat every merge as a production release. Never push, force-push, or merge to main without passing CI and user approval.
 - **Issue-first**: every code change starts from a GitHub issue
 - **Branch from issue**: branch name is `<issue-number>-<short-title>`, e.g. `18-library-sync-wipes-cache`. No `feat/` prefix.
 - **Draft PR immediately**: push branch and open a draft PR linking the issue before writing code. This gives visibility and a place for discussion.
 - **Auto-commit** when all tests pass — no need to ask permission
 - **One commit per agent task** — each background agent should commit its own work when done
-- For small in-thread fixes (< 5 lines, single file): commit directly to `main`
+- **Never commit directly to `main`** — `main` is branch-protected. All changes go through a PR, no matter how small.
 - Commit message format: concise imperative summary + bullet points for details + `Co-Authored-By: Claude Opus 4.6 (1M context) <noreply@anthropic.com>`
-- Mark PR ready for review when work is complete; main thread merges to `main`
+- **Local preview before PR**: after tests pass, run `make dev-bg` (pass `MAIN_REPO=<path-to-main-repo>` if in a worktree) to start dev servers in the background, then tell the user to open `http://localhost:5173` and review. Do not push or open a PR until the user confirms the local preview looks good. Run `make stop` to clean up after. If ports 5173/8000 are already in use (another agent's preview is running), do NOT kill them — just tell the user another preview is active and wait for them to finish that review first.
+- **Never auto-merge** — auto-merge is disabled on this repo. After CI passes, the user merges manually. Never use `--auto` or `--admin` flags with `gh pr merge`.
+- Mark PR ready for review when work is complete; user merges to `main`
 - Compatible with worktrees — agents can work in isolated worktrees on their branch
 - Never commit `.env` files or secrets
 
