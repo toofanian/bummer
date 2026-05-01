@@ -1,6 +1,12 @@
 from unittest.mock import MagicMock
 
-from dedup import _dedup_key, _normalize_for_matching, _pick_winner, apply_dedup, find_duplicates
+from dedup import (
+    _dedup_key,
+    _normalize_for_matching,
+    _pick_winner,
+    apply_dedup,
+    find_duplicates,
+)
 
 
 def _mock_db():
@@ -69,7 +75,7 @@ def test_pick_winner_prefers_later_release_date():
     new = {"service_id": "new1", "release_date": "2023-01-01", "added_at": "2021-01-01T00:00:00Z"}
     winner, losers = _pick_winner([old, new])
     assert winner["service_id"] == "new1"
-    assert [l["service_id"] for l in losers] == ["old1"]
+    assert [x["service_id"] for x in losers] == ["old1"]
 
 
 def test_pick_winner_uses_added_at_as_tiebreaker():
@@ -77,7 +83,7 @@ def test_pick_winner_uses_added_at_as_tiebreaker():
     b = {"service_id": "b1", "release_date": "2020-01-01", "added_at": "2023-06-01T00:00:00Z"}
     winner, losers = _pick_winner([a, b])
     assert winner["service_id"] == "b1"
-    assert [l["service_id"] for l in losers] == ["a1"]
+    assert [x["service_id"] for x in losers] == ["a1"]
 
 
 def test_pick_winner_handles_partial_release_dates():
@@ -114,7 +120,7 @@ def test_find_duplicates_detects_same_artist_name_tracks():
     assert len(results) == 1
     winner, losers = results[0]
     assert winner["service_id"] == "new1"
-    assert [l["service_id"] for l in losers] == ["old1"]
+    assert [x["service_id"] for x in losers] == ["old1"]
 
 
 def test_find_duplicates_ignores_different_track_counts():
