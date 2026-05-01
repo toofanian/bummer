@@ -148,6 +148,34 @@ describe('App layout', () => {
     expect(columns.length).toBe(3)
   })
 
+  it('hides desktop search input on home page', async () => {
+    mockMatchMedia(false) // desktop
+    render(<App />)
+    await waitFor(() => document.querySelector('header'))
+    // Home is the default view — search input should not be rendered
+    expect(screen.queryByPlaceholderText('Search…')).not.toBeInTheDocument()
+  })
+
+  it('shows desktop search input on library page', async () => {
+    mockMatchMedia(false) // desktop
+    render(<App />)
+    await waitFor(() => document.querySelector('header'))
+    // Navigate to library
+    const libraryBtn = screen.getByRole('button', { name: /^library$/i })
+    await userEvent.click(libraryBtn)
+    expect(screen.getByPlaceholderText('Search…')).toBeInTheDocument()
+  })
+
+  it('shows desktop search input on collections page', async () => {
+    mockMatchMedia(false) // desktop
+    render(<App />)
+    await waitFor(() => document.querySelector('header'))
+    // Navigate to collections
+    const collectionsBtn = screen.getByRole('button', { name: /collections/i })
+    await userEvent.click(collectionsBtn)
+    expect(screen.getByPlaceholderText('Search…')).toBeInTheDocument()
+  })
+
   it('reserves MiniPlaybackBar padding even when no track is playing (Connect a device state)', async () => {
     mockMatchMedia(true) // mobile
     render(<App />)
