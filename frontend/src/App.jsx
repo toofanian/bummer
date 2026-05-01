@@ -259,14 +259,6 @@ export default function App() {
 
   const hasSession = !!session
 
-  // Fire-and-forget: ensure a library snapshot exists for today once the user
-  // is authenticated (indicated by albums being loaded and no loading state).
-  useEffect(() => {
-    if (!albumsLoading && albums.length > 0) {
-      apiFetch('/digest/ensure-snapshot', { method: 'POST' }, sessionRef.current).catch(() => {})
-    }
-  }, [albumsLoading, albums.length])
-
   // Fetch artist images when the artists view becomes active and albums are loaded
   useEffect(() => {
     if (librarySubView === 'artists' && albums.length > 0) {

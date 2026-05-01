@@ -1,6 +1,5 @@
-import os
-from datetime import date
-from unittest.mock import MagicMock, patch
+from datetime import datetime, timedelta, timezone
+from unittest.mock import MagicMock
 
 from fastapi.testclient import TestClient
 
@@ -37,95 +36,6 @@ def clear_overrides():
     app.dependency_overrides.clear()
 
 
-# --- POST /digest/snapshot ---
-
-
-@patch.dict(os.environ, {"CRON_SECRET": "test-secret"})
-def test_snapshot_creates_row():
-    db = mock_db()
-    # Mock library_cache query returning one user's cached albums
-    db.table.return_value.select.return_value.execute.return_value = MagicMock(
-        data=[
-            {
-                "user_id": FAKE_USER_ID,
-                "albums": [
-                    {
-                        "service_id": "a1",
-                        "name": "Album1",
-                        "artists": [{"name": "X", "id": "artX"}],
-                        "image_url": None,
-                    },
-                    {
-                        "service_id": "a2",
-                        "name": "Album2",
-                        "artists": [{"name": "Y", "id": "artY"}],
-                        "image_url": None,
-                    },
-                ],
-                "total": 2,
-            }
-        ]
-    )
-    setup_overrides(db=db)
-    try:
-        res = client.post(
-            "/digest/snapshot",
-            headers={"X-Cron-Secret": "test-secret"},
-        )
-        assert res.status_code == 200
-        data = res.json()
-        assert data["users_processed"] == 1
-        assert data["snapshot_date"] == str(date.today())
-        db.table.return_value.upsert.assert_called_once()
-        upsert_call = db.table.return_value.upsert.call_args[0][0]
-        assert set(upsert_call["album_ids"]) == {"a1", "a2"}
-        assert upsert_call["total"] == 2
-        assert upsert_call["user_id"] == FAKE_USER_ID
-    finally:
-        clear_overrides()
-
-
-@patch.dict(os.environ, {"CRON_SECRET": "test-secret"})
-def test_snapshot_returns_503_when_cache_empty():
-    db = mock_db()
-    # No library_cache rows at all
-    db.table.return_value.select.return_value.execute.return_value = MagicMock(data=[])
-    setup_overrides(db=db)
-    try:
-        res = client.post(
-            "/digest/snapshot",
-            headers={"X-Cron-Secret": "test-secret"},
-        )
-        assert res.status_code == 503
-    finally:
-        clear_overrides()
-
-
-@patch.dict(os.environ, {"CRON_SECRET": "test-secret"})
-def test_snapshot_rejects_bad_secret():
-    setup_overrides()
-    try:
-        res = client.post(
-            "/digest/snapshot",
-            headers={"X-Cron-Secret": "wrong"},
-        )
-        assert res.status_code == 403
-    finally:
-        clear_overrides()
-
-
-@patch.dict(os.environ, {"CRON_SECRET": "test-secret"})
-def test_snapshot_rejects_missing_secret():
-    setup_overrides()
-    try:
-        res = client.post("/digest/snapshot")
-        assert res.status_code == 403
-    finally:
-        clear_overrides()
-
-
-# --- GET /digest ---
-
 ALBUM_CACHE = [
     {
         "service_id": "a1",
@@ -148,244 +58,29 @@ ALBUM_CACHE = [
 ]
 
 
-def test_digest_returns_added_and_removed():
-    start_snapshot = {
-        "snapshot_date": "2026-03-01",
-        "album_ids": ["a1", "a2"],
-        "total": 2,
-    }
-    end_snapshot = {
-        "snapshot_date": "2026-03-08",
-        "album_ids": ["a1", "a3"],
-        "total": 2,
-    }
-
-    # The DB mock returns the single matching snapshot per query.
-    # We need two separate calls for start and end snapshots.
-    db = MagicMock()
-    call_count = {"n": 0}
-
-    def table_router(table_name):
-        mock_table = MagicMock()
-        if table_name == "library_snapshots":
-            snapshot = end_snapshot if call_count["n"] > 0 else start_snapshot
-            call_count["n"] += 1
-            mock_table.select.return_value.lte.return_value.order.return_value.limit.return_value.execute.return_value = MagicMock(
-                data=[snapshot]
-            )
-        elif table_name == "play_history":
-            mock_table.select.return_value.gte.return_value.lte.return_value.execute.return_value = MagicMock(
-                data=[]
-            )
-        elif table_name == "library_cache":
-            mock_table.select.return_value.eq.return_value.execute.return_value = (
-                MagicMock(data=[{"albums": ALBUM_CACHE}])
-            )
-        return mock_table
-
-    db.table.side_effect = table_router
-    setup_overrides(db=db)
-    try:
-        res = client.get("/digest", params={"start": "2026-03-01", "end": "2026-03-08"})
-        assert res.status_code == 200
-        data = res.json()
-        added_ids = [a["service_id"] for a in data["added"]]
-        removed_ids = [a["service_id"] for a in data["removed"]]
-        assert "a3" in added_ids
-        assert "a2" in removed_ids
-        assert "a1" not in added_ids
-        assert "a1" not in removed_ids
-    finally:
-        clear_overrides()
-
-
-def test_digest_returns_listened_with_play_counts():
-    snapshot = {"snapshot_date": "2026-03-01", "album_ids": ["a1"], "total": 1}
-    plays = [
-        {"album_id": "a1", "played_at": "2026-03-02T10:00:00+00:00"},
-        {"album_id": "a1", "played_at": "2026-03-03T10:00:00+00:00"},
-        {"album_id": "a1", "played_at": "2026-03-04T10:00:00+00:00"},
-    ]
-
-    db = MagicMock()
-
-    def table_router(table_name):
-        mock_table = MagicMock()
-        if table_name == "library_snapshots":
-            mock_table.select.return_value.lte.return_value.order.return_value.limit.return_value.execute.return_value = MagicMock(
-                data=[snapshot]
-            )
-        elif table_name == "play_history":
-            mock_table.select.return_value.gte.return_value.lte.return_value.execute.return_value = MagicMock(
-                data=plays
-            )
-        elif table_name == "library_cache":
-            mock_table.select.return_value.eq.return_value.execute.return_value = (
-                MagicMock(data=[{"albums": ALBUM_CACHE}])
-            )
-        return mock_table
-
-    db.table.side_effect = table_router
-    setup_overrides(db=db)
-    try:
-        res = client.get("/digest", params={"start": "2026-03-01", "end": "2026-03-08"})
-        assert res.status_code == 200
-        data = res.json()
-        listened = data["listened"]
-        assert len(listened) == 1
-        assert listened[0]["service_id"] == "a1"
-        assert listened[0]["play_count"] == 3
-    finally:
-        clear_overrides()
-
-
-def test_digest_404_when_no_snapshots():
-    db = MagicMock()
-
-    def table_router(table_name):
-        mock_table = MagicMock()
-        if table_name == "library_snapshots":
-            mock_table.select.return_value.lte.return_value.order.return_value.limit.return_value.execute.return_value = MagicMock(
-                data=[]
-            )
-        elif table_name == "library_cache":
-            mock_table.select.return_value.eq.return_value.execute.return_value = (
-                MagicMock(data=[])
-            )
-        return mock_table
-
-    db.table.side_effect = table_router
-    setup_overrides(db=db)
-    try:
-        res = client.get("/digest", params={"start": "2026-03-01", "end": "2026-03-08"})
-        assert res.status_code == 404
-    finally:
-        clear_overrides()
-
-
-def test_digest_requires_start_and_end():
-    setup_overrides()
-    try:
-        res = client.get("/digest")
-        assert res.status_code == 422
-    finally:
-        clear_overrides()
-
-
-# --- POST /digest/ensure-snapshot ---
-
-
-@patch("routers.digest.get_album_cache")
-@patch("routers.digest.date")
-def test_ensure_snapshot_creates_when_none_exists(mock_date, mock_cache):
-    mock_date.today.return_value = date(2026, 3, 15)
-    mock_date.side_effect = lambda *a, **kw: date(*a, **kw)
-    mock_cache.return_value = [
-        {
-            "service_id": "a1",
-            "name": "Album1",
-            "artists": [{"name": "X", "id": "artX"}],
-            "image_url": None,
-        },
-        {
-            "service_id": "a2",
-            "name": "Album2",
-            "artists": [{"name": "Y", "id": "artY"}],
-            "image_url": None,
-        },
-    ]
-    db = MagicMock()
-    # No existing snapshot for today (.eq(snapshot_date).eq(user_id).execute())
-    db.table.return_value.select.return_value.eq.return_value.eq.return_value.execute.return_value = MagicMock(
-        data=[]
-    )
-    setup_overrides(db=db)
-    try:
-        res = client.post("/digest/ensure-snapshot")
-        assert res.status_code == 200
-        data = res.json()
-        assert data["status"] == "created"
-        assert data["snapshot_date"] == "2026-03-15"
-        assert data["total"] == 2
-        # Verify upsert was called
-        db.table.return_value.upsert.assert_called_once()
-        upsert_call = db.table.return_value.upsert.call_args[0][0]
-        assert set(upsert_call["album_ids"]) == {"a1", "a2"}
-        assert upsert_call["user_id"] == FAKE_USER_ID
-    finally:
-        clear_overrides()
-
-
-@patch("routers.digest.get_album_cache")
-@patch("routers.digest.date")
-def test_ensure_snapshot_skips_when_already_exists(mock_date, mock_cache):
-    mock_date.today.return_value = date(2026, 3, 15)
-    mock_date.side_effect = lambda *a, **kw: date(*a, **kw)
-    existing_snapshot = {
-        "snapshot_date": "2026-03-15",
-        "album_ids": ["a1", "a2"],
-        "total": 2,
-    }
-    db = MagicMock()
-    db.table.return_value.select.return_value.eq.return_value.eq.return_value.execute.return_value = MagicMock(
-        data=[existing_snapshot]
-    )
-    setup_overrides(db=db)
-    try:
-        res = client.post("/digest/ensure-snapshot")
-        assert res.status_code == 200
-        data = res.json()
-        assert data["status"] == "exists"
-        assert data["snapshot_date"] == "2026-03-15"
-        assert data["total"] == 2
-        # Verify upsert was NOT called
-        db.table.return_value.upsert.assert_not_called()
-        # Verify get_album_cache was NOT called (no need to read cache if snapshot exists)
-        mock_cache.assert_not_called()
-    finally:
-        clear_overrides()
-
-
-@patch("routers.digest.get_album_cache")
-@patch("routers.digest.date")
-def test_ensure_snapshot_returns_503_when_cache_empty(mock_date, mock_cache):
-    mock_date.today.return_value = date(2026, 3, 15)
-    mock_date.side_effect = lambda *a, **kw: date(*a, **kw)
-    mock_cache.return_value = []
-    db = MagicMock()
-    # No existing snapshot (.eq(snapshot_date).eq(user_id).execute())
-    db.table.return_value.select.return_value.eq.return_value.eq.return_value.execute.return_value = MagicMock(
-        data=[]
-    )
-    setup_overrides(db=db)
-    try:
-        res = client.post("/digest/ensure-snapshot")
-        assert res.status_code == 503
-    finally:
-        clear_overrides()
-
-
 # --- GET /digest/changelog ---
 
 
-def test_changelog_returns_entries_from_consecutive_snapshots():
-    """Three snapshots → two entries, each showing adds/removes between consecutive pairs."""
-    snapshots = [
-        {"snapshot_date": "2026-04-03", "album_ids": ["a1", "a2", "a3"], "total": 3},
-        {"snapshot_date": "2026-04-02", "album_ids": ["a1", "a2"], "total": 2},
-        {"snapshot_date": "2026-04-01", "album_ids": ["a1"], "total": 1},
+def test_changelog_returns_added_events():
+    """Changelog returns added albums from library_changes in the last 30 days."""
+    now = datetime.now(timezone.utc)
+    changes = [
+        {
+            "user_id": FAKE_USER_ID,
+            "changed_at": (now - timedelta(days=1)).isoformat(),
+            "added_ids": ["a1"],
+            "removed_ids": [],
+        },
     ]
 
     db = MagicMock()
 
     def table_router(table_name):
         mock_table = MagicMock()
-        if table_name == "library_snapshots":
-            # First call: fetch snapshots list (limit+1 rows, ordered desc)
-            mock_table.select.return_value.order.return_value.limit.return_value.execute.return_value = MagicMock(
-                data=snapshots
+        if table_name == "library_changes":
+            mock_table.select.return_value.eq.return_value.gte.return_value.order.return_value.execute.return_value = MagicMock(
+                data=changes
             )
-            return mock_table
         elif table_name == "library_cache":
             mock_table.select.return_value.eq.return_value.execute.return_value = (
                 MagicMock(data=[{"albums": ALBUM_CACHE}])
@@ -398,31 +93,116 @@ def test_changelog_returns_entries_from_consecutive_snapshots():
         res = client.get("/digest/changelog")
         assert res.status_code == 200
         data = res.json()
-        entries = data["entries"]
-        assert len(entries) == 2
-
-        # Most recent entry: 2026-04-03 vs 2026-04-02 → a3 added
-        assert entries[0]["date"] == "2026-04-03"
-        added_ids_0 = [a["service_id"] for a in entries[0]["added"]]
-        assert "a3" in added_ids_0
-        assert entries[0]["removed"] == []
-
-        # Older entry: 2026-04-02 vs 2026-04-01 → a2 added
-        assert entries[1]["date"] == "2026-04-02"
-        added_ids_1 = [a["service_id"] for a in entries[1]["added"]]
-        assert "a2" in added_ids_1
-        assert entries[1]["removed"] == []
+        days = data["days"]
+        assert len(days) == 1
+        events = days[0]["events"]
+        assert len(events) == 1
+        assert events[0]["type"] == "added"
+        assert events[0]["album"]["service_id"] == "a1"
+        assert "changed_at" in events[0]
     finally:
         clear_overrides()
 
 
-def test_changelog_empty_when_no_snapshots():
+def test_changelog_returns_removed_events():
+    """Changelog returns removed albums from library_changes."""
+    now = datetime.now(timezone.utc)
+    changes = [
+        {
+            "user_id": FAKE_USER_ID,
+            "changed_at": (now - timedelta(days=2)).isoformat(),
+            "added_ids": [],
+            "removed_ids": ["a2"],
+        },
+    ]
+
     db = MagicMock()
 
     def table_router(table_name):
         mock_table = MagicMock()
-        if table_name == "library_snapshots":
-            mock_table.select.return_value.order.return_value.limit.return_value.execute.return_value = MagicMock(
+        if table_name == "library_changes":
+            mock_table.select.return_value.eq.return_value.gte.return_value.order.return_value.execute.return_value = MagicMock(
+                data=changes
+            )
+        elif table_name == "library_cache":
+            mock_table.select.return_value.eq.return_value.execute.return_value = (
+                MagicMock(data=[{"albums": ALBUM_CACHE}])
+            )
+        return mock_table
+
+    db.table.side_effect = table_router
+    setup_overrides(db=db)
+    try:
+        res = client.get("/digest/changelog")
+        assert res.status_code == 200
+        data = res.json()
+        days = data["days"]
+        assert len(days) == 1
+        events = days[0]["events"]
+        assert len(events) == 1
+        assert events[0]["type"] == "removed"
+        assert events[0]["album"]["service_id"] == "a2"
+    finally:
+        clear_overrides()
+
+
+def test_changelog_detects_bounced_albums():
+    """Album that appears in both added and removed within 30 days = bounced."""
+    now = datetime.now(timezone.utc)
+    changes = [
+        {
+            "user_id": FAKE_USER_ID,
+            "changed_at": (now - timedelta(days=1)).isoformat(),
+            "added_ids": [],
+            "removed_ids": ["a1"],
+        },
+        {
+            "user_id": FAKE_USER_ID,
+            "changed_at": (now - timedelta(days=5)).isoformat(),
+            "added_ids": ["a1"],
+            "removed_ids": [],
+        },
+    ]
+
+    db = MagicMock()
+
+    def table_router(table_name):
+        mock_table = MagicMock()
+        if table_name == "library_changes":
+            mock_table.select.return_value.eq.return_value.gte.return_value.order.return_value.execute.return_value = MagicMock(
+                data=changes
+            )
+        elif table_name == "library_cache":
+            mock_table.select.return_value.eq.return_value.execute.return_value = (
+                MagicMock(data=[{"albums": ALBUM_CACHE}])
+            )
+        return mock_table
+
+    db.table.side_effect = table_router
+    setup_overrides(db=db)
+    try:
+        res = client.get("/digest/changelog")
+        assert res.status_code == 200
+        data = res.json()
+        days = data["days"]
+        assert len(days) == 1
+        events = days[0]["events"]
+        assert len(events) == 1
+        assert events[0]["type"] == "bounced"
+        assert events[0]["album"]["service_id"] == "a1"
+        assert events[0]["changed_at"] == (now - timedelta(days=1)).isoformat()
+    finally:
+        clear_overrides()
+
+
+def test_changelog_empty_when_no_changes():
+    """No library_changes rows returns empty events list."""
+    db = MagicMock()
+
+    def table_router(table_name):
+        mock_table = MagicMock()
+        if table_name == "library_changes":
+            mock_table.select.return_value.eq.return_value.gte.return_value.order.return_value.execute.return_value = MagicMock(
                 data=[]
             )
         elif table_name == "library_cache":
@@ -437,54 +217,42 @@ def test_changelog_empty_when_no_snapshots():
         res = client.get("/digest/changelog")
         assert res.status_code == 200
         data = res.json()
-        assert data["entries"] == []
-        assert data["has_more"] is False
-        assert data["next_cursor"] is None
+        assert data["days"] == []
     finally:
         clear_overrides()
 
 
-def test_changelog_empty_when_one_snapshot():
-    db = MagicMock()
-
-    def table_router(table_name):
-        mock_table = MagicMock()
-        if table_name == "library_snapshots":
-            mock_table.select.return_value.order.return_value.limit.return_value.execute.return_value = MagicMock(
-                data=[{"snapshot_date": "2026-04-01", "album_ids": ["a1"], "total": 1}]
-            )
-        elif table_name == "library_cache":
-            mock_table.select.return_value.eq.return_value.execute.return_value = (
-                MagicMock(data=[])
-            )
-        return mock_table
-
-    db.table.side_effect = table_router
-    setup_overrides(db=db)
-    try:
-        res = client.get("/digest/changelog")
-        assert res.status_code == 200
-        data = res.json()
-        assert data["entries"] == []
-        assert data["has_more"] is False
-    finally:
-        clear_overrides()
-
-
-def test_changelog_includes_removals():
-    """When an album is in the older snapshot but not the newer, it appears in removed."""
-    snapshots = [
-        {"snapshot_date": "2026-04-02", "album_ids": ["a1"], "total": 1},
-        {"snapshot_date": "2026-04-01", "album_ids": ["a1", "a2"], "total": 2},
+def test_changelog_events_sorted_most_recent_first():
+    """Events are sorted by changed_at descending."""
+    now = datetime.now(timezone.utc)
+    changes = [
+        {
+            "user_id": FAKE_USER_ID,
+            "changed_at": (now - timedelta(days=1)).isoformat(),
+            "added_ids": ["a1"],
+            "removed_ids": [],
+        },
+        {
+            "user_id": FAKE_USER_ID,
+            "changed_at": (now - timedelta(days=3)).isoformat(),
+            "added_ids": ["a2"],
+            "removed_ids": [],
+        },
+        {
+            "user_id": FAKE_USER_ID,
+            "changed_at": (now - timedelta(days=2)).isoformat(),
+            "added_ids": [],
+            "removed_ids": ["a3"],
+        },
     ]
 
     db = MagicMock()
 
     def table_router(table_name):
         mock_table = MagicMock()
-        if table_name == "library_snapshots":
-            mock_table.select.return_value.order.return_value.limit.return_value.execute.return_value = MagicMock(
-                data=snapshots
+        if table_name == "library_changes":
+            mock_table.select.return_value.eq.return_value.gte.return_value.order.return_value.execute.return_value = MagicMock(
+                data=changes
             )
         elif table_name == "library_cache":
             mock_table.select.return_value.eq.return_value.execute.return_value = (
@@ -497,88 +265,12 @@ def test_changelog_includes_removals():
     try:
         res = client.get("/digest/changelog")
         assert res.status_code == 200
-        data = res.json()
-        entries = data["entries"]
-        assert len(entries) == 1
-        assert entries[0]["date"] == "2026-04-02"
-        removed_ids = [a["service_id"] for a in entries[0]["removed"]]
-        assert "a2" in removed_ids
-        assert entries[0]["added"] == []
-    finally:
-        clear_overrides()
-
-
-def test_changelog_skips_unchanged_pairs():
-    """Consecutive snapshots with identical album_ids produce no entry."""
-    snapshots = [
-        {"snapshot_date": "2026-04-03", "album_ids": ["a1", "a2"], "total": 2},
-        {"snapshot_date": "2026-04-02", "album_ids": ["a1", "a2"], "total": 2},
-        {"snapshot_date": "2026-04-01", "album_ids": ["a1"], "total": 1},
-    ]
-
-    db = MagicMock()
-
-    def table_router(table_name):
-        mock_table = MagicMock()
-        if table_name == "library_snapshots":
-            mock_table.select.return_value.order.return_value.limit.return_value.execute.return_value = MagicMock(
-                data=snapshots
-            )
-        elif table_name == "library_cache":
-            mock_table.select.return_value.eq.return_value.execute.return_value = (
-                MagicMock(data=[{"albums": ALBUM_CACHE}])
-            )
-        return mock_table
-
-    db.table.side_effect = table_router
-    setup_overrides(db=db)
-    try:
-        res = client.get("/digest/changelog")
-        assert res.status_code == 200
-        data = res.json()
-        entries = data["entries"]
-        # Only one entry: 2026-04-02 vs 2026-04-01 (a2 added)
-        # The 2026-04-03 vs 2026-04-02 pair is identical → skipped
-        assert len(entries) == 1
-        assert entries[0]["date"] == "2026-04-02"
-    finally:
-        clear_overrides()
-
-
-def test_changelog_before_cursor():
-    """The before param filters to snapshots before the given date."""
-    snapshots = [
-        {"snapshot_date": "2026-04-02", "album_ids": ["a1", "a2"], "total": 2},
-        {"snapshot_date": "2026-04-01", "album_ids": ["a1"], "total": 1},
-    ]
-
-    db = MagicMock()
-    snapshots_mock = None
-
-    def table_router(table_name):
-        nonlocal snapshots_mock
-        mock_table = MagicMock()
-        if table_name == "library_snapshots":
-            snapshots_mock = mock_table
-            # The endpoint builds .select().order().limit() then appends .lt() when before is set
-            mock_table.select.return_value.order.return_value.limit.return_value.lt.return_value.execute.return_value = MagicMock(
-                data=snapshots
-            )
-        elif table_name == "library_cache":
-            mock_table.select.return_value.eq.return_value.execute.return_value = (
-                MagicMock(data=[{"albums": ALBUM_CACHE}])
-            )
-        return mock_table
-
-    db.table.side_effect = table_router
-    setup_overrides(db=db)
-    try:
-        res = client.get("/digest/changelog", params={"before": "2026-04-05"})
-        assert res.status_code == 200
-        data = res.json()
-        assert len(data["entries"]) == 1
-        # Verify .lt was called on the query chain
-        snapshots_mock.select.return_value.order.return_value.limit.return_value.lt.assert_called()
+        days = res.json()["days"]
+        assert len(days) == 3
+        # Most recent day first
+        assert days[0]["events"][0]["album"]["service_id"] == "a1"
+        assert days[1]["events"][0]["album"]["service_id"] == "a3"
+        assert days[2]["events"][0]["album"]["service_id"] == "a2"
     finally:
         clear_overrides()
 
@@ -616,15 +308,12 @@ def test_history_returns_plays_grouped_by_day():
         data = res.json()
         days = data["days"]
         assert len(days) == 2
-        # Newest day first
         assert days[0]["date"] == "2026-04-18"
         assert len(days[0]["plays"]) == 2
-        # Within a day, newest first
         assert days[0]["plays"][0]["played_at"] == "2026-04-18T15:30:00+00:00"
         assert days[0]["plays"][0]["album"]["service_id"] == "a1"
         assert days[0]["plays"][1]["played_at"] == "2026-04-18T10:00:00+00:00"
         assert days[0]["plays"][1]["album"]["service_id"] == "a2"
-        # Older day
         assert days[1]["date"] == "2026-04-17"
         assert len(days[1]["plays"]) == 1
         assert data["has_more"] is False
@@ -693,7 +382,6 @@ def test_history_before_cursor():
             params={"before": "2026-04-16T00:00:00+00:00"},
         )
         assert res.status_code == 200
-        # Verify .lt was called on the query chain
         play_history_mock.select.return_value.order.return_value.limit.return_value.lt.assert_called()
     finally:
         clear_overrides()
@@ -733,14 +421,12 @@ def test_stats_returns_top_albums_and_artists():
         assert res.status_code == 200
         data = res.json()
         assert data["period_days"] == 30
-        # Top albums: a1 (3 plays) then a2 (2 plays)
         top_albums = data["top_albums"]
         assert len(top_albums) == 2
         assert top_albums[0]["album"]["service_id"] == "a1"
         assert top_albums[0]["play_count"] == 3
         assert top_albums[1]["album"]["service_id"] == "a2"
         assert top_albums[1]["play_count"] == 2
-        # Top artists: Artist A (3 plays from a1), Artist B (2 plays from a2)
         top_artists = data["top_artists"]
         assert len(top_artists) == 2
         assert top_artists[0]["artist"] == "Artist A"
@@ -838,10 +524,6 @@ def test_stats_returns_artist_image_urls():
 
 def test_stats_top_artists_from_all_plays_not_just_top_albums():
     """Artists with plays spread across non-top albums should still appear in top_artists."""
-    # 10 top albums (3 plays each) by unique artists → fill top 10
-    # 2 extra albums (2 plays each) by "Prolific Artist" → 4 total plays
-    # "Prolific Artist" should rank above any single-album artist (3 plays) — but only
-    # if artist counts are derived from ALL plays, not just top 10 albums.
     albums_meta = []
     plays = []
     for i in range(1, 11):
@@ -859,7 +541,6 @@ def test_stats_top_artists_from_all_plays_not_just_top_albums():
                 {"album_id": aid, "played_at": f"2026-04-{10 + i}T10:00:00+00:00"}
             )
 
-    # Two extra albums by "Prolific Artist" (2 plays each = 4 total)
     for j, aid in enumerate(["extra1", "extra2"]):
         albums_meta.append(
             {
@@ -896,7 +577,6 @@ def test_stats_top_artists_from_all_plays_not_just_top_albums():
         data = res.json()
         artist_names = [a["artist"] for a in data["top_artists"]]
         assert "Prolific Artist" in artist_names
-        # Prolific Artist has 4 plays total, should rank above 3-play artists
         prolific = next(
             a for a in data["top_artists"] if a["artist"] == "Prolific Artist"
         )
@@ -910,7 +590,6 @@ def test_stats_resolves_artist_images_via_search_when_no_id():
     plays = [
         {"album_id": "a1", "played_at": "2026-04-10T10:00:00+00:00"},
     ]
-    # Old-format cache: artists as plain strings, no IDs
     album_cache = [
         {
             "service_id": "a1",

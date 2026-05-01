@@ -557,6 +557,100 @@ def test_sync_handles_empty_library():
     clear_overrides()
 
 
+def test_sync_complete_records_library_changes():
+    """sync-complete diffs against existing cache and inserts a library_changes row."""
+    db = MagicMock()
+    cache_albums = [
+        {"service_id": "a1", "name": "Album 1", "artists": [], "image_url": None},
+        {"service_id": "a2", "name": "Album 2", "artists": [], "image_url": None},
+    ]
+    changes_mock = MagicMock()
+    cache_mock = MagicMock()
+    cache_mock.select.return_value.eq.return_value.execute.return_value = MagicMock(
+        data=[
+            {
+                "id": FAKE_USER_ID,
+                "albums": cache_albums,
+                "total": 2,
+                "synced_at": "2026-01-01T00:00:00Z",
+            }
+        ]
+    )
+    cache_mock.upsert.return_value.execute.return_value = MagicMock(data=[])
+
+    def table_router(table_name):
+        if table_name == "library_changes":
+            return changes_mock
+        return cache_mock
+
+    db.table.side_effect = table_router
+    override_db(db)
+
+    new_albums = [
+        {"service_id": "a1", "name": "Album 1", "artists": [], "image_url": None},
+        {"service_id": "a3", "name": "Album 3", "artists": [], "image_url": None},
+    ]
+
+    response = client.post("/library/sync-complete", json={"albums": new_albums})
+    assert response.status_code == 200
+
+    changes_mock.insert.assert_called_once()
+    data = changes_mock.insert.call_args[0][0]
+    assert set(data["added_ids"]) == {"a3"}
+    assert set(data["removed_ids"]) == {"a2"}
+    assert data["user_id"] == FAKE_USER_ID
+
+    clear_overrides()
+
+
+def test_sync_complete_skips_changes_when_no_diff():
+    """sync-complete does NOT insert a library_changes row when album list is identical."""
+    db = MagicMock()
+    cache_albums = [
+        {"service_id": "a1", "name": "Album 1", "artists": [], "image_url": None},
+    ]
+    db.table.return_value.select.return_value.eq.return_value.execute.return_value = (
+        MagicMock(
+            data=[
+                {
+                    "id": FAKE_USER_ID,
+                    "albums": cache_albums,
+                    "total": 1,
+                    "synced_at": "2026-01-01T00:00:00Z",
+                }
+            ]
+        )
+    )
+    db.table.return_value.upsert.return_value.execute.return_value = MagicMock(data=[])
+    override_db(db)
+
+    response = client.post("/library/sync-complete", json={"albums": cache_albums})
+    assert response.status_code == 200
+
+    table_calls = [c[0][0] for c in db.table.call_args_list]
+    assert "library_changes" not in table_calls
+
+    clear_overrides()
+
+
+def test_sync_complete_skips_changes_on_first_sync():
+    """First sync (no prior cache) does NOT insert a library_changes row."""
+    db = mock_db_empty()
+    override_db(db)
+
+    albums = [
+        {"service_id": "a1", "name": "Album 1", "artists": [], "image_url": None},
+    ]
+
+    response = client.post("/library/sync-complete", json={"albums": albums})
+    assert response.status_code == 200
+
+    table_calls = [c[0][0] for c in db.table.call_args_list]
+    assert "library_changes" not in table_calls
+
+    clear_overrides()
+
+
 def test_artist_images_returns_image_map():
     sp = MagicMock()
     sp.artists.return_value = {

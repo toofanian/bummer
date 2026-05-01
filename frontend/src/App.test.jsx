@@ -847,9 +847,6 @@ describe('App — playback state persistence on reload', () => {
       if (url.includes('/collections')) {
         return Promise.resolve({ ok: true, json: () => Promise.resolve(COLLECTIONS_OK) })
       }
-      if (url.includes('/digest/ensure-snapshot')) {
-        return Promise.resolve({ ok: true, json: () => Promise.resolve({}) })
-      }
       if (url.includes('/home')) {
         return Promise.resolve({ ok: true, json: () => Promise.resolve(HOME_OK) })
       }

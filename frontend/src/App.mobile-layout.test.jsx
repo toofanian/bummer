@@ -47,16 +47,13 @@ beforeEach(() => {
       return Promise.resolve({ ok: true, json: () => Promise.resolve({ recently_played: [], recently_added: [], rediscover: [], recommended: [] }) })
     }
     if (url.includes('/digest/changelog')) {
-      return Promise.resolve({ ok: true, json: () => Promise.resolve({ entries: [], has_more: false, next_cursor: null }) })
+      return Promise.resolve({ ok: true, json: () => Promise.resolve({ days: [] }) })
     }
     if (url.includes('/digest/history')) {
       return Promise.resolve({ ok: true, json: () => Promise.resolve({ days: [], has_more: false, next_cursor: null }) })
     }
     if (url.includes('/digest/stats')) {
       return Promise.resolve({ ok: true, json: () => Promise.resolve({ period_days: 30, top_albums: [], top_artists: [] }) })
-    }
-    if (url.includes('/digest/ensure-snapshot')) {
-      return Promise.resolve({ ok: true, json: () => Promise.resolve({}) })
     }
     // Default for playback polling etc
     return Promise.resolve({ ok: true, json: () => Promise.resolve({}) })

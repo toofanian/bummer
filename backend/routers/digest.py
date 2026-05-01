@@ -1,13 +1,11 @@
-import os
 from collections import Counter, defaultdict
-from datetime import date, datetime
+from datetime import datetime, timedelta
 
 import spotipy
-from fastapi import APIRouter, Depends, Header, HTTPException, Query
+from fastapi import APIRouter, Depends, Query
 from supabase import Client
 
 from auth_middleware import get_authed_db, get_current_user
-from db import get_db
 from routers.library import get_album_cache
 from spotify_client import get_user_spotify
 
@@ -20,19 +18,6 @@ def _flatten_album_artists(album_meta: dict) -> dict:
     if artists and isinstance(artists[0], dict):
         return {**album_meta, "artists": [a["name"] for a in artists]}
     return album_meta
-
-
-def _find_snapshot(db: Client, target_date: str):
-    """Find the snapshot with the greatest date <= target_date (floor strategy)."""
-    result = (
-        db.table("library_snapshots")
-        .select("*")
-        .lte("snapshot_date", target_date)
-        .order("snapshot_date", desc=True)
-        .limit(1)
-        .execute()
-    )
-    return result.data[0] if result.data else None
 
 
 def _resolve_album_metadata(
@@ -204,8 +189,6 @@ def get_stats(
     db: Client = Depends(get_authed_db),
     user: dict = Depends(get_current_user),
 ):
-    from datetime import timedelta
-
     thirty_days_ago = (datetime.now() - timedelta(days=30)).isoformat()
 
     rows = (
@@ -278,238 +261,83 @@ def get_stats(
     }
 
 
-@router.get("")
-def get_digest(
-    start: date,
-    end: date,
+@router.get("/changelog")
+def get_changelog(
     sp: spotipy.Spotify = Depends(get_user_spotify),
     db: Client = Depends(get_authed_db),
     user: dict = Depends(get_current_user),
 ):
-    start_str = str(start)
-    end_str = str(end)
-    start_snap = _find_snapshot(db, start_str)
-    end_snap = _find_snapshot(db, end_str)
+    thirty_days_ago = (datetime.now() - timedelta(days=30)).isoformat()
 
-    if not start_snap or not end_snap:
-        raise HTTPException(
-            status_code=404,
-            detail="No snapshots found for the requested date range. Digests require at least one day of library tracking.",
-        )
-
-    start_ids = set(start_snap["album_ids"])
-    end_ids = set(end_snap["album_ids"])
-
-    added_ids = list(end_ids - start_ids)
-    removed_ids = list(start_ids - end_ids)
-
-    play_rows = (
-        db.table("play_history")
-        .select("album_id, played_at")
-        .gte("played_at", start_str)
-        .lte("played_at", end_str)
+    rows = (
+        db.table("library_changes")
+        .select("changed_at, added_ids, removed_ids")
+        .eq("user_id", user["user_id"])
+        .gte("changed_at", thirty_days_ago)
+        .order("changed_at", desc=True)
         .execute()
     ).data
 
-    play_counts = Counter(row["album_id"] for row in play_rows)
-    listened_ids = [aid for aid, _ in play_counts.most_common()]
+    if not rows:
+        return {"days": []}
 
+    # Collect all album appearances with timestamps
+    added_albums = {}  # album_id -> latest changed_at
+    removed_albums = {}  # album_id -> latest changed_at
+    for row in rows:
+        for aid in row["added_ids"]:
+            if aid not in added_albums:
+                added_albums[aid] = row["changed_at"]
+        for aid in row["removed_ids"]:
+            if aid not in removed_albums:
+                removed_albums[aid] = row["changed_at"]
+
+    # Detect bounces (in both sets)
+    bounced_ids = set(added_albums) & set(removed_albums)
+
+    # Build events list
+    raw_events = []
+    for aid in bounced_ids:
+        ts = max(added_albums[aid], removed_albums[aid])
+        raw_events.append({"album_id": aid, "type": "bounced", "changed_at": ts})
+    for aid in set(added_albums) - bounced_ids:
+        raw_events.append(
+            {"album_id": aid, "type": "added", "changed_at": added_albums[aid]}
+        )
+    for aid in set(removed_albums) - bounced_ids:
+        raw_events.append(
+            {"album_id": aid, "type": "removed", "changed_at": removed_albums[aid]}
+        )
+
+    # Sort by most recent first
+    raw_events.sort(key=lambda e: e["changed_at"], reverse=True)
+
+    # Resolve metadata
+    all_ids = [e["album_id"] for e in raw_events]
     album_cache = get_album_cache(db, user_id=user["user_id"])
-
-    all_ids = set(added_ids) | set(removed_ids) | set(listened_ids)
-    metadata = _resolve_album_metadata(list(all_ids), album_cache, sp)
+    metadata = _resolve_album_metadata(all_ids, album_cache, sp)
     meta_lookup = {m["service_id"]: m for m in metadata}
 
-    def enrich(ids):
-        return [
-            _flatten_album_artists(meta_lookup[aid])
-            for aid in ids
-            if aid in meta_lookup
-        ]
-
-    def enrich_listened(ids):
-        result = []
-        for aid in ids:
-            if aid in meta_lookup:
-                entry = {
-                    **_flatten_album_artists(meta_lookup[aid]),
-                    "play_count": play_counts[aid],
-                }
-                result.append(entry)
-        return result
-
-    return {
-        "period": {"start": start_str, "end": end_str},
-        "added": enrich(added_ids),
-        "removed": enrich(removed_ids),
-        "listened": enrich_listened(listened_ids),
-    }
-
-
-@router.get("/changelog")
-def get_changelog(
-    limit: int = 50,
-    before: date | None = None,
-    sp: spotipy.Spotify = Depends(get_user_spotify),
-    db: Client = Depends(get_authed_db),
-    user: dict = Depends(get_current_user),
-):
-    if limit < 1:
-        limit = 1
-    if limit > 200:
-        limit = 200
-
-    # Fetch limit+1 snapshots to compute `limit` diffs (need pairs)
-    query = (
-        db.table("library_snapshots")
-        .select("snapshot_date, album_ids")
-        .order("snapshot_date", desc=True)
-        .limit(limit + 1)
-    )
-    if before:
-        query = query.lt("snapshot_date", str(before))
-
-    snapshots = query.execute().data
-
-    if len(snapshots) < 2:
-        return {"entries": [], "has_more": False, "next_cursor": None}
-
-    # Compute diffs between consecutive pairs
-    raw_entries = []
-    for i in range(len(snapshots) - 1):
-        newer = snapshots[i]
-        older = snapshots[i + 1]
-        newer_ids = set(newer["album_ids"])
-        older_ids = set(older["album_ids"])
-        added_ids = list(newer_ids - older_ids)
-        removed_ids = list(older_ids - newer_ids)
-        if added_ids or removed_ids:
-            raw_entries.append(
+    events = []
+    for e in raw_events:
+        album_meta = meta_lookup.get(e["album_id"])
+        if album_meta:
+            events.append(
                 {
-                    "date": newer["snapshot_date"],
-                    "added_ids": added_ids,
-                    "removed_ids": removed_ids,
+                    "type": e["type"],
+                    "album": _flatten_album_artists(album_meta),
+                    "changed_at": e["changed_at"],
                 }
             )
 
-    # Resolve metadata for all referenced album IDs
-    all_ids = set()
-    for entry in raw_entries:
-        all_ids.update(entry["added_ids"])
-        all_ids.update(entry["removed_ids"])
+    # Group by date, preserving sort order
+    grouped = defaultdict(list)
+    for event in events:
+        day = event["changed_at"][:10]
+        grouped[day].append(event)
 
-    album_cache = get_album_cache(db, user_id=user["user_id"])
-    metadata = _resolve_album_metadata(list(all_ids), album_cache, sp)
-    meta_lookup = {m["service_id"]: m for m in metadata}
+    days = []
+    for day_date in dict.fromkeys(e["changed_at"][:10] for e in events):
+        days.append({"date": day_date, "events": grouped[day_date]})
 
-    entries = []
-    for entry in raw_entries:
-        entries.append(
-            {
-                "date": entry["date"],
-                "added": [
-                    _flatten_album_artists(meta_lookup[aid])
-                    for aid in entry["added_ids"]
-                    if aid in meta_lookup
-                ],
-                "removed": [
-                    _flatten_album_artists(meta_lookup[aid])
-                    for aid in entry["removed_ids"]
-                    if aid in meta_lookup
-                ],
-            }
-        )
-
-    # Pagination: if we fetched limit+1 snapshots and used all pairs, there may be more
-    has_more = len(snapshots) > limit
-    next_cursor = snapshots[-2]["snapshot_date"] if has_more else None
-
-    return {"entries": entries, "has_more": has_more, "next_cursor": next_cursor}
-
-
-@router.post("/snapshot")
-def create_snapshot(
-    db: Client = Depends(get_db),
-    x_cron_secret: str | None = Header(default=None),
-):
-    expected = os.getenv("CRON_SECRET", "")
-    if not expected or x_cron_secret != expected:
-        raise HTTPException(status_code=403, detail="Forbidden")
-
-    # In multi-user mode, snapshots are created per-user via POST /digest/ensure-snapshot.
-    # The cron endpoint iterates all users with cached libraries and creates snapshots.
-    today = str(date.today())
-    users_with_cache = (
-        db.table("library_cache").select("user_id, albums, total").execute()
-    )
-    if not users_with_cache.data:
-        raise HTTPException(
-            status_code=503,
-            detail="No library caches found. Users must open the app to sync first.",
-        )
-
-    created = 0
-    for row in users_with_cache.data:
-        album_ids = [a["service_id"] for a in row["albums"]]
-        total = len(album_ids)
-        db.table("library_snapshots").upsert(
-            {
-                "snapshot_date": today,
-                "album_ids": album_ids,
-                "total": total,
-                "user_id": row["user_id"],
-            },
-            on_conflict="snapshot_date,user_id",
-        ).execute()
-        created += 1
-
-    return {"snapshot_date": today, "users_processed": created}
-
-
-@router.post("/ensure-snapshot")
-def ensure_snapshot(
-    sp: spotipy.Spotify = Depends(get_user_spotify),
-    db: Client = Depends(get_authed_db),
-    user: dict = Depends(get_current_user),
-):
-    user_id = user["user_id"]
-    today = str(date.today())
-
-    # Check if a snapshot already exists for today
-    existing = (
-        db.table("library_snapshots")
-        .select("*")
-        .eq("snapshot_date", today)
-        .eq("user_id", user_id)
-        .execute()
-    )
-    if existing.data:
-        snap = existing.data[0]
-        return {
-            "status": "exists",
-            "snapshot_date": snap["snapshot_date"],
-            "total": snap["total"],
-        }
-
-    # No snapshot for today — create one from the album cache
-    album_cache = get_album_cache(db, user_id=user_id)
-    if not album_cache:
-        raise HTTPException(
-            status_code=503,
-            detail="Library cache is empty. Open the app to sync your library first.",
-        )
-
-    album_ids = [a["service_id"] for a in album_cache]
-    total = len(album_ids)
-
-    db.table("library_snapshots").upsert(
-        {
-            "snapshot_date": today,
-            "album_ids": album_ids,
-            "total": total,
-            "user_id": user_id,
-        },
-        on_conflict="snapshot_date,user_id",
-    ).execute()
-
-    return {"status": "created", "snapshot_date": today, "total": total}
+    return {"days": days}
