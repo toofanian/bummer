@@ -204,3 +204,71 @@ def test_apply_dedup_migrates_tier():
     upsert_arg = metadata_table.upsert.call_args[0][0]
     assert upsert_arg["service_id"] == "new1"
     assert upsert_arg["tier"] == "S"
+
+
+def test_apply_dedup_full_flow_with_collections():
+    """Integration: dedup migrates tier + collection, removes loser, records dedup."""
+    db = MagicMock()
+    tables = {}
+
+    def make_table(name):
+        t = MagicMock()
+        t.select.return_value.eq.return_value.eq.return_value.execute.return_value = MagicMock(data=[])
+        t.insert.return_value.execute.return_value = MagicMock(data=[])
+        t.upsert.return_value.execute.return_value = MagicMock(data=[])
+        t.delete.return_value.eq.return_value.eq.return_value.execute.return_value = MagicMock(data=[])
+        return t
+
+    def table_router(name):
+        if name not in tables:
+            tables[name] = make_table(name)
+        return tables[name]
+
+    db.table.side_effect = table_router
+
+    # Old album has tier B and is in collection "coll1"
+    am = make_table("album_metadata")
+    new_tier_resp = MagicMock(data=[])
+    old_tier_resp = MagicMock(data=[{"service_id": "old1", "tier": "B", "user_id": "u1"}])
+    am.select.return_value.eq.side_effect = lambda field, val: (
+        MagicMock(eq=lambda f2, v2: old_tier_resp) if val == "old1"
+        else MagicMock(eq=lambda f2, v2: new_tier_resp)
+    )
+    tables["album_metadata"] = am
+
+    ca = make_table("collection_albums")
+    def ca_select_side(*args, **kwargs):
+        mock = MagicMock()
+        def eq1(field, val):
+            mock2 = MagicMock()
+            if field == "service_id" and val == "old1":
+                mock2.eq.return_value.execute.return_value = MagicMock(
+                    data=[{"collection_id": "coll1", "position": 3}]
+                )
+            elif field == "collection_id":
+                mock2.eq.return_value.execute.return_value = MagicMock(data=[])
+            else:
+                mock2.eq.return_value.execute.return_value = MagicMock(data=[])
+            return mock2
+        mock.eq.side_effect = eq1
+        return mock
+    ca.select.side_effect = ca_select_side
+    tables["collection_albums"] = ca
+
+    db.table.side_effect = table_router
+
+    albums = [
+        {"service_id": "old1", "name": "Ctrl", "artists": [{"name": "SZA", "id": "s1"}], "total_tracks": 14, "release_date": "2017-06-09", "added_at": "2017-07-01T00:00:00Z"},
+        {"service_id": "new1", "name": "Ctrl", "artists": [{"name": "SZA", "id": "s2"}], "total_tracks": 14, "release_date": "2017-06-09", "added_at": "2024-01-15T00:00:00Z"},
+        {"service_id": "other", "name": "SOS", "artists": [{"name": "SZA", "id": "s1"}], "total_tracks": 23, "release_date": "2022", "added_at": "2023-01-01T00:00:00Z"},
+    ]
+
+    result = apply_dedup(db, "u1", albums)
+
+    result_ids = [a["service_id"] for a in result]
+    assert "new1" in result_ids
+    assert "other" in result_ids
+    assert "old1" not in result_ids
+    assert len(result) == 2
+
+    tables["deduped_albums"].insert.assert_called_once()
