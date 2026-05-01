@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react'
-import { IS_PREVIEW } from '../previewMode'
+const IS_PREVIEW = import.meta.env.VITE_VERCEL_ENV === 'preview'
 
 const SCOPES = [
   'user-library-read',

@@ -22,11 +22,6 @@ vi.stubGlobal('localStorage', (() => {
 
 vi.stubGlobal('fetch', vi.fn())
 
-let mockIsPreview = false
-vi.mock('../previewMode', () => ({
-  get IS_PREVIEW() { return mockIsPreview },
-}))
-
 import { useSpotifyAuth } from './useSpotifyAuth'
 
 describe('useSpotifyAuth', () => {
@@ -96,14 +91,16 @@ describe('useSpotifyAuth', () => {
 
   describe('preview proxy login', () => {
     beforeEach(() => {
-      mockIsPreview = true
+      vi.resetModules()
+      vi.stubEnv('VITE_VERCEL_ENV', 'preview')
     })
 
     afterEach(() => {
-      mockIsPreview = false
+      vi.unstubAllEnvs()
+      vi.resetModules()
     })
 
-    it('redirects to prod proxy URL when IS_PREVIEW is true', async () => {
+    it('redirects to prod proxy URL when VITE_VERCEL_ENV is preview', async () => {
       const assignMock = vi.fn()
       Object.defineProperty(window, 'location', {
         value: { assign: assignMock, origin: 'https://preview-123.vercel.app' },
@@ -111,7 +108,8 @@ describe('useSpotifyAuth', () => {
       })
       localStorage.setItem('spotify_client_id', 'my-client-id')
 
-      const { result } = renderHook(() => useSpotifyAuth())
+      const { useSpotifyAuth: useSpotifyAuthPreview } = await import('./useSpotifyAuth')
+      const { result } = renderHook(() => useSpotifyAuthPreview())
       await act(async () => {
         await result.current.initiateLogin('supabase-jwt-token')
       })
@@ -134,8 +132,8 @@ describe('useSpotifyAuth', () => {
       })
       localStorage.setItem('spotify_client_id', 'cid')
 
-      // The proxy URL should start with the prod origin
-      const { result } = renderHook(() => useSpotifyAuth())
+      const { useSpotifyAuth: useSpotifyAuthPreview } = await import('./useSpotifyAuth')
+      const { result } = renderHook(() => useSpotifyAuthPreview())
       await act(async () => {
         await result.current.initiateLogin('tok')
       })
@@ -148,9 +146,6 @@ describe('useSpotifyAuth', () => {
   })
 
   it('initiateLogin does direct PKCE on prod (not preview)', async () => {
-    // Ensure IS_PREVIEW is false (default)
-    mockIsPreview = false
-
     const assignMock = vi.fn()
     Object.defineProperty(window, 'location', { value: { assign: assignMock }, writable: true })
     localStorage.setItem('spotify_client_id', 'my-client-id')

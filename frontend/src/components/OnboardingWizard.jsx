@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useSpotifyAuth } from '../hooks/useSpotifyAuth'
-import { IS_PREVIEW } from '../previewMode'
+
 
 const API = import.meta.env.VITE_API_URL ?? 'http://127.0.0.1:8000'
 const REDIRECT_URI = import.meta.env.VITE_SPOTIFY_REDIRECT_URI ?? 'http://localhost:5173/auth/spotify/callback'

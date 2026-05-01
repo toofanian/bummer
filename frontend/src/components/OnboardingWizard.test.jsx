@@ -23,11 +23,6 @@ vi.mock('../hooks/useSpotifyAuth', () => ({
   }),
 }))
 
-let mockIsPreview = false
-vi.mock('../previewMode', () => ({
-  get IS_PREVIEW() { return mockIsPreview },
-}))
-
 vi.stubGlobal('fetch', vi.fn())
 
 import OnboardingWizard from './OnboardingWizard'
@@ -210,31 +205,15 @@ describe('OnboardingWizard', () => {
     })
   })
 
-  describe('preview mode UI', () => {
-    beforeEach(() => {
-      mockIsPreview = true
+  it('passes supabase token to initiateLogin', async () => {
+    localStorage.setItem('music_service_type', 'spotify')
+    render(<OnboardingWizard session={fakeSession} onComplete={vi.fn()} />)
+    fireEvent.change(screen.getByPlaceholderText(/client id/i), {
+      target: { value: 'my-client-id' }
     })
-
-    afterEach(() => {
-      mockIsPreview = false
-    })
-
-    it('does not show proxy redirect URI note in UI', () => {
-      localStorage.setItem('music_service_type', 'spotify')
-      render(<OnboardingWizard session={fakeSession} onComplete={vi.fn()} />)
-      expect(screen.queryByText(/callback-proxy/i)).not.toBeInTheDocument()
-    })
-
-    it('passes supabase token to initiateLogin on preview', async () => {
-      localStorage.setItem('music_service_type', 'spotify')
-      render(<OnboardingWizard session={fakeSession} onComplete={vi.fn()} />)
-      fireEvent.change(screen.getByPlaceholderText(/client id/i), {
-        target: { value: 'my-client-id' }
-      })
-      fireEvent.click(screen.getByRole('button', { name: /connect spotify/i }))
-      await waitFor(() => {
-        expect(mockInitiateLogin).toHaveBeenCalledWith('supabase-jwt')
-      })
+    fireEvent.click(screen.getByRole('button', { name: /connect spotify/i }))
+    await waitFor(() => {
+      expect(mockInitiateLogin).toHaveBeenCalledWith('supabase-jwt')
     })
   })
 })
