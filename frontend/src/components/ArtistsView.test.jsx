@@ -1,6 +1,7 @@
+import React from 'react'
 import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { describe, it, expect, vi } from 'vitest'
+import { describe, it, expect, vi, beforeEach } from 'vitest'
 import ArtistsView from './ArtistsView'
 
 const ALBUMS = [
@@ -136,5 +137,43 @@ describe('ArtistsView — artist profile images', () => {
     render(<ArtistsView {...defaultProps} artistImages={{}} />)
     const row = screen.getByTestId('artist-row-John Coltrane')
     expect(within(row).queryByAltText('John Coltrane')).not.toBeInTheDocument()
+  })
+})
+
+describe('ArtistsView — lazy rendering', () => {
+  let intersectionCallback = null
+  const mockObserverInstance = {
+    observe: vi.fn(),
+    disconnect: vi.fn(),
+    unobserve: vi.fn(),
+  }
+
+  beforeEach(() => {
+    intersectionCallback = null
+    global.IntersectionObserver = vi.fn(function (callback) {
+      intersectionCallback = callback
+      return mockObserverInstance
+    })
+  })
+
+  it('renders only first 30 artist rows when list exceeds batch size', () => {
+    const manyAlbums = Array.from({ length: 35 }, (_, i) => ({
+      service_id: `a${i}`,
+      name: `Album ${i}`,
+      artists: [{ name: `Artist ${i}`, id: `ar${i}` }],
+      image_url: `/img${i}.jpg`,
+      release_date: '2024',
+      added_at: '2024-01-01',
+      total_tracks: 10,
+    }))
+    render(<ArtistsView {...defaultProps} albums={manyAlbums} />)
+    const rows = screen.getAllByTestId(/^artist-row-/)
+    expect(rows).toHaveLength(30)
+    expect(document.querySelector('[data-testid="load-more-sentinel"]')).toBeInTheDocument()
+  })
+
+  it('renders all artist rows when list is 30 or fewer', () => {
+    render(<ArtistsView {...defaultProps} />)
+    expect(document.querySelector('[data-testid="load-more-sentinel"]')).not.toBeInTheDocument()
   })
 })
