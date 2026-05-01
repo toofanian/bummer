@@ -1,5 +1,14 @@
 @import "tailwindcss";
 
+/* Hide all scrollbars app-wide */
+* {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+*::-webkit-scrollbar {
+  display: none;
+}
+
 /* === Theme: design tokens === */
 @theme {
   /* Colors — dark mode defaults */
