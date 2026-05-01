@@ -578,9 +578,14 @@ def test_sync_complete_records_library_changes():
     )
     cache_mock.upsert.return_value.execute.return_value = MagicMock(data=[])
 
+    deduped_mock = MagicMock()
+    deduped_mock.select.return_value.eq.return_value.execute.return_value = MagicMock(data=[])
+
     def table_router(table_name):
         if table_name == "library_changes":
             return changes_mock
+        if table_name == "deduped_albums":
+            return deduped_mock
         return cache_mock
 
     db.table.side_effect = table_router
@@ -609,26 +614,38 @@ def test_sync_complete_skips_changes_when_no_diff():
     cache_albums = [
         {"service_id": "a1", "name": "Album 1", "artists": [], "image_url": None},
     ]
-    db.table.return_value.select.return_value.eq.return_value.execute.return_value = (
-        MagicMock(
-            data=[
-                {
-                    "id": FAKE_USER_ID,
-                    "albums": cache_albums,
-                    "total": 1,
-                    "synced_at": "2026-01-01T00:00:00Z",
-                }
-            ]
-        )
+    cache_mock = MagicMock()
+    cache_mock.select.return_value.eq.return_value.execute.return_value = MagicMock(
+        data=[
+            {
+                "id": FAKE_USER_ID,
+                "albums": cache_albums,
+                "total": 1,
+                "synced_at": "2026-01-01T00:00:00Z",
+            }
+        ]
     )
-    db.table.return_value.upsert.return_value.execute.return_value = MagicMock(data=[])
+    cache_mock.upsert.return_value.execute.return_value = MagicMock(data=[])
+
+    deduped_mock = MagicMock()
+    deduped_mock.select.return_value.eq.return_value.execute.return_value = MagicMock(data=[])
+
+    changes_mock = MagicMock()
+
+    def table_router(table_name):
+        if table_name == "deduped_albums":
+            return deduped_mock
+        if table_name == "library_changes":
+            return changes_mock
+        return cache_mock
+
+    db.table.side_effect = table_router
     override_db(db)
 
     response = client.post("/library/sync-complete", json={"albums": cache_albums})
     assert response.status_code == 200
 
-    table_calls = [c[0][0] for c in db.table.call_args_list]
-    assert "library_changes" not in table_calls
+    changes_mock.insert.assert_not_called()
 
     clear_overrides()
 
@@ -647,6 +664,49 @@ def test_sync_complete_skips_changes_on_first_sync():
 
     table_calls = [c[0][0] for c in db.table.call_args_list]
     assert "library_changes" not in table_calls
+
+    clear_overrides()
+
+
+def test_sync_complete_filters_suppressed_albums():
+    """Albums in deduped_albums table are filtered out before cache upsert."""
+    db = MagicMock()
+    cache_mock = MagicMock()
+    deduped_mock = MagicMock()
+    changes_mock = MagicMock()
+
+    # No existing cache (first sync)
+    cache_mock.select.return_value.eq.return_value.execute.return_value = MagicMock(data=[])
+    cache_mock.upsert.return_value.execute.return_value = MagicMock(data=[])
+
+    # Suppression list: "old1" is a known deduped album
+    deduped_mock.select.return_value.eq.return_value.execute.return_value = MagicMock(
+        data=[{"old_service_id": "old1"}]
+    )
+
+    def table_router(name):
+        if name == "deduped_albums":
+            return deduped_mock
+        if name == "library_changes":
+            return changes_mock
+        return cache_mock
+
+    db.table.side_effect = table_router
+    override_db(db)
+
+    albums = [
+        {"service_id": "old1", "name": "Blonde", "artists": [], "total_tracks": 17, "release_date": "2016", "added_at": "2017-01-01T00:00:00Z", "image_url": None},
+        {"service_id": "new1", "name": "Blonde", "artists": [], "total_tracks": 17, "release_date": "2016", "added_at": "2023-01-01T00:00:00Z", "image_url": None},
+    ]
+
+    response = client.post("/library/sync-complete", json={"albums": albums})
+    assert response.status_code == 200
+
+    # The first upsert (before dedup) should only contain non-suppressed album
+    first_upsert = cache_mock.upsert.call_args_list[0][0][0]
+    cached_ids = [a["service_id"] for a in first_upsert["albums"]]
+    assert "old1" not in cached_ids
+    assert "new1" in cached_ids
 
     clear_overrides()
 
