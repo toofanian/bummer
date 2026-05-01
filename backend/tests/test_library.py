@@ -610,7 +610,16 @@ def test_sync_complete_skips_changes_when_no_diff():
         {"service_id": "a1", "name": "Album 1", "artists": [], "image_url": None},
     ]
     db.table.return_value.select.return_value.eq.return_value.execute.return_value = (
-        MagicMock(data=[{"id": FAKE_USER_ID, "albums": cache_albums, "total": 1, "synced_at": "2026-01-01T00:00:00Z"}])
+        MagicMock(
+            data=[
+                {
+                    "id": FAKE_USER_ID,
+                    "albums": cache_albums,
+                    "total": 1,
+                    "synced_at": "2026-01-01T00:00:00Z",
+                }
+            ]
+        )
     )
     db.table.return_value.upsert.return_value.execute.return_value = MagicMock(data=[])
     override_db(db)

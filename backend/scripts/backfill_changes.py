@@ -17,9 +17,7 @@ db = create_client(url, key)
 
 
 def backfill():
-    users = (
-        db.table("library_snapshots").select("user_id").execute()
-    ).data
+    users = (db.table("library_snapshots").select("user_id").execute()).data
     unique_users = list({r["user_id"] for r in users})
     print(f"Found {len(unique_users)} users with snapshots")
 

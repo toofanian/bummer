@@ -341,5 +341,3 @@ def get_changelog(
         days.append({"date": day_date, "events": grouped[day_date]})
 
     return {"days": days}
-
-
