@@ -146,11 +146,21 @@ def sync_complete(
 ):
     user_id = user["user_id"]
 
+    # Filter out previously deduped albums
+    suppressed = (
+        db.table("deduped_albums")
+        .select("old_service_id")
+        .eq("user_id", user_id)
+        .execute()
+    )
+    suppressed_ids = {r["old_service_id"] for r in suppressed.data}
+    albums = [a for a in body.albums if a["service_id"] not in suppressed_ids]
+
     # Read current cache to compute diff
     existing = _get_supabase_cache(db, user_id=user_id)
     if existing and existing.get("albums"):
         old_ids = {a["service_id"] for a in existing["albums"]}
-        new_ids = {a["service_id"] for a in body.albums}
+        new_ids = {a["service_id"] for a in albums}
         added = list(new_ids - old_ids)
         removed = list(old_ids - new_ids)
         if added or removed:
@@ -162,8 +172,17 @@ def sync_complete(
                 }
             ).execute()
 
-    _save_supabase_cache(db, body.albums, len(body.albums), user_id)
-    return {"total": len(body.albums)}
+    _save_supabase_cache(db, albums, len(albums), user_id)
+
+    # Run cross-ID dedup on the cached albums
+    from dedup import apply_dedup
+
+    deduped_albums = apply_dedup(db, user_id, albums)
+    if len(deduped_albums) < len(albums):
+        # Re-save cache with losers removed
+        _save_supabase_cache(db, deduped_albums, len(deduped_albums), user_id)
+
+    return {"total": len(deduped_albums)}
 
 
 def _format_duration(ms: int) -> str:

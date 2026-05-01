@@ -1028,9 +1028,10 @@ describe('App — library sync loop', () => {
         })
       }
       if (url.includes('/library/albums') && !url.includes('/tracks')) {
+        // Post-sync re-fetch returns the deduped authoritative list
         return Promise.resolve({
           ok: true,
-          json: () => Promise.resolve({ albums: [], total: 0, last_synced: null }),
+          json: () => Promise.resolve({ albums: [SYNCED_ALBUM], total: 1, last_synced: new Date().toISOString() }),
         })
       }
       if (url.includes('/collections')) {
