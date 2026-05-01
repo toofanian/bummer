@@ -295,9 +295,6 @@ export default function AlbumTable({
     useSensor(KeyboardSensor),
   )
 
-  if (loading) return <p>Loading...</p>
-  if (!albums.length) return <p>No albums found.</p>
-
   function handleHeaderClick(key) {
     if (reorderable) return // no sorting in reorderable mode
     if (key === sortKey) {
@@ -337,6 +334,9 @@ export default function AlbumTable({
     if (nextIdx < 0 || nextIdx >= navList.length) return
     document.getElementById(navList[nextIdx].id)?.focus()
   }, [sorted])
+
+  if (loading) return <p>Loading...</p>
+  if (!albums.length) return <p>No albums found.</p>
 
   function handleDragEnd(event) {
     const { active, over } = event

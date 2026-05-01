@@ -3,8 +3,23 @@ import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 import { resolve } from 'path'
 
+function rewriteRootToApp() {
+  return {
+    name: 'rewrite-root-to-app',
+    configureServer(server) {
+      server.middlewares.use((req, _res, next) => {
+        const [path, qs] = (req.url || '').split('?')
+        if (path === '/' || path.startsWith('/#') || path.startsWith('/auth/')) {
+          req.url = '/app.html' + (qs ? '?' + qs : '')
+        }
+        next()
+      })
+    },
+  }
+}
+
 export default defineConfig({
-  plugins: [react(), tailwindcss()],
+  plugins: [react(), tailwindcss(), rewriteRootToApp()],
   define: {
     __APP_VERSION__: JSON.stringify(
       process.env.VERCEL_GIT_COMMIT_SHA?.slice(0, 7) ?? 'dev'
