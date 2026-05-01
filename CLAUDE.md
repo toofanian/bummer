@@ -86,7 +86,8 @@ Avoid patterns that trigger sandbox approval prompts:
 - **Never commit directly to `main`** — `main` is branch-protected. All changes go through a PR, no matter how small.
 - Commit message format: concise imperative summary + bullet points for details + `Co-Authored-By: Claude Opus 4.6 (1M context) <noreply@anthropic.com>`
 - **Local preview before PR**: after tests pass, run `make dev-bg` (pass `MAIN_REPO=<path-to-main-repo>` if in a worktree) to start dev servers in the background, then tell the user to open `http://localhost:5173` and review. Do not push or open a PR until the user confirms the local preview looks good. Run `make stop` to clean up after. If ports 5173/8000 are already in use (another agent's preview is running), do NOT kill them — just tell the user another preview is active and wait for them to finish that review first.
-- Mark PR ready for review when work is complete; main thread merges to `main`
+- **Never auto-merge** — auto-merge is disabled on this repo. After CI passes, the user merges manually. Never use `--auto` or `--admin` flags with `gh pr merge`.
+- Mark PR ready for review when work is complete; user merges to `main`
 - Compatible with worktrees — agents can work in isolated worktrees on their branch
 - Never commit `.env` files or secrets
 
