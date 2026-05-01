@@ -237,14 +237,15 @@ export default function App() {
           body: JSON.stringify({ albums: accumulated }),
         }, sessionRef.current)
 
-        // Now update display — only replace if sync returned data
-        const flatAccumulated = flattenArtists(accumulated)
-        if (flatAccumulated.length > 0) {
-          setAlbums(flatAccumulated)
+        // Re-fetch authoritative album list (server may have deduped)
+        const freshResp = await apiFetch('/library/albums', {}, sessionRef.current).then(r => r.json())
+        const freshAlbums = flattenArtists(freshResp.albums || accumulated)
+        if (freshAlbums.length > 0) {
+          setAlbums(freshAlbums)
           try {
             localStorage.setItem(CACHE_KEY, JSON.stringify({
-              albums: accumulated,
-              total: accumulated.length,
+              albums: freshAlbums,
+              total: freshAlbums.length,
               cachedAt: new Date().toISOString(),
             }))
           } catch { /* storage full or unavailable */ }

@@ -37,6 +37,7 @@ bummer/
 - Backend tests: `backend/.venv/bin/python -m pytest` from `backend/` (use `-C` flag or absolute path, never `cd`)
 - Frontend tests: `npx vitest --run` from `frontend/` (use `--prefix` or absolute path, never `cd`)
 - Never write implementation code without a failing test first
+- **Linting (CI-enforced)**: before every commit that touches backend Python files, run both `backend/.venv/bin/ruff check backend/` and `backend/.venv/bin/ruff format --check backend/`. Fix any issues with `ruff check --fix` and `ruff format`. CI runs both checks and will fail the PR if either reports errors.
 
 ## Database migrations
 
@@ -120,8 +121,7 @@ In a worktree, complete ALL of these steps before running `make dev-bg`:
 - **`vite: command not found`** in frontend log → `npm --prefix frontend install` was skipped
 - **Backend 8000 up but frontend 5173 missing** → check `/tmp/bsi-frontend.log` for errors
 
-- **Never auto-merge** — auto-merge is disabled on this repo. After CI passes, the user merges manually. Never use `--auto` or `--admin` flags with `gh pr merge`.
-- Mark PR ready for review when work is complete; user merges to `main`
+- **Merging PRs** — never use `--auto` or `--admin` flags. When the user approves a merge, poll CI checks (`gh pr checks`) until they pass, then run `gh pr merge --squash --repo toofanian/bummer`. Do not ask the user to merge manually.
 - Compatible with worktrees — agents can work in isolated worktrees on their branch
 - Never commit `.env` files or secrets
 

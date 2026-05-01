@@ -33,7 +33,7 @@
   --breakpoint-lg: 1024px;
 
   /* Typography */
-  --font-mono: 'Space Mono', ui-monospace, monospace;
+  --font-mono: 'IBM Plex Mono', ui-monospace, monospace;
 }
 
 /* === Light mode overrides ===
