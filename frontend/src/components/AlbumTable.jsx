@@ -3,6 +3,7 @@ import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, us
 import { SortableContext, verticalListSortingStrategy, useSortable, arrayMove } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import { useIsMobile } from '../hooks/useIsMobile'
+import { useLazyRender } from '../hooks/useLazyRender'
 import MobileAlbumCard, { ArtistLinks } from './MobileAlbumCard'
 
 const EMPTY_ARRAY = []
@@ -329,6 +330,9 @@ export default function AlbumTable({
 
   const sortableIds = useMemo(() => sorted.map(a => a.service_id), [sorted])
 
+  const { visible: lazyVisible, hasMore: lazyHasMore, sentinelRef: lazySentinelRef } = useLazyRender(sorted)
+  const displayItems = reorderable ? sorted : lazyVisible
+
   const navigateRow = useCallback((currentId, direction) => {
     const navList = buildNavList(sorted, expandedRef.current)
     const idx = navList.findIndex(entry => entry.id === currentId)
@@ -402,7 +406,8 @@ export default function AlbumTable({
   if (isMobile) {
     const cardList = (
       <div className="album-card-list flex flex-col flex-1 overflow-y-auto">
-        {sorted.map(album => renderMobileCard(album))}
+        {displayItems.map(album => renderMobileCard(album))}
+        {!reorderable && lazyHasMore && <div ref={lazySentinelRef} data-testid="load-more-sentinel" className="h-1" />}
       </div>
     )
 
@@ -442,7 +447,10 @@ export default function AlbumTable({
         </tr>
       </thead>
       <tbody>
-        {sorted.map(album => renderDesktopRow(album))}
+        {displayItems.map(album => renderDesktopRow(album))}
+        {!reorderable && lazyHasMore && (
+          <tr><td ref={lazySentinelRef} data-testid="load-more-sentinel" colSpan={reorderable ? 9 : 8} className="h-1" /></tr>
+        )}
       </tbody>
     </table>
   )

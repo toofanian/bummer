@@ -7,6 +7,13 @@ globalThis.ResizeObserver = class ResizeObserver {
   disconnect() {}
 }
 
+// jsdom does not implement IntersectionObserver — stub it.
+globalThis.IntersectionObserver = class IntersectionObserver {
+  observe() {}
+  unobserve() {}
+  disconnect() {}
+}
+
 // jsdom does not implement matchMedia — stub it so useIsMobile doesn't crash.
 // Returns matches: false (desktop) by default; individual tests can override.
 Object.defineProperty(window, 'matchMedia', {
