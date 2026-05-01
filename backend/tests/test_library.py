@@ -688,3 +688,30 @@ def test_artist_images_returns_image_map():
         assert data["artist_images"]["Artist One"] == "https://img/art1.jpg"
     finally:
         clear_overrides()
+
+
+def test_artist_images_returns_cached_without_spotify_call():
+    """When artist_images is already cached, return it without calling Spotify."""
+    sp = MagicMock()
+    cached_images = {"Artist One": "https://img/cached.jpg"}
+    db = MagicMock()
+    db.table.return_value.select.return_value.eq.return_value.execute.return_value = (
+        MagicMock(
+            data=[
+                {
+                    "albums": [],
+                    "artist_images": cached_images,
+                }
+            ]
+        )
+    )
+    override_db(db)
+    override_spotify(sp)
+    try:
+        res = client.get("/library/artist-images")
+        assert res.status_code == 200
+        data = res.json()
+        assert data["artist_images"]["Artist One"] == "https://img/cached.jpg"
+        sp.artists.assert_not_called()
+    finally:
+        clear_overrides()
