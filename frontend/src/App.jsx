@@ -1,4 +1,15 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+
+// Normalize artist entries to plain strings. Backend may send either
+// "Artist Name" or {"name": "Artist Name", "id": "..."} depending on
+// cache state. This ensures the frontend always sees strings.
+function flattenArtists(albums) {
+  return albums.map(a => ({
+    ...a,
+    artists: (a.artists || []).map(art => typeof art === 'string' ? art : art.name),
+  }))
+}
+
 import AlbumTable from './components/AlbumTable'
 import CollectionsPane from './components/CollectionsPane'
 import CollectionDetailHeader from './components/CollectionDetailHeader'
@@ -138,7 +149,7 @@ export default function App() {
 
     if (!isColdStart) {
       // Warm start: render cached albums immediately, show subtle syncing pulse
-      setAlbums(cached.albums)
+      setAlbums(flattenArtists(cached.albums))
       setAlbumsLoading(false)
       setSyncing(true)
     } else {
@@ -192,7 +203,7 @@ export default function App() {
         .catch(() => {})
 
       if (serverAlbums.length > 0) {
-        setAlbums(serverAlbums)
+        setAlbums(flattenArtists(serverAlbums))
         setAlbumsLoading(false)
         try {
           localStorage.setItem(CACHE_KEY, JSON.stringify({
@@ -227,8 +238,9 @@ export default function App() {
         }, sessionRef.current)
 
         // Now update display — only replace if sync returned data
-        if (accumulated.length > 0) {
-          setAlbums(accumulated)
+        const flatAccumulated = flattenArtists(accumulated)
+        if (flatAccumulated.length > 0) {
+          setAlbums(flatAccumulated)
           try {
             localStorage.setItem(CACHE_KEY, JSON.stringify({
               albums: accumulated,

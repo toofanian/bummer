@@ -110,7 +110,7 @@ def get_albums(
         return {"albums": [], "total": 0, "last_synced": None}
     albums = row.get("albums") or []
     return {
-        "albums": _flatten_artists_for_response(albums),
+        "albums": albums,
         "total": len(albums),
         "last_synced": row.get("synced_at"),
     }
@@ -135,7 +135,7 @@ def sync_one_page(
     done = result["next"] is None
 
     return {
-        "albums": _flatten_artists_for_response(new_albums),
+        "albums": new_albums,
         "synced_this_page": len(new_albums),
         "spotify_total": spotify_total,
         "next_offset": body.offset + len(new_albums),
