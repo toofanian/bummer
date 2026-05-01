@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { renderHook, act } from '@testing-library/react'
 
 const mockDigest = vi.fn()
@@ -74,9 +74,27 @@ describe('useSpotifyAuth', () => {
     expect(localStorage.getItem('spotify_expires_in')).toBe('3600')
   })
 
+  // H2: refresh_token must NOT be stored in localStorage
+  it('handleCallback does not store refresh_token in localStorage', async () => {
+    localStorage.setItem('spotify_pkce_verifier', 'test-verifier')
+    localStorage.setItem('spotify_client_id', 'my-client-id')
+    fetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        access_token: 'new-tok',
+        refresh_token: 'ref-tok',
+        expires_in: 3600,
+      }),
+    })
+
+    const { result } = renderHook(() => useSpotifyAuth())
+    await act(async () => { await result.current.handleCallback('auth-code') })
+
+    expect(localStorage.getItem('spotify_refresh_token')).toBeNull()
+  })
+
   it('logout clears all spotify keys from localStorage', () => {
     localStorage.setItem('spotify_access_token', 'tok')
-    localStorage.setItem('spotify_refresh_token', 'ref')
     localStorage.setItem('spotify_expires_at', '123')
     localStorage.setItem('spotify_expires_in', '3600')
     localStorage.setItem('spotify_client_id', 'cid')
@@ -85,8 +103,72 @@ describe('useSpotifyAuth', () => {
     act(() => result.current.logout())
 
     expect(localStorage.getItem('spotify_access_token')).toBeNull()
-    expect(localStorage.getItem('spotify_refresh_token')).toBeNull()
     expect(localStorage.getItem('spotify_expires_in')).toBeNull()
+  })
+
+  // H2: logout should not reference spotify_refresh_token (it's not stored)
+  it('logout does not attempt to clear spotify_refresh_token', () => {
+    // Set it manually to verify logout doesn't touch it
+    localStorage.setItem('spotify_refresh_token', 'should-not-be-touched')
+    const { result } = renderHook(() => useSpotifyAuth())
+    act(() => result.current.logout())
+    // logout only clears keys it knows about; refresh_token is not among them
+    expect(localStorage.getItem('spotify_refresh_token')).toBe('should-not-be-touched')
+  })
+
+  // M2: getAccessToken refreshes via backend, not Spotify directly
+  it('getAccessToken calls backend refresh endpoint when token expired', async () => {
+    localStorage.setItem('spotify_access_token', 'old-tok')
+    localStorage.setItem('spotify_expires_at', String(Date.now() - 120000)) // expired
+
+    fetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        access_token: 'refreshed-tok',
+        expires_at: '2026-05-01T13:00:00+00:00',
+      }),
+    })
+
+    const session = { access_token: 'supabase-jwt' }
+    const { result } = renderHook(() => useSpotifyAuth())
+    let token
+    await act(async () => { token = await result.current.getAccessToken(session) })
+
+    expect(token).toBe('refreshed-tok')
+    expect(fetch).toHaveBeenCalledWith(
+      expect.stringContaining('/auth/refresh-spotify-token'),
+      expect.objectContaining({
+        method: 'POST',
+        headers: expect.objectContaining({
+          Authorization: 'Bearer supabase-jwt',
+        }),
+      }),
+    )
+    expect(localStorage.getItem('spotify_access_token')).toBe('refreshed-tok')
+  })
+
+  it('getAccessToken returns null when no session provided and token expired', async () => {
+    localStorage.setItem('spotify_access_token', 'old-tok')
+    localStorage.setItem('spotify_expires_at', String(Date.now() - 120000))
+
+    const { result } = renderHook(() => useSpotifyAuth())
+    let token
+    await act(async () => { token = await result.current.getAccessToken() })
+
+    expect(token).toBeNull()
+    expect(fetch).not.toHaveBeenCalled()
+  })
+
+  it('getAccessToken returns stored token when not expired', async () => {
+    localStorage.setItem('spotify_access_token', 'valid-tok')
+    localStorage.setItem('spotify_expires_at', String(Date.now() + 3600000))
+
+    const { result } = renderHook(() => useSpotifyAuth())
+    let token
+    await act(async () => { token = await result.current.getAccessToken() })
+
+    expect(token).toBe('valid-tok')
+    expect(fetch).not.toHaveBeenCalled()
   })
 
   describe('preview proxy login', () => {
@@ -100,7 +182,8 @@ describe('useSpotifyAuth', () => {
       vi.resetModules()
     })
 
-    it('redirects to prod proxy URL when VITE_VERCEL_ENV is preview', async () => {
+    // M1: Preview login now uses POST with token in body, not URL query params
+    it('posts to prod proxy URL and redirects to returned URL', async () => {
       const assignMock = vi.fn()
       Object.defineProperty(window, 'location', {
         value: { assign: assignMock, origin: 'https://preview-123.vercel.app' },
@@ -108,18 +191,29 @@ describe('useSpotifyAuth', () => {
       })
       localStorage.setItem('spotify_client_id', 'my-client-id')
 
+      // Mock the POST response
+      fetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ redirect_url: 'https://accounts.spotify.com/authorize?state=abc' }),
+      })
+
       const { useSpotifyAuth: useSpotifyAuthPreview } = await import('./useSpotifyAuth')
       const { result } = renderHook(() => useSpotifyAuthPreview())
       await act(async () => {
         await result.current.initiateLogin('supabase-jwt-token')
       })
 
-      expect(assignMock).toHaveBeenCalledTimes(1)
-      const url = assignMock.mock.calls[0][0]
-      expect(url).toContain('/api/auth/preview-login')
-      expect(url).toContain('origin=')
-      expect(url).toContain('client_id=my-client-id')
-      expect(url).toContain('supabase_token=supabase-jwt-token')
+      // Should have called fetch with POST, not window.location.assign with query params
+      expect(fetch).toHaveBeenCalledWith(
+        expect.stringContaining('/api/auth/preview-login'),
+        expect.objectContaining({
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: expect.stringContaining('"supabase_token":"supabase-jwt-token"'),
+        }),
+      )
+      // Should redirect to the URL returned by the backend
+      expect(assignMock).toHaveBeenCalledWith('https://accounts.spotify.com/authorize?state=abc')
       // Should NOT set a PKCE verifier (prod proxy handles it)
       expect(localStorage.getItem('spotify_pkce_verifier')).toBeNull()
     })
@@ -132,16 +226,21 @@ describe('useSpotifyAuth', () => {
       })
       localStorage.setItem('spotify_client_id', 'cid')
 
+      fetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ redirect_url: 'https://accounts.spotify.com/authorize?state=xyz' }),
+      })
+
       const { useSpotifyAuth: useSpotifyAuthPreview } = await import('./useSpotifyAuth')
       const { result } = renderHook(() => useSpotifyAuthPreview())
       await act(async () => {
         await result.current.initiateLogin('tok')
       })
 
-      const url = assignMock.mock.calls[0][0]
+      const fetchUrl = fetch.mock.calls[0][0]
       // Should use the VITE_PROD_ORIGIN env var (or fallback)
-      expect(url).toMatch(/^https?:\/\//)
-      expect(url).toContain('/api/auth/preview-login')
+      expect(fetchUrl).toMatch(/^https?:\/\//)
+      expect(fetchUrl).toContain('/api/auth/preview-login')
     })
   })
 

@@ -136,7 +136,7 @@ function SpotifySetup({ session, onComplete }) {
           body: JSON.stringify({
             client_id: storedClientId,
             access_token: tokens.access_token ?? accessToken ?? localStorage.getItem('spotify_access_token'),
-            refresh_token: tokens.refresh_token ?? localStorage.getItem('spotify_refresh_token'),
+            refresh_token: tokens.refresh_token,
             expires_in: tokens.expires_in ?? Number(localStorage.getItem('spotify_expires_in') ?? 3600),
           }),
         })
