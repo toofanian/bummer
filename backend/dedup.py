@@ -76,9 +76,15 @@ def _migrate_metadata(db: Client, user_id: str, old_id: str, new_id: str) -> Non
     if old_tier.data and old_tier.data[0].get("tier"):
         if not new_tier.data or not new_tier.data[0].get("tier"):
             db.table("album_metadata").upsert(
-                {"service_id": new_id, "tier": old_tier.data[0]["tier"], "user_id": user_id}
+                {
+                    "service_id": new_id,
+                    "tier": old_tier.data[0]["tier"],
+                    "user_id": user_id,
+                }
             ).execute()
-        db.table("album_metadata").delete().eq("service_id", old_id).eq("user_id", user_id).execute()
+        db.table("album_metadata").delete().eq("service_id", old_id).eq(
+            "user_id", user_id
+        ).execute()
 
     # Migrate collection memberships
     old_memberships = (
@@ -105,7 +111,9 @@ def _migrate_metadata(db: Client, user_id: str, old_id: str, new_id: str) -> Non
                     "user_id": user_id,
                 }
             ).execute()
-    db.table("collection_albums").delete().eq("service_id", old_id).eq("user_id", user_id).execute()
+    db.table("collection_albums").delete().eq("service_id", old_id).eq(
+        "user_id", user_id
+    ).execute()
 
 
 def apply_dedup(db: Client, user_id: str, albums: list[dict]) -> list[dict]:

@@ -37,6 +37,7 @@ bummer/
 - Backend tests: `backend/.venv/bin/python -m pytest` from `backend/` (use `-C` flag or absolute path, never `cd`)
 - Frontend tests: `npx vitest --run` from `frontend/` (use `--prefix` or absolute path, never `cd`)
 - Never write implementation code without a failing test first
+- **Linting (CI-enforced)**: before every commit that touches backend Python files, run both `backend/.venv/bin/ruff check backend/` and `backend/.venv/bin/ruff format --check backend/`. Fix any issues with `ruff check --fix` and `ruff format`. CI runs both checks and will fail the PR if either reports errors.
 
 ## Database migrations
 

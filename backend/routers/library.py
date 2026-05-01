@@ -147,7 +147,12 @@ def sync_complete(
     user_id = user["user_id"]
 
     # Filter out previously deduped albums
-    suppressed = db.table("deduped_albums").select("old_service_id").eq("user_id", user_id).execute()
+    suppressed = (
+        db.table("deduped_albums")
+        .select("old_service_id")
+        .eq("user_id", user_id)
+        .execute()
+    )
     suppressed_ids = {r["old_service_id"] for r in suppressed.data}
     albums = [a for a in body.albums if a["service_id"] not in suppressed_ids]
 

@@ -579,7 +579,9 @@ def test_sync_complete_records_library_changes():
     cache_mock.upsert.return_value.execute.return_value = MagicMock(data=[])
 
     deduped_mock = MagicMock()
-    deduped_mock.select.return_value.eq.return_value.execute.return_value = MagicMock(data=[])
+    deduped_mock.select.return_value.eq.return_value.execute.return_value = MagicMock(
+        data=[]
+    )
 
     def table_router(table_name):
         if table_name == "library_changes":
@@ -628,7 +630,9 @@ def test_sync_complete_skips_changes_when_no_diff():
     cache_mock.upsert.return_value.execute.return_value = MagicMock(data=[])
 
     deduped_mock = MagicMock()
-    deduped_mock.select.return_value.eq.return_value.execute.return_value = MagicMock(data=[])
+    deduped_mock.select.return_value.eq.return_value.execute.return_value = MagicMock(
+        data=[]
+    )
 
     changes_mock = MagicMock()
 
@@ -676,7 +680,9 @@ def test_sync_complete_filters_suppressed_albums():
     changes_mock = MagicMock()
 
     # No existing cache (first sync)
-    cache_mock.select.return_value.eq.return_value.execute.return_value = MagicMock(data=[])
+    cache_mock.select.return_value.eq.return_value.execute.return_value = MagicMock(
+        data=[]
+    )
     cache_mock.upsert.return_value.execute.return_value = MagicMock(data=[])
 
     # Suppression list: "old1" is a known deduped album
@@ -695,8 +701,24 @@ def test_sync_complete_filters_suppressed_albums():
     override_db(db)
 
     albums = [
-        {"service_id": "old1", "name": "Blonde", "artists": [], "total_tracks": 17, "release_date": "2016", "added_at": "2017-01-01T00:00:00Z", "image_url": None},
-        {"service_id": "new1", "name": "Blonde", "artists": [], "total_tracks": 17, "release_date": "2016", "added_at": "2023-01-01T00:00:00Z", "image_url": None},
+        {
+            "service_id": "old1",
+            "name": "Blonde",
+            "artists": [],
+            "total_tracks": 17,
+            "release_date": "2016",
+            "added_at": "2017-01-01T00:00:00Z",
+            "image_url": None,
+        },
+        {
+            "service_id": "new1",
+            "name": "Blonde",
+            "artists": [],
+            "total_tracks": 17,
+            "release_date": "2016",
+            "added_at": "2023-01-01T00:00:00Z",
+            "image_url": None,
+        },
     ]
 
     response = client.post("/library/sync-complete", json={"albums": albums})
