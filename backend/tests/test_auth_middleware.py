@@ -82,6 +82,83 @@ def test_get_current_user_invalid_token():
     assert exc_info.value.status_code == 401
 
 
+def test_get_current_user_invalid_token_does_not_leak_exception_detail():
+    """M4: Invalid token response must not include exception message."""
+    import asyncio
+
+    from fastapi import HTTPException
+
+    mock_client = _mock_jwks_client()
+    mock_client.get_signing_key_from_jwt.side_effect = pyjwt.InvalidTokenError(
+        "secret internal detail"
+    )
+    with patch("auth_middleware._get_jwks_client", return_value=mock_client):
+        from auth_middleware import get_current_user
+
+        with pytest.raises(HTTPException) as exc_info:
+            asyncio.run(get_current_user(authorization="Bearer garbage"))
+    assert exc_info.value.status_code == 401
+    assert "secret internal detail" not in exc_info.value.detail
+    assert exc_info.value.detail == "Invalid token"
+
+
+def test_get_current_user_rejects_hs256_algorithm():
+    """M10: Only ES256 should be accepted, not HS256."""
+    import asyncio
+
+    from fastapi import HTTPException
+
+    # Create an HS256 token — should be rejected even if key matches
+    hs256_token = pyjwt.encode(
+        {"sub": "user-123", "exp": int(time.time()) + 3600, "aud": "authenticated"},
+        "some-secret",
+        algorithm="HS256",
+    )
+    mock_client = _mock_jwks_client()
+    # The JWKS client won't find a key for HS256 tokens, but let's
+    # make sure ES256 is the only accepted algorithm by checking that
+    # even if we somehow get past key lookup, HS256 is not in the list.
+    # We mock get_signing_key_from_jwt to return a key, then the decode
+    # should fail because HS256 is not in the algorithms list.
+    with patch("auth_middleware._get_jwks_client", return_value=mock_client):
+        from auth_middleware import get_current_user
+
+        with pytest.raises(HTTPException) as exc_info:
+            asyncio.run(get_current_user(authorization=f"Bearer {hs256_token}"))
+    assert exc_info.value.status_code == 401
+
+
+def test_preview_sign_in_failure_does_not_leak_exception_detail(monkeypatch):
+    """M5: GoTrue exception details must not appear in 500 response."""
+    import asyncio
+
+    import auth_middleware
+
+    monkeypatch.setenv("VERCEL_ENV", "preview")
+    monkeypatch.setenv("PREVIEW_USER_PASSWORD", "test-password")
+    monkeypatch.setenv("SUPABASE_URL", "https://preview-test.supabase.co")
+    monkeypatch.setenv("SUPABASE_ANON_KEY", "preview-anon-key")
+    monkeypatch.setattr(auth_middleware, "_preview_session", None)
+
+    class _FailClient:
+        class auth:
+            @staticmethod
+            def sign_in_with_password(credentials):
+                raise Exception("secret GoTrue error: connection refused to 10.0.0.1")
+
+    monkeypatch.setattr(
+        auth_middleware, "create_client", lambda *a, **kw: _FailClient()
+    )
+
+    from fastapi import HTTPException
+
+    with pytest.raises(HTTPException) as exc_info:
+        asyncio.run(auth_middleware.get_current_user(authorization="Bearer anything"))
+    assert exc_info.value.status_code == 500
+    assert "secret GoTrue error" not in exc_info.value.detail
+    assert exc_info.value.detail == "Preview mode authentication failed"
+
+
 def test_get_current_user_preview_mode_signs_in_as_preview_user(monkeypatch):
     """In VERCEL_ENV=preview, get_current_user signs in as the
     hardcoded preview user via Supabase's password grant and returns

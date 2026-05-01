@@ -123,6 +123,7 @@ function SpotifySetup({ session, onComplete }) {
     let cancelled = false
     async function finishCallback() {
       setLoading(true)
+      window.history.replaceState({}, '', '/')  // Strip auth code from URL immediately
       try {
         const tokens = await handleCallback(code)
         const storedClientId = localStorage.getItem('spotify_client_id')
@@ -144,7 +145,6 @@ function SpotifySetup({ session, onComplete }) {
           throw new Error(data.detail ?? 'Failed to store Spotify credentials')
         }
         if (cancelled) return
-        window.history.replaceState({}, '', '/')
         onComplete()
       } catch (err) {
         if (!cancelled) {

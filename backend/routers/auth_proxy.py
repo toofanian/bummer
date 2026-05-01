@@ -124,13 +124,13 @@ def verify_supabase_jwt(token: str) -> str:
         payload = pyjwt.decode(
             token,
             signing_key.key,
-            algorithms=["ES256", "HS256"],
+            algorithms=["ES256"],
             audience="authenticated",
         )
     except pyjwt.ExpiredSignatureError:
         raise HTTPException(status_code=401, detail="Token expired")
-    except Exception as e:
-        raise HTTPException(status_code=401, detail=f"Invalid token: {e}")
+    except Exception:
+        raise HTTPException(status_code=401, detail="Invalid token")
 
     user_id = payload.get("sub")
     if not user_id:
@@ -240,7 +240,10 @@ async def callback_proxy(
         headers={"Content-Type": "application/x-www-form-urlencoded"},
         timeout=10,
     )
-    token_response.raise_for_status()
+    try:
+        token_response.raise_for_status()
+    except requests.HTTPError:
+        raise HTTPException(status_code=502, detail="Spotify token exchange failed")
     tokens = token_response.json()
 
     # Store tokens in Supabase

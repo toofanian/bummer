@@ -168,8 +168,11 @@ def delete_collection(
     collection_id: str,
     db=Depends(get_authed_db),
     sp: spotipy.Spotify = Depends(get_user_spotify),
+    user: dict = Depends(get_current_user),
 ):
-    db.table("collections").delete().eq("id", collection_id).execute()
+    db.table("collections").delete().eq("id", collection_id).eq(
+        "user_id", user["user_id"]
+    ).execute()
     return {"deleted": True}
 
 
@@ -179,11 +182,13 @@ def rename_collection(
     body: CollectionBody,
     db=Depends(get_authed_db),
     sp: spotipy.Spotify = Depends(get_user_spotify),
+    user: dict = Depends(get_current_user),
 ):
     result = (
         db.table("collections")
         .update({"name": body.name})
         .eq("id", collection_id)
+        .eq("user_id", user["user_id"])
         .execute()
     )
     return result.data[0]
@@ -195,11 +200,13 @@ def update_collection_description(
     body: DescriptionBody,
     db=Depends(get_authed_db),
     sp: spotipy.Spotify = Depends(get_user_spotify),
+    user: dict = Depends(get_current_user),
 ):
     result = (
         db.table("collections")
         .update({"description": body.description})
         .eq("id", collection_id)
+        .eq("user_id", user["user_id"])
         .execute()
     )
     return result.data[0]
@@ -244,11 +251,13 @@ def set_collection_cover(
     body: CoverBody,
     db=Depends(get_authed_db),
     sp: spotipy.Spotify = Depends(get_user_spotify),
+    user: dict = Depends(get_current_user),
 ):
     result = (
         db.table("collections")
         .update({"cover_album_id": body.cover_album_id})
         .eq("id", collection_id)
+        .eq("user_id", user["user_id"])
         .execute()
     )
     return result.data[0]
@@ -260,11 +269,13 @@ def reorder_collection_albums(
     body: ReorderBody,
     db=Depends(get_authed_db),
     sp: spotipy.Spotify = Depends(get_user_spotify),
+    user: dict = Depends(get_current_user),
 ):
+    user_id = user["user_id"]
     for i, album_id in enumerate(body.album_ids):
         db.table("collection_albums").update({"position": i}).eq(
             "collection_id", collection_id
-        ).eq("service_id", album_id).execute()
+        ).eq("service_id", album_id).eq("user_id", user_id).execute()
     return {"reordered": True}
 
 
@@ -316,10 +327,11 @@ def remove_album_from_collection(
     album_id: str,
     db=Depends(get_authed_db),
     sp: spotipy.Spotify = Depends(get_user_spotify),
+    user: dict = Depends(get_current_user),
 ):
     db.table("collection_albums").delete().eq("collection_id", collection_id).eq(
         "service_id", album_id
-    ).execute()
+    ).eq("user_id", user["user_id"]).execute()
     return {"deleted": True}
 
 

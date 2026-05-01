@@ -30,6 +30,20 @@ def test_get_spotify_for_user_valid_token():
     assert result is not None
 
 
+def test_get_spotify_for_user_does_not_select_star():
+    """select('*') over-fetches; should only request needed columns."""
+    from spotify_client import get_spotify_for_user
+
+    db, _ = make_db_with_token()
+    get_spotify_for_user("user-123", db)
+    select_call = db.table.return_value.select
+    select_call.assert_called_once()
+    selected_cols = select_call.call_args[0][0]
+    assert selected_cols != "*", (
+        "Should not use select('*') — fetch only needed columns"
+    )
+
+
 def test_get_spotify_for_user_no_tokens_raises():
     from fastapi import HTTPException
 

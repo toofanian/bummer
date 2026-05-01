@@ -1,5 +1,6 @@
 from unittest.mock import MagicMock
 
+import spotipy.exceptions
 from fastapi.testclient import TestClient
 
 from main import app
@@ -669,5 +670,94 @@ def test_get_queue_returns_empty_on_no_active_device():
     data = response.json()
     assert data["currently_playing"] is None
     assert data["queue"] == []
+
+    clear_overrides()
+
+
+# --- Global SpotifyException handler (M7) ---
+
+
+def _make_generic_spotify_error():
+    """A SpotifyException that is NOT no_device or restricted — should hit the global handler."""
+    return spotipy.exceptions.SpotifyException(
+        http_status=500,
+        code=-1,
+        msg="Some internal Spotify error with sensitive details",
+    )
+
+
+def test_unhandled_spotify_exception_returns_502_generic_message():
+    """Unhandled SpotifyException should return 502 with a generic message,
+    not leak raw Spotify error details."""
+    sp = make_sp()
+    sp.pause_playback.side_effect = _make_generic_spotify_error()
+    override_spotify(sp)
+
+    response = client.put("/playback/pause")
+
+    assert response.status_code == 502
+    assert response.json()["detail"] == "Spotify API error"
+    # Must NOT contain the raw Spotify error message
+    assert "sensitive" not in response.text.lower()
+
+    clear_overrides()
+
+
+def test_unhandled_spotify_exception_on_play_returns_502():
+    """Play endpoint: unhandled SpotifyException returns 502, not 500."""
+    sp = make_sp()
+    sp.start_playback.side_effect = spotipy.exceptions.SpotifyException(
+        http_status=429,
+        code=-1,
+        msg="Rate limited with internal token info",
+    )
+    override_spotify(sp)
+
+    response = client.put("/playback/play", json={})
+
+    assert response.status_code == 502
+    assert response.json()["detail"] == "Spotify API error"
+
+    clear_overrides()
+
+
+def test_unhandled_spotify_exception_on_next_returns_502():
+    """Next endpoint: unhandled SpotifyException returns 502."""
+    sp = make_sp()
+    sp.next_track.side_effect = _make_generic_spotify_error()
+    override_spotify(sp)
+
+    response = client.post("/playback/next")
+
+    assert response.status_code == 502
+    assert response.json()["detail"] == "Spotify API error"
+
+    clear_overrides()
+
+
+def test_handled_no_device_still_returns_409():
+    """Specific no_device handling should still work (not be swallowed by global handler)."""
+    sp = make_sp()
+    sp.pause_playback.side_effect = make_no_device_error()
+    override_spotify(sp)
+
+    response = client.put("/playback/pause")
+
+    assert response.status_code == 409
+    assert response.json()["detail"] == "no_device"
+
+    clear_overrides()
+
+
+def test_handled_restricted_device_still_returns_409():
+    """Specific restricted_device handling should still work."""
+    sp = make_sp()
+    sp.start_playback.side_effect = make_restricted_device_error()
+    override_spotify(sp)
+
+    response = client.put("/playback/play", json={})
+
+    assert response.status_code == 409
+    assert response.json()["detail"] == "restricted_device"
 
     clear_overrides()

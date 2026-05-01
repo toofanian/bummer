@@ -7,6 +7,7 @@ import json
 import time
 from unittest.mock import MagicMock, patch
 
+import pytest
 from fastapi.testclient import TestClient
 
 from main import app
@@ -162,6 +163,57 @@ class TestPreviewLogin:
 # ---------------------------------------------------------------------------
 
 
+class TestVerifySupabaseJwt:
+    """Tests for verify_supabase_jwt security hardening."""
+
+    def test_invalid_token_does_not_leak_exception_detail(self):
+        """M4: verify_supabase_jwt must not leak exception details."""
+        from unittest.mock import MagicMock
+
+        import jwt as pyjwt
+
+        mock_client = MagicMock()
+        mock_client.get_signing_key_from_jwt.side_effect = pyjwt.InvalidTokenError(
+            "secret internal detail"
+        )
+        with patch("auth_middleware._get_jwks_client", return_value=mock_client):
+            from routers.auth_proxy import verify_supabase_jwt
+
+            with pytest.raises(Exception) as exc_info:
+                verify_supabase_jwt("bad-token")
+        assert exc_info.value.status_code == 401
+        assert "secret internal detail" not in exc_info.value.detail
+        assert exc_info.value.detail == "Invalid token"
+
+    def test_rejects_hs256_algorithm(self):
+        """M10: verify_supabase_jwt should only accept ES256."""
+        import time as time_mod
+
+        import jwt as pyjwt
+
+        mock_client = MagicMock()
+        mock_signing_key = MagicMock()
+        mock_signing_key.key = "some-secret"
+        mock_client.get_signing_key_from_jwt.return_value = mock_signing_key
+
+        hs256_token = pyjwt.encode(
+            {
+                "sub": "user-123",
+                "exp": int(time_mod.time()) + 3600,
+                "aud": "authenticated",
+            },
+            "some-secret",
+            algorithm="HS256",
+        )
+
+        with patch("auth_middleware._get_jwks_client", return_value=mock_client):
+            from routers.auth_proxy import verify_supabase_jwt
+
+            with pytest.raises(Exception) as exc_info:
+                verify_supabase_jwt(hs256_token)
+        assert exc_info.value.status_code == 401
+
+
 class TestCallbackProxy:
     """Tests for GET /auth/callback-proxy."""
 
@@ -245,6 +297,29 @@ class TestCallbackProxy:
             params={"code": "auth-code-123", "state": state},
         )
         assert response.status_code == 400
+
+    @patch.dict("os.environ", _env_vars(), clear=False)
+    def test_callback_proxy_returns_502_on_spotify_token_exchange_failure(self):
+        """M6: Spotify token exchange HTTP error should return 502, not crash."""
+        state_payload = _valid_state_payload()
+        state = _build_signed_state(state_payload)
+
+        mock_token_response = MagicMock()
+        mock_token_response.status_code = 400
+        mock_token_response.raise_for_status.side_effect = __import__(
+            "requests"
+        ).HTTPError("400 Client Error")
+
+        with patch(
+            "routers.auth_proxy.requests.post", return_value=mock_token_response
+        ):
+            response = client.get(
+                "/auth/callback-proxy",
+                params={"code": "auth-code-123", "state": state},
+            )
+
+        assert response.status_code == 502
+        assert response.json()["detail"] == "Spotify token exchange failed"
 
     @patch.dict("os.environ", _env_vars(), clear=False)
     def test_callback_proxy_handles_spotify_error(self):

@@ -196,6 +196,92 @@ def test_delete_account_requires_auth():
     assert response.status_code in (401, 403, 422)
 
 
+# --- expires_in validation (M9) ---
+
+
+def test_store_spotify_token_rejects_zero_expires_in():
+    _override_current_user()
+    response = client.post(
+        "/auth/spotify-token",
+        json={
+            "access_token": "sp-access",
+            "refresh_token": "sp-refresh",
+            "expires_in": 0,
+            "client_id": "my-client-id",
+        },
+    )
+    assert response.status_code == 422
+    _clear_overrides()
+
+
+def test_store_spotify_token_rejects_negative_expires_in():
+    _override_current_user()
+    response = client.post(
+        "/auth/spotify-token",
+        json={
+            "access_token": "sp-access",
+            "refresh_token": "sp-refresh",
+            "expires_in": -100,
+            "client_id": "my-client-id",
+        },
+    )
+    assert response.status_code == 422
+    _clear_overrides()
+
+
+def test_store_spotify_token_rejects_excessive_expires_in():
+    _override_current_user()
+    response = client.post(
+        "/auth/spotify-token",
+        json={
+            "access_token": "sp-access",
+            "refresh_token": "sp-refresh",
+            "expires_in": 7201,
+            "client_id": "my-client-id",
+        },
+    )
+    assert response.status_code == 422
+    _clear_overrides()
+
+
+def test_store_spotify_token_accepts_valid_expires_in():
+    _override_current_user()
+    mock_db = MagicMock()
+    mock_db.table.return_value.upsert.return_value.execute.return_value = MagicMock()
+
+    with patch("routers.auth.get_service_db", return_value=mock_db):
+        response = client.post(
+            "/auth/spotify-token",
+            json={
+                "access_token": "sp-access",
+                "refresh_token": "sp-refresh",
+                "expires_in": 3600,
+                "client_id": "my-client-id",
+            },
+        )
+    assert response.status_code == 200
+    _clear_overrides()
+
+
+def test_store_spotify_token_accepts_max_expires_in():
+    _override_current_user()
+    mock_db = MagicMock()
+    mock_db.table.return_value.upsert.return_value.execute.return_value = MagicMock()
+
+    with patch("routers.auth.get_service_db", return_value=mock_db):
+        response = client.post(
+            "/auth/spotify-token",
+            json={
+                "access_token": "sp-access",
+                "refresh_token": "sp-refresh",
+                "expires_in": 7200,
+                "client_id": "my-client-id",
+            },
+        )
+    assert response.status_code == 200
+    _clear_overrides()
+
+
 def test_delete_account_rate_limited():
     _override_current_user()
     mock_db = MagicMock()
