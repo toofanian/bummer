@@ -268,9 +268,9 @@ def get_artist_images(
     images = _resolve_artist_images(list(artist_id_map.items()), sp)
 
     # Write to cache
-    db.table("library_cache").update(
-        {"artist_images": images}
-    ).eq("id", user["user_id"]).execute()
+    db.table("library_cache").update({"artist_images": images}).eq(
+        "id", user["user_id"]
+    ).execute()
 
     return {"artist_images": images}
 

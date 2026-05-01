@@ -102,7 +102,9 @@ def get_home(
         a
         for a in album_cache
         if a["service_id"] not in recently_played_home
-        and any(_artist_name(artist) in recent_artists for artist in a.get("artists", []))
+        and any(
+            _artist_name(artist) in recent_artists for artist in a.get("artists", [])
+        )
     ]
     recommended = random.sample(
         recommended_candidates, min(60, len(recommended_candidates))

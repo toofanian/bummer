@@ -2,7 +2,7 @@ from collections import Counter, defaultdict
 from datetime import datetime, timedelta
 
 import spotipy
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends
 from supabase import Client
 
 from auth_middleware import get_authed_db, get_current_user
