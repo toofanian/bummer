@@ -260,12 +260,14 @@ export default function App() {
   const hasSession = !!session
 
   // Fetch artist images when the artists view becomes active and albums are loaded
+  const artistImagesFetched = useRef(false)
   useEffect(() => {
-    if (librarySubView === 'artists' && albums.length > 0) {
+    if (librarySubView === 'artists' && albums.length > 0 && !artistImagesFetched.current) {
+      artistImagesFetched.current = true
       apiFetch('/library/artist-images', {}, sessionRef.current)
         .then(r => r.json())
         .then(data => setArtistImages(data.artist_images || {}))
-        .catch(() => {})
+        .catch(() => { artistImagesFetched.current = false })
     }
   }, [librarySubView, albums.length])
 
