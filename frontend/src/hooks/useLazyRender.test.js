@@ -20,6 +20,13 @@ beforeEach(() => {
   })
 })
 
+// Simulate mounting the sentinel DOM node via the callback ref
+function mountSentinel(result) {
+  act(() => {
+    result.current.sentinelRef(document.createElement('div'))
+  })
+}
+
 describe('useLazyRender', () => {
   it('returns first batchSize items as visible', () => {
     const items = Array.from({ length: 50 }, (_, i) => ({ id: i }))
@@ -41,6 +48,8 @@ describe('useLazyRender', () => {
     const { result } = renderHook(() => useLazyRender(items, 20))
     expect(result.current.visible).toHaveLength(20)
 
+    mountSentinel(result)
+
     act(() => {
       intersectionCallback([{ isIntersecting: true }])
     })
@@ -52,6 +61,8 @@ describe('useLazyRender', () => {
   it('does not exceed items length', () => {
     const items = Array.from({ length: 25 }, (_, i) => ({ id: i }))
     const { result } = renderHook(() => useLazyRender(items, 20))
+
+    mountSentinel(result)
 
     act(() => {
       intersectionCallback([{ isIntersecting: true }])
@@ -68,6 +79,8 @@ describe('useLazyRender', () => {
       { initialProps: { items: items1 } }
     )
 
+    mountSentinel(result)
+
     act(() => {
       intersectionCallback([{ isIntersecting: true }])
     })
@@ -82,6 +95,8 @@ describe('useLazyRender', () => {
   it('ignores intersection when not isIntersecting', () => {
     const items = Array.from({ length: 50 }, (_, i) => ({ id: i }))
     const { result } = renderHook(() => useLazyRender(items, 20))
+
+    mountSentinel(result)
 
     act(() => {
       intersectionCallback([{ isIntersecting: false }])
