@@ -229,8 +229,9 @@ def get_artist_images(
         for artist in album.get("artists", []):
             if isinstance(artist, dict) and artist.get("id"):
                 artist_id_map[artist["name"]] = artist["id"]
-            elif isinstance(artist, str):
-                artist_id_map[artist] = None
+            # Skip string-only artists (no Spotify ID) — resolving them
+            # requires individual search calls which is too slow for large
+            # libraries. They'll show the letter placeholder instead.
 
     images = _resolve_artist_images(list(artist_id_map.items()), sp)
     return {"artist_images": images}

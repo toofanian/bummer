@@ -165,7 +165,7 @@ export default function ArtistsView({
             </>
           ) : (
             <div className="flex items-stretch">
-              <div className="w-48 flex-shrink-0 flex items-center px-4 gap-3">
+              <div className="w-64 flex-shrink-0 flex items-center px-4 gap-3">
                 <ArtistProfileImage name={group.name} imageUrl={artistImages[group.name]} />
                 <div className="min-w-0">
                   <div data-testid="artist-name" className="text-sm font-semibold text-text truncate">{group.name}</div>
