@@ -92,13 +92,17 @@ def get_home(
         album = lookup.get(aid)
         if album:
             for artist in album.get("artists", []):
-                recent_artists.add(artist)
+                name = artist["name"] if isinstance(artist, dict) else artist
+                recent_artists.add(name)
+
+    def _artist_name(a):
+        return a["name"] if isinstance(a, dict) else a
 
     recommended_candidates = [
         a
         for a in album_cache
         if a["service_id"] not in recently_played_home
-        and any(artist in recent_artists for artist in a.get("artists", []))
+        and any(_artist_name(artist) in recent_artists for artist in a.get("artists", []))
     ]
     recommended = random.sample(
         recommended_candidates, min(60, len(recommended_candidates))

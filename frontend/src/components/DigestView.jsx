@@ -96,9 +96,6 @@ function HistorySection({ onPlay, session }) {
   const [days, setDays] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
-  const [hasMore, setHasMore] = useState(false)
-  const [nextCursor, setNextCursor] = useState(null)
-  const [loadingMore, setLoadingMore] = useState(false)
 
   useEffect(() => {
     let cancelled = false
@@ -113,8 +110,6 @@ function HistorySection({ onPlay, session }) {
       .then(json => {
         if (cancelled || !json) return
         setDays(json.days)
-        setHasMore(json.has_more)
-        setNextCursor(json.next_cursor)
         setLoading(false)
       })
       .catch(err => {
@@ -124,23 +119,6 @@ function HistorySection({ onPlay, session }) {
       })
     return () => { cancelled = true }
   }, [])
-
-  function handleLoadMore() {
-    if (!nextCursor || loadingMore) return
-    setLoadingMore(true)
-    apiFetch(`/digest/history?before=${encodeURIComponent(nextCursor)}`, {}, session)
-      .then(res => {
-        if (!res.ok) throw new Error('Failed to load more')
-        return res.json()
-      })
-      .then(json => {
-        setDays(prev => [...prev, ...json.days])
-        setHasMore(json.has_more)
-        setNextCursor(json.next_cursor)
-        setLoadingMore(false)
-      })
-      .catch(() => setLoadingMore(false))
-  }
 
   function formatTime(isoString) {
     const d = new Date(isoString)
@@ -188,12 +166,6 @@ function HistorySection({ onPlay, session }) {
         )
       })}
       {hasMorePlays && <div ref={playsSentinelRef} data-testid="load-more-sentinel" className="h-1" />}
-      {!hasMorePlays && hasMore && (
-        <button onClick={handleLoadMore} disabled={loadingMore}
-          className="w-full py-3 text-xs text-text-dim hover:text-text transition-colors duration-150 disabled:opacity-50">
-          {loadingMore ? 'Loading...' : 'Load more'}
-        </button>
-      )}
     </div>
   )
 }

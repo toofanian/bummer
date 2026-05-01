@@ -291,7 +291,7 @@ def test_history_returns_plays_grouped_by_day():
     def table_router(table_name):
         mock_table = MagicMock()
         if table_name == "play_history":
-            mock_table.select.return_value.order.return_value.limit.return_value.execute.return_value = MagicMock(
+            mock_table.select.return_value.gte.return_value.order.return_value.execute.return_value = MagicMock(
                 data=plays
             )
         elif table_name == "library_cache":
@@ -316,8 +316,6 @@ def test_history_returns_plays_grouped_by_day():
         assert days[0]["plays"][1]["album"]["service_id"] == "a2"
         assert days[1]["date"] == "2026-04-17"
         assert len(days[1]["plays"]) == 1
-        assert data["has_more"] is False
-        assert data["next_cursor"] is None
     finally:
         clear_overrides()
 
@@ -329,7 +327,7 @@ def test_history_empty_when_no_plays():
     def table_router(table_name):
         mock_table = MagicMock()
         if table_name == "play_history":
-            mock_table.select.return_value.order.return_value.limit.return_value.execute.return_value = MagicMock(
+            mock_table.select.return_value.gte.return_value.order.return_value.execute.return_value = MagicMock(
                 data=[]
             )
         elif table_name == "library_cache":
@@ -345,44 +343,6 @@ def test_history_empty_when_no_plays():
         assert res.status_code == 200
         data = res.json()
         assert data["days"] == []
-        assert data["has_more"] is False
-        assert data["next_cursor"] is None
-    finally:
-        clear_overrides()
-
-
-def test_history_before_cursor():
-    """Verify .lt is called when before param is provided."""
-    plays = [
-        {"album_id": "a1", "played_at": "2026-04-15T10:00:00+00:00"},
-    ]
-
-    db = MagicMock()
-    play_history_mock = None
-
-    def table_router(table_name):
-        nonlocal play_history_mock
-        mock_table = MagicMock()
-        if table_name == "play_history":
-            play_history_mock = mock_table
-            mock_table.select.return_value.order.return_value.limit.return_value.lt.return_value.execute.return_value = MagicMock(
-                data=plays
-            )
-        elif table_name == "library_cache":
-            mock_table.select.return_value.eq.return_value.execute.return_value = (
-                MagicMock(data=[{"albums": ALBUM_CACHE}])
-            )
-        return mock_table
-
-    db.table.side_effect = table_router
-    setup_overrides(db=db)
-    try:
-        res = client.get(
-            "/digest/history",
-            params={"before": "2026-04-16T00:00:00+00:00"},
-        )
-        assert res.status_code == 200
-        play_history_mock.select.return_value.order.return_value.limit.return_value.lt.assert_called()
     finally:
         clear_overrides()
 
