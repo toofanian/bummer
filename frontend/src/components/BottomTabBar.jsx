@@ -38,7 +38,7 @@ export default function BottomTabBar({ activeTab, onTabChange, syncing, collecti
           }`}
         >
           {tab.icon}
-          <span className={`text-xs${(tab.id === 'library' && syncing) || (tab.id === 'collections' && collectionsLoading) ? ' animate-pulse' : ''}`}>{tab.label}</span>
+          <span className={`text-xs font-mono${(tab.id === 'library' && syncing) || (tab.id === 'collections' && collectionsLoading) ? ' animate-pulse' : ''}`}>{tab.label}</span>
         </button>
       ))}
     </nav>
