@@ -34,8 +34,8 @@ bummer/
 ## Development approach
 
 - Strict red/green TDD: write a failing test first, then write the minimum code to pass it
-- Backend tests: pytest (`backend/tests/`), run with `pytest` from `backend/`
-- Frontend tests: Vitest + React Testing Library (`frontend/src/`), run with `npm test` from `frontend/`
+- Backend tests: `backend/.venv/bin/python -m pytest` from `backend/` (use `-C` flag or absolute path, never `cd`)
+- Frontend tests: `npx vitest --run` from `frontend/` (use `--prefix` or absolute path, never `cd`)
 - Never write implementation code without a failing test first
 
 ## Database migrations
@@ -62,10 +62,19 @@ bummer/
 ## Conventions
 
 - Python 3.12 (`/opt/homebrew/bin/python3.12`)
-- Backend uses a virtualenv at `backend/.venv`; activate with `source backend/.venv/bin/activate`
+- Backend uses a virtualenv at `backend/.venv`; run tools via `backend/.venv/bin/python`, `backend/.venv/bin/ruff`, etc.
 - Use `pip` for Python packages; keep `requirements.txt` up to date
 - Use `npm` for frontend packages (no bun, no yarn)
 - Never commit `.env` files — use `.env.example` to document required vars
+
+## Shell commands
+
+Avoid patterns that trigger sandbox approval prompts:
+
+- **Never `source`** — use venv binaries directly: `backend/.venv/bin/python -m pytest` not `source .venv/bin/activate && pytest`
+- **Never `cd`** — use absolute paths or tool flags: `git -C <repo-root> add` not `cd <repo-root> && git add`
+- **Avoid `&&` chains** — use separate Bash tool calls instead of chaining commands. Each call can run in parallel if independent.
+- **`npm`/`npx`** — use `--prefix <path>` or run from the correct `path` parameter instead of `cd frontend &&`
 
 ## Git workflow
 
