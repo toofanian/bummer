@@ -53,10 +53,10 @@ bummer/
 
 - Every PR gets an automatic Vercel preview deploy
 - Preview deploys share the **prod Supabase DB** (no per-PR branch DB — Supabase branching is Pro-only and we're on the free tier)
-- Preview deploys use **real authentication** — Google OAuth login and real Spotify OAuth via the callback proxy. `VITE_PREVIEW_REAL_SPOTIFY=true` and `PREVIEW_REAL_AUTH=true` are set in Vercel's Preview env scope, disabling the old preview bypass code
+- Preview deploys use **real authentication** — Google OAuth login and real Spotify OAuth via the callback proxy
 - The Spotify OAuth callback proxy (`backend/routers/auth_proxy.py`) lets preview deploys complete Spotify OAuth by proxying the callback through the prod backend, since Spotify only allows one redirect URI
+- `IS_PREVIEW` (computed from `VITE_VERCEL_ENV`) is used only in `useSpotifyAuth.js` to route Spotify OAuth through the proxy; it does not bypass authentication
 - Preview users' data lives in the prod DB alongside real users, isolated by `user_id`
-- **Dead code**: `previewMode.js`, `PREVIEW_SESSION` in `useAuth.js`, and `_is_preview_env()`/`_get_preview_session()` in `auth_middleware.py` are vestigial from an earlier dummy-account approach. They are disabled by the env vars above but should be removed (tracked in backlog)
 - Prod (`VERCEL_ENV=production`) is unaffected: Vercel injects `VERCEL_ENV=production` for prod deploys, which cannot be overridden from the Vercel env-var UI in the Production scope
 
 ## Conventions

@@ -52,8 +52,11 @@ async def spotify_exception_handler(request, exc):
     return JSONResponse(status_code=502, content={"detail": "Spotify API error"})
 
 
-origins = [
-    o.strip() for o in os.getenv("ALLOWED_ORIGINS", "http://localhost:5173").split(",")
+origins_raw = os.getenv("ALLOWED_ORIGINS", "")
+if os.getenv("ENVIRONMENT") == "production" and not origins_raw:
+    raise RuntimeError("ALLOWED_ORIGINS must be set in production")
+origins = [o.strip() for o in origins_raw.split(",") if o.strip()] or [
+    "http://localhost:5173"
 ]
 
 app.add_middleware(

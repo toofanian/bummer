@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react'
-import { IS_PREVIEW } from '../previewMode'
+const IS_PREVIEW = import.meta.env.VITE_VERCEL_ENV === 'preview'
 
 const SCOPES = [
   'user-library-read',
@@ -10,6 +10,7 @@ const SCOPES = [
 
 const REDIRECT_URI = import.meta.env.VITE_SPOTIFY_REDIRECT_URI ?? 'http://localhost:5173/auth/spotify/callback'
 const PROD_ORIGIN = import.meta.env.VITE_PROD_ORIGIN ?? 'https://thedeathofshuffle.com'
+const API = import.meta.env.VITE_API_URL ?? 'http://127.0.0.1:8000'
 
 function base64URLEncode(buffer) {
   const bytes = new Uint8Array(buffer)
@@ -46,20 +47,6 @@ async function exchangeCode(code, verifier, clientId) {
   return res.json()
 }
 
-async function refreshTokenFn(refreshTok, clientId) {
-  const res = await fetch('https://accounts.spotify.com/api/token', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body: new URLSearchParams({
-      grant_type: 'refresh_token',
-      refresh_token: refreshTok,
-      client_id: clientId,
-    }).toString(),
-  })
-  if (!res.ok) throw new Error('Spotify token refresh failed')
-  return res.json()
-}
-
 function getStoredToken() {
   const token = localStorage.getItem('spotify_access_token')
   const expiresAt = Number(localStorage.getItem('spotify_expires_at') ?? 0)
@@ -67,28 +54,42 @@ function getStoredToken() {
   return token
 }
 
-function storeTokens({ access_token, refresh_token, expires_in }) {
+// H2: Do NOT store refresh_token in localStorage — it stays backend-only
+function storeTokens({ access_token, expires_in }) {
   localStorage.setItem('spotify_access_token', access_token)
   localStorage.setItem('spotify_expires_at', String(Date.now() + expires_in * 1000))
   localStorage.setItem('spotify_expires_in', String(expires_in))
-  if (refresh_token) localStorage.setItem('spotify_refresh_token', refresh_token)
 }
 
 export function useSpotifyAuth() {
   const [accessToken, setAccessToken] = useState(() => getStoredToken())
 
+  // M1: Preview login now uses POST to keep supabase_token out of URLs
   const initiateLogin = useCallback(async (supabaseToken) => {
     const clientId = localStorage.getItem('spotify_client_id')
     if (!clientId) throw new Error('No Spotify client_id set')
 
     if (IS_PREVIEW && supabaseToken) {
-      // Preview mode: route OAuth through prod's proxy endpoint
-      const params = new URLSearchParams({
+      // Preview mode: hidden form POST to prod's proxy endpoint.
+      // Uses a form (not fetch) to avoid CORS — the prod backend doesn't
+      // include preview origins in ALLOWED_ORIGINS. The token is in the
+      // POST body, not the URL, which was the security goal of M1.
+      const form = document.createElement('form')
+      form.method = 'POST'
+      form.action = `${PROD_ORIGIN}/api/auth/preview-login`
+      for (const [k, v] of Object.entries({
         origin: window.location.origin,
         client_id: clientId,
         supabase_token: supabaseToken,
-      })
-      window.location.assign(`${PROD_ORIGIN}/api/auth/preview-login?${params}`)
+      })) {
+        const input = document.createElement('input')
+        input.type = 'hidden'
+        input.name = k
+        input.value = v
+        form.appendChild(input)
+      }
+      document.body.appendChild(form)
+      form.submit()
       return
     }
 
@@ -117,20 +118,28 @@ export function useSpotifyAuth() {
     return tokens
   }, [])
 
-  const getAccessToken = useCallback(async () => {
+  // M2: Refresh tokens via backend instead of calling Spotify directly
+  const getAccessToken = useCallback(async (supabaseSession) => {
     const stored = getStoredToken()
     if (stored) return stored
-    const refreshTok = localStorage.getItem('spotify_refresh_token')
-    const clientId = localStorage.getItem('spotify_client_id')
-    if (!refreshTok || !clientId) return null
-    const tokens = await refreshTokenFn(refreshTok, clientId)
-    storeTokens(tokens)
-    setAccessToken(tokens.access_token)
-    return tokens.access_token
+    if (!supabaseSession) return null
+    const res = await fetch(`${API}/auth/refresh-spotify-token`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${supabaseSession.access_token}`,
+      },
+    })
+    if (!res.ok) return null
+    const { access_token, expires_at } = await res.json()
+    localStorage.setItem('spotify_access_token', access_token)
+    localStorage.setItem('spotify_expires_at', String(new Date(expires_at).getTime()))
+    setAccessToken(access_token)
+    return access_token
   }, [])
 
   const logout = useCallback(() => {
-    ['spotify_access_token', 'spotify_refresh_token', 'spotify_expires_at',
+    ['spotify_access_token', 'spotify_expires_at',
      'spotify_expires_in', 'spotify_client_id', 'spotify_pkce_verifier'].forEach(k => localStorage.removeItem(k))
     setAccessToken(null)
   }, [])

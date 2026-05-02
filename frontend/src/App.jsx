@@ -36,7 +36,6 @@ import CollectionPicker from './components/CollectionPicker'
 import SettingsPage from './components/SettingsPage'
 import TabBar from './components/TabBar'
 import { apiFetch } from './api'
-import { IS_PREVIEW } from './previewMode'
 const CACHE_KEY = 'bsi_albums_cache'
 
 export default function App() {
@@ -214,42 +213,40 @@ export default function App() {
         } catch { /* storage full or unavailable */ }
       }
 
-      // 3. Drive the sync loop — skip in preview unless real Spotify enabled.
+      // 3. Drive the sync loop.
       // Accumulate pages in memory, don't update display mid-loop.
-      if (!IS_PREVIEW || previewRealSpotify) {
-        setSyncing(true)
-        let accumulated = []
-        let offset = 0
-        let progress = null
-        do {
-          const resp = await apiFetch('/library/sync', {
-            method: 'POST',
-            body: JSON.stringify({ offset }),
-          }, sessionRef.current).then(r => r.json())
-          accumulated = accumulated.concat(resp.albums)
-          progress = resp
-          offset = progress.next_offset
-        } while (!progress.done)
-
-        // 4. Atomic commit — single write with all accumulated albums
-        await apiFetch('/library/sync-complete', {
+      setSyncing(true)
+      let accumulated = []
+      let offset = 0
+      let progress = null
+      do {
+        const resp = await apiFetch('/library/sync', {
           method: 'POST',
-          body: JSON.stringify({ albums: accumulated }),
-        }, sessionRef.current)
+          body: JSON.stringify({ offset }),
+        }, sessionRef.current).then(r => r.json())
+        accumulated = accumulated.concat(resp.albums)
+        progress = resp
+        offset = progress.next_offset
+      } while (!progress.done)
 
-        // Re-fetch authoritative album list (server may have deduped)
-        const freshResp = await apiFetch('/library/albums', {}, sessionRef.current).then(r => r.json())
-        const freshAlbums = flattenArtists(freshResp.albums || accumulated)
-        if (freshAlbums.length > 0) {
-          setAlbums(freshAlbums)
-          try {
-            localStorage.setItem(CACHE_KEY, JSON.stringify({
-              albums: freshAlbums,
-              total: freshAlbums.length,
-              cachedAt: new Date().toISOString(),
-            }))
-          } catch { /* storage full or unavailable */ }
-        }
+      // 4. Atomic commit — single write with all accumulated albums
+      await apiFetch('/library/sync-complete', {
+        method: 'POST',
+        body: JSON.stringify({ albums: accumulated }),
+      }, sessionRef.current)
+
+      // Re-fetch authoritative album list (server may have deduped)
+      const freshResp = await apiFetch('/library/albums', {}, sessionRef.current).then(r => r.json())
+      const freshAlbums = flattenArtists(freshResp.albums || accumulated)
+      if (freshAlbums.length > 0) {
+        setAlbums(freshAlbums)
+        try {
+          localStorage.setItem(CACHE_KEY, JSON.stringify({
+            albums: freshAlbums,
+            total: freshAlbums.length,
+            cachedAt: new Date().toISOString(),
+          }))
+        } catch { /* storage full or unavailable */ }
       }
       setSyncing(false)
 
@@ -720,10 +717,8 @@ export default function App() {
   // Auth gate
   const isSpotifyCallback = window.location.pathname === '/auth/spotify/callback'
   const hasLocalClientId = !!localStorage.getItem('spotify_client_id')
-  const previewRealSpotify = IS_PREVIEW && import.meta.env.VITE_PREVIEW_REAL_SPOTIFY === 'true'
   // Onboarding check state: 'idle' | 'checking' | 'needs_onboarding' | 'reconnecting' | 'ready'
   const [onboardingCheckState, setOnboardingCheckState] = useState(() => {
-    if (IS_PREVIEW && !previewRealSpotify) return 'ready' // Preview deploys skip onboarding (unless real Spotify is enabled)
     if (!session) return 'idle'
     if (isSpotifyCallback) return 'needs_onboarding' // OnboardingWizard handles callback
     if (hasLocalClientId) return 'ready'
@@ -732,7 +727,6 @@ export default function App() {
 
   // Transition from 'idle' once session arrives
   useEffect(() => {
-    if (IS_PREVIEW && !previewRealSpotify) return
     if (onboardingCheckState !== 'idle' || !session) return
     if (isSpotifyCallback) {
       setOnboardingCheckState('needs_onboarding')
@@ -744,14 +738,7 @@ export default function App() {
   }, [onboardingCheckState, session, isSpotifyCallback, hasLocalClientId])
 
   useEffect(() => {
-    if (IS_PREVIEW && !previewRealSpotify) return
     if (onboardingCheckState !== 'checking' || !session) return
-    // On preview with real Spotify, skip credential check — force fresh onboarding
-    // (the preview user's seeded music_tokens row has fake credentials)
-    if (previewRealSpotify) {
-      setOnboardingCheckState('needs_onboarding')
-      return
-    }
     let cancelled = false
     ;(async () => {
       try {

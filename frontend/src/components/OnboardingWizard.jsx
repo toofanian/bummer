@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useSpotifyAuth } from '../hooks/useSpotifyAuth'
-import { IS_PREVIEW } from '../previewMode'
+
 
 const API = import.meta.env.VITE_API_URL ?? 'http://127.0.0.1:8000'
 const REDIRECT_URI = import.meta.env.VITE_SPOTIFY_REDIRECT_URI ?? 'http://localhost:5173/auth/spotify/callback'
@@ -136,7 +136,7 @@ function SpotifySetup({ session, onComplete }) {
           body: JSON.stringify({
             client_id: storedClientId,
             access_token: tokens.access_token ?? accessToken ?? localStorage.getItem('spotify_access_token'),
-            refresh_token: tokens.refresh_token ?? localStorage.getItem('spotify_refresh_token'),
+            refresh_token: tokens.refresh_token,
             expires_in: tokens.expires_in ?? Number(localStorage.getItem('spotify_expires_in') ?? 3600),
           }),
         })

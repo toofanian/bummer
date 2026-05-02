@@ -128,97 +128,33 @@ def test_get_current_user_rejects_hs256_algorithm():
     assert exc_info.value.status_code == 401
 
 
-def test_preview_sign_in_failure_does_not_leak_exception_detail(monkeypatch):
-    """M5: GoTrue exception details must not appear in 500 response."""
-    import asyncio
+def test_no_preview_bypass_exists():
+    """Verify that the preview auth bypass has been removed.
 
+    auth_middleware must not contain any preview-mode constants or
+    functions that could short-circuit JWT validation.
+    """
     import auth_middleware
 
-    monkeypatch.setenv("VERCEL_ENV", "preview")
-    monkeypatch.setenv("PREVIEW_USER_PASSWORD", "test-password")
-    monkeypatch.setenv("SUPABASE_URL", "https://preview-test.supabase.co")
-    monkeypatch.setenv("SUPABASE_ANON_KEY", "preview-anon-key")
-    monkeypatch.setattr(auth_middleware, "_preview_session", None)
-
-    class _FailClient:
-        class auth:
-            @staticmethod
-            def sign_in_with_password(credentials):
-                raise Exception("secret GoTrue error: connection refused to 10.0.0.1")
-
-    monkeypatch.setattr(
-        auth_middleware, "create_client", lambda *a, **kw: _FailClient()
-    )
-
-    from fastapi import HTTPException
-
-    with pytest.raises(HTTPException) as exc_info:
-        asyncio.run(auth_middleware.get_current_user(authorization="Bearer anything"))
-    assert exc_info.value.status_code == 500
-    assert "secret GoTrue error" not in exc_info.value.detail
-    assert exc_info.value.detail == "Preview mode authentication failed"
+    assert not hasattr(auth_middleware, "PREVIEW_USER_ID")
+    assert not hasattr(auth_middleware, "PREVIEW_USER_EMAIL")
+    assert not hasattr(auth_middleware, "_is_preview_env")
+    assert not hasattr(auth_middleware, "_get_preview_session")
+    assert not hasattr(auth_middleware, "_preview_session")
 
 
-def test_get_current_user_preview_mode_signs_in_as_preview_user(monkeypatch):
-    """In VERCEL_ENV=preview, get_current_user signs in as the
-    hardcoded preview user via Supabase's password grant and returns
-    the real session access_token. The cached session is used on
-    subsequent calls."""
-    import asyncio
-
-    import auth_middleware
-
-    monkeypatch.setenv("VERCEL_ENV", "preview")
-    monkeypatch.setenv("PREVIEW_USER_PASSWORD", "test-password")
-    monkeypatch.setenv("SUPABASE_URL", "https://preview-test.supabase.co")
-    monkeypatch.setenv("SUPABASE_ANON_KEY", "preview-anon-key")
-    # Clear the module-level session cache between tests.
-    monkeypatch.setattr(auth_middleware, "_preview_session", None)
-
-    # Stub create_client to return a fake client whose
-    # auth.sign_in_with_password yields a predictable session.
-    class _FakeSession:
-        access_token = "real-jwt-from-supabase"
-        refresh_token = "real-refresh"
-        expires_at = int(time.time()) + 3600
-
-    class _FakeResponse:
-        session = _FakeSession()
-
-    class _FakeAuth:
-        def sign_in_with_password(self, credentials):
-            assert credentials["email"] == auth_middleware.PREVIEW_USER_EMAIL
-            assert credentials["password"] == "test-password"
-            return _FakeResponse()
-
-    class _FakeClient:
-        auth = _FakeAuth()
-
-    monkeypatch.setattr(
-        auth_middleware, "create_client", lambda *a, **kw: _FakeClient()
-    )
-
-    result = asyncio.run(
-        auth_middleware.get_current_user(authorization="Bearer anything")
-    )
-    assert result["user_id"] == auth_middleware.PREVIEW_USER_ID
-    assert result["token"] == "real-jwt-from-supabase"
-
-
-def test_get_current_user_production_ignores_preview_bypass(monkeypatch):
-    """When VERCEL_ENV is not 'preview', the preview short-circuit is
-    inactive and the normal JWT validation path runs."""
+def test_get_current_user_validates_jwt_even_in_preview_env(monkeypatch):
+    """Even with VERCEL_ENV=preview, get_current_user must validate JWTs
+    through the normal JWKS path (no bypass)."""
     import asyncio
 
     from fastapi import HTTPException
 
-    monkeypatch.setenv("VERCEL_ENV", "production")
-    monkeypatch.delenv("SUPABASE_URL", raising=False)
+    monkeypatch.setenv("VERCEL_ENV", "preview")
+    monkeypatch.setenv("SUPABASE_URL", "https://preview-test.supabase.co")
 
     from auth_middleware import get_current_user
 
     with pytest.raises(HTTPException) as exc_info:
-        asyncio.run(get_current_user(authorization="Bearer invalid"))
-    # Either 500 (missing SUPABASE_URL for JWKS) or 401 (invalid token)
-    # — either way, we did NOT short-circuit.
-    assert exc_info.value.status_code in (401, 500)
+        asyncio.run(get_current_user(authorization="Bearer invalid-token"))
+    assert exc_info.value.status_code == 401

@@ -67,40 +67,40 @@ def _valid_state_payload(**overrides):
 
 
 class TestPreviewLogin:
-    """Tests for GET /auth/preview-login."""
+    """Tests for POST /auth/preview-login (M1: token moved from URL to POST body)."""
 
     @patch.dict("os.environ", _env_vars(), clear=False)
     @patch("routers.auth.limiter")
-    def test_preview_login_redirects_to_spotify(self, mock_limiter):
-        """Valid params should produce a 302 redirect to accounts.spotify.com/authorize."""
+    def test_preview_login_returns_redirect(self, mock_limiter):
+        """Valid POST form should redirect to Spotify authorize URL."""
         mock_limiter.reset.return_value = None
 
-        # Mock JWT verification to accept our test token
         with patch("routers.auth_proxy.verify_supabase_jwt", return_value=TEST_USER_ID):
-            response = client.get(
+            response = client.post(
                 "/auth/preview-login",
-                params={
+                data={
                     "origin": VALID_ORIGIN,
                     "client_id": TEST_CLIENT_ID,
                     "supabase_token": TEST_SUPABASE_TOKEN,
                 },
+                follow_redirects=False,
             )
 
         assert response.status_code == 302
-        location = response.headers["location"]
-        assert location.startswith("https://accounts.spotify.com/authorize")
-        assert "response_type=code" in location
-        assert "code_challenge_method=S256" in location
-        assert f"client_id={TEST_CLIENT_ID}" in location
-        assert "state=" in location
+        redirect_url = response.headers["location"]
+        assert redirect_url.startswith("https://accounts.spotify.com/authorize")
+        assert "response_type=code" in redirect_url
+        assert "code_challenge_method=S256" in redirect_url
+        assert f"client_id={TEST_CLIENT_ID}" in redirect_url
+        assert "state=" in redirect_url
 
     @patch.dict("os.environ", _env_vars(), clear=False)
     def test_preview_login_rejects_invalid_origin(self):
         """Origin not matching the vercel preview pattern should return 400."""
         with patch("routers.auth_proxy.verify_supabase_jwt", return_value=TEST_USER_ID):
-            response = client.get(
+            response = client.post(
                 "/auth/preview-login",
-                params={
+                data={
                     "origin": "https://evil.example.com",
                     "client_id": TEST_CLIENT_ID,
                     "supabase_token": TEST_SUPABASE_TOKEN,
@@ -110,15 +110,15 @@ class TestPreviewLogin:
 
     @patch.dict("os.environ", _env_vars(), clear=False)
     def test_preview_login_rejects_missing_params(self):
-        """Missing required query params should return 422."""
-        # Missing all params
-        response = client.get("/auth/preview-login")
+        """Missing required fields should return 422."""
+        # Missing all fields
+        response = client.post("/auth/preview-login", data={})
         assert response.status_code == 422
 
         # Missing client_id
-        response = client.get(
+        response = client.post(
             "/auth/preview-login",
-            params={"origin": VALID_ORIGIN, "supabase_token": TEST_SUPABASE_TOKEN},
+            data={"origin": VALID_ORIGIN, "supabase_token": TEST_SUPABASE_TOKEN},
         )
         assert response.status_code == 422
 
@@ -129,9 +129,9 @@ class TestPreviewLogin:
             "routers.auth_proxy.verify_supabase_jwt",
             side_effect=Exception("Invalid token"),
         ):
-            response = client.get(
+            response = client.post(
                 "/auth/preview-login",
-                params={
+                data={
                     "origin": VALID_ORIGIN,
                     "client_id": TEST_CLIENT_ID,
                     "supabase_token": "bad-token",
@@ -141,21 +141,33 @@ class TestPreviewLogin:
 
     def test_preview_login_returns_501_when_not_configured(self):
         """Missing SPOTIFY_PROXY_SECRET env var should return 501."""
-        # Ensure env vars are NOT set
         with patch.dict(
             "os.environ",
             {"SPOTIFY_PROXY_SECRET": "", "SPOTIFY_PROXY_REDIRECT_URI": ""},
             clear=False,
         ):
-            response = client.get(
+            response = client.post(
                 "/auth/preview-login",
-                params={
+                data={
                     "origin": VALID_ORIGIN,
                     "client_id": TEST_CLIENT_ID,
                     "supabase_token": TEST_SUPABASE_TOKEN,
                 },
             )
         assert response.status_code == 501
+
+    @patch.dict("os.environ", _env_vars(), clear=False)
+    def test_preview_login_get_method_not_allowed(self):
+        """GET should no longer be accepted (moved to POST)."""
+        response = client.get(
+            "/auth/preview-login",
+            params={
+                "origin": VALID_ORIGIN,
+                "client_id": TEST_CLIENT_ID,
+                "supabase_token": TEST_SUPABASE_TOKEN,
+            },
+        )
+        assert response.status_code == 405
 
 
 # ---------------------------------------------------------------------------

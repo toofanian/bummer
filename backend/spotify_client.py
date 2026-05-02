@@ -1,3 +1,4 @@
+import threading
 from datetime import datetime, timedelta, timezone
 
 import requests
@@ -6,6 +7,7 @@ from fastapi import Depends, HTTPException
 from supabase import Client
 
 from auth_middleware import get_current_user
+from crypto import decrypt_token, encrypt_token
 from db import get_service_db
 
 SCOPES = [
@@ -14,6 +16,17 @@ SCOPES = [
     "user-modify-playback-state",
     "user-read-currently-playing",
 ]
+
+# Per-user lock for token refresh to prevent concurrent refresh races
+_refresh_locks: dict[str, threading.Lock] = {}
+_locks_lock = threading.Lock()
+
+
+def _get_refresh_lock(user_id: str) -> threading.Lock:
+    with _locks_lock:
+        if user_id not in _refresh_locks:
+            _refresh_locks[user_id] = threading.Lock()
+        return _refresh_locks[user_id]
 
 
 def get_spotify_for_user(user_id: str, db: Client) -> spotipy.Spotify:
@@ -29,11 +42,30 @@ def get_spotify_for_user(user_id: str, db: Client) -> spotipy.Spotify:
             detail="No Spotify credentials found. Complete onboarding first.",
         )
     token_data = result.data[0]
+
+    # Decrypt refresh token from DB
+    token_data["refresh_token"] = decrypt_token(token_data["refresh_token"])
+
     expires_at = datetime.fromisoformat(token_data["expires_at"])
     if expires_at.tzinfo is None:
         expires_at = expires_at.replace(tzinfo=timezone.utc)
     if datetime.now(timezone.utc) > expires_at - timedelta(minutes=5):
-        token_data = _refresh_token(user_id, token_data, db)
+        lock = _get_refresh_lock(user_id)
+        with lock:
+            # Re-fetch inside lock — another thread may have already refreshed
+            result = (
+                db.table("music_tokens")
+                .select("access_token, refresh_token, client_id, expires_at")
+                .eq("user_id", user_id)
+                .execute()
+            )
+            token_data = result.data[0]
+            token_data["refresh_token"] = decrypt_token(token_data["refresh_token"])
+            expires_at = datetime.fromisoformat(token_data["expires_at"])
+            if expires_at.tzinfo is None:
+                expires_at = expires_at.replace(tzinfo=timezone.utc)
+            if datetime.now(timezone.utc) > expires_at - timedelta(minutes=5):
+                token_data = _refresh_token(user_id, token_data, db)
     return spotipy.Spotify(auth=token_data["access_token"])
 
 
@@ -58,7 +90,7 @@ def _refresh_token(user_id: str, token_data: dict, db: Client) -> dict:
         "updated_at": datetime.now(timezone.utc).isoformat(),
     }
     if "refresh_token" in new_tokens:
-        updated["refresh_token"] = new_tokens["refresh_token"]
+        updated["refresh_token"] = encrypt_token(new_tokens["refresh_token"])
     db.table("music_tokens").update(updated).eq("user_id", user_id).execute()
     return {**token_data, **updated}
 
@@ -66,21 +98,6 @@ def _refresh_token(user_id: str, token_data: dict, db: Client) -> dict:
 async def get_user_spotify(
     user: dict = Depends(get_current_user),
 ) -> spotipy.Spotify:
-    # Preview mode: skip the token refresh (the seeded music_tokens row
-    # uses a fake refresh token, so a real call to Spotify's token
-    # endpoint would crash). Return a Spotipy client with the fake
-    # access token — endpoints that only touch the DB (e.g. listing
-    # collections) will work fine; endpoints that actually call the
-    # Spotify API will fail at the call site, which is the expected
-    # limitation of the preview auth bypass.
-    import os
-
-    if (
-        os.getenv("VERCEL_ENV") == "preview"
-        and os.getenv("PREVIEW_REAL_AUTH") != "true"
-    ):
-        return spotipy.Spotify(auth="PREVIEW_FAKE_ACCESS")
-
     db = get_service_db()
     return get_spotify_for_user(user["user_id"], db)
 

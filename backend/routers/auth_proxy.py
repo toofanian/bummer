@@ -16,11 +16,12 @@ from datetime import datetime, timedelta, timezone
 from urllib.parse import urlencode
 
 import requests
-from fastapi import APIRouter, HTTPException, Query, Request
+from fastapi import APIRouter, Form, HTTPException, Query, Request
 from fastapi.responses import RedirectResponse
 from slowapi import Limiter
 from slowapi.util import get_remote_address
 
+from crypto import encrypt_token
 from db import get_service_db
 
 limiter = Limiter(key_func=get_remote_address)
@@ -139,21 +140,23 @@ def verify_supabase_jwt(token: str) -> str:
 
 
 # ---------------------------------------------------------------------------
-# Endpoint 1: GET /auth/preview-login
+# Endpoint 1: POST /auth/preview-login (M1: token in POST body, not URL)
 # ---------------------------------------------------------------------------
 
 
-@router.get("/preview-login")
+@router.post("/preview-login")
 @limiter.limit("5/minute")
 async def preview_login(
     request: Request,
-    origin: str = Query(...),
-    client_id: str = Query(...),
-    supabase_token: str = Query(...),
+    origin: str = Form(...),
+    client_id: str = Form(...),
+    supabase_token: str = Form(...),
 ):
     """Initiate Spotify OAuth for a preview deploy.
 
-    Generates PKCE + signed state and redirects to Spotify's authorize endpoint.
+    Accepts parameters via POST form body (not query params) to keep the
+    supabase_token out of URLs/logs. Submitted via hidden HTML form from
+    the frontend, so returns a redirect (not JSON).
     """
     secret, redirect_uri = _get_proxy_config()
 
@@ -253,7 +256,7 @@ async def callback_proxy(
         {
             "user_id": payload["user_id"],
             "access_token": tokens["access_token"],
-            "refresh_token": tokens["refresh_token"],
+            "refresh_token": encrypt_token(tokens["refresh_token"]),
             "expires_at": (now + timedelta(seconds=tokens["expires_in"])).isoformat(),
             "client_id": payload["client_id"],
             "updated_at": now.isoformat(),
