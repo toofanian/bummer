@@ -182,20 +182,18 @@ describe('useSpotifyAuth', () => {
       vi.resetModules()
     })
 
-    // M1: Preview login now uses POST with token in body, not URL query params
-    it('posts to prod proxy URL and redirects to returned URL', async () => {
-      const assignMock = vi.fn()
+    // M1: Preview login now uses hidden form POST (CORS-exempt) with token in body
+    it('submits hidden form to prod proxy URL', async () => {
       Object.defineProperty(window, 'location', {
-        value: { assign: assignMock, origin: 'https://preview-123.vercel.app' },
+        value: { assign: vi.fn(), origin: 'https://preview-123.vercel.app' },
         writable: true,
       })
       localStorage.setItem('spotify_client_id', 'my-client-id')
 
-      // Mock the POST response
-      fetch.mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({ redirect_url: 'https://accounts.spotify.com/authorize?state=abc' }),
-      })
+      // Spy on appendChild without replacing it (React needs it)
+      const appendSpy = vi.spyOn(document.body, 'appendChild')
+      // Mock HTMLFormElement.submit to prevent navigation
+      HTMLFormElement.prototype.submit = vi.fn()
 
       const { useSpotifyAuth: useSpotifyAuthPreview } = await import('./useSpotifyAuth')
       const { result } = renderHook(() => useSpotifyAuthPreview())
@@ -203,33 +201,30 @@ describe('useSpotifyAuth', () => {
         await result.current.initiateLogin('supabase-jwt-token')
       })
 
-      // Should have called fetch with POST, not window.location.assign with query params
-      expect(fetch).toHaveBeenCalledWith(
-        expect.stringContaining('/api/auth/preview-login'),
-        expect.objectContaining({
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: expect.stringContaining('"supabase_token":"supabase-jwt-token"'),
-        }),
-      )
-      // Should redirect to the URL returned by the backend
-      expect(assignMock).toHaveBeenCalledWith('https://accounts.spotify.com/authorize?state=abc')
-      // Should NOT set a PKCE verifier (prod proxy handles it)
+      // Find the form among all appendChild calls (React also appends)
+      const formCall = appendSpy.mock.calls.find(([el]) => el instanceof HTMLFormElement)
+      expect(formCall).toBeTruthy()
+      const form = formCall[0]
+      expect(form.method).toBe('post')
+      expect(form.action).toContain('/api/auth/preview-login')
+      // Token in hidden input, not URL
+      const tokenInput = form.querySelector('input[name="supabase_token"]')
+      expect(tokenInput.value).toBe('supabase-jwt-token')
+      expect(HTMLFormElement.prototype.submit).toHaveBeenCalled()
       expect(localStorage.getItem('spotify_pkce_verifier')).toBeNull()
+
+      appendSpy.mockRestore()
     })
 
-    it('uses VITE_PROD_ORIGIN for the proxy base URL', async () => {
-      const assignMock = vi.fn()
+    it('uses VITE_PROD_ORIGIN for the proxy form action', async () => {
       Object.defineProperty(window, 'location', {
-        value: { assign: assignMock, origin: 'https://preview-123.vercel.app' },
+        value: { assign: vi.fn(), origin: 'https://preview-123.vercel.app' },
         writable: true,
       })
       localStorage.setItem('spotify_client_id', 'cid')
 
-      fetch.mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({ redirect_url: 'https://accounts.spotify.com/authorize?state=xyz' }),
-      })
+      const appendSpy = vi.spyOn(document.body, 'appendChild')
+      HTMLFormElement.prototype.submit = vi.fn()
 
       const { useSpotifyAuth: useSpotifyAuthPreview } = await import('./useSpotifyAuth')
       const { result } = renderHook(() => useSpotifyAuthPreview())
@@ -237,10 +232,12 @@ describe('useSpotifyAuth', () => {
         await result.current.initiateLogin('tok')
       })
 
-      const fetchUrl = fetch.mock.calls[0][0]
-      // Should use the VITE_PROD_ORIGIN env var (or fallback)
-      expect(fetchUrl).toMatch(/^https?:\/\//)
-      expect(fetchUrl).toContain('/api/auth/preview-login')
+      const formCall = appendSpy.mock.calls.find(([el]) => el instanceof HTMLFormElement)
+      const form = formCall[0]
+      expect(form.action).toMatch(/^https?:\/\//)
+      expect(form.action).toContain('/api/auth/preview-login')
+
+      appendSpy.mockRestore()
     })
   })
 
