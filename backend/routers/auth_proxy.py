@@ -16,9 +16,8 @@ from datetime import datetime, timedelta, timezone
 from urllib.parse import urlencode
 
 import requests
-from fastapi import APIRouter, HTTPException, Query, Request
+from fastapi import APIRouter, Form, HTTPException, Query, Request
 from fastapi.responses import RedirectResponse
-from pydantic import BaseModel
 from slowapi import Limiter
 from slowapi.util import get_remote_address
 
@@ -145,31 +144,27 @@ def verify_supabase_jwt(token: str) -> str:
 # ---------------------------------------------------------------------------
 
 
-class PreviewLoginRequest(BaseModel):
-    origin: str
-    client_id: str
-    supabase_token: str
-
-
 @router.post("/preview-login")
 @limiter.limit("5/minute")
 async def preview_login(
     request: Request,
-    body: PreviewLoginRequest,
+    origin: str = Form(...),
+    client_id: str = Form(...),
+    supabase_token: str = Form(...),
 ):
     """Initiate Spotify OAuth for a preview deploy.
 
-    Accepts parameters via POST body (not query params) to keep the
-    supabase_token out of URLs/logs. Returns a JSON response with the
-    Spotify authorize URL for the client to redirect to.
+    Accepts parameters via POST form body (not query params) to keep the
+    supabase_token out of URLs/logs. Submitted via hidden HTML form from
+    the frontend, so returns a redirect (not JSON).
     """
     secret, redirect_uri = _get_proxy_config()
 
-    _validate_origin(body.origin)
+    _validate_origin(origin)
 
     # Verify the Supabase JWT to get the user_id
     try:
-        user_id = verify_supabase_jwt(body.supabase_token)
+        user_id = verify_supabase_jwt(supabase_token)
     except HTTPException:
         raise
     except Exception:
@@ -182,9 +177,9 @@ async def preview_login(
 
     # Build signed state
     state_payload = {
-        "origin": body.origin,
+        "origin": origin,
         "user_id": user_id,
-        "client_id": body.client_id,
+        "client_id": client_id,
         "verifier": verifier,
         "ts": int(time.time()),
     }
@@ -192,7 +187,7 @@ async def preview_login(
 
     # Build Spotify authorize URL
     params = {
-        "client_id": body.client_id,
+        "client_id": client_id,
         "response_type": "code",
         "redirect_uri": redirect_uri,
         "scope": _SPOTIFY_SCOPES,
@@ -201,7 +196,7 @@ async def preview_login(
         "state": state,
     }
     spotify_url = f"https://accounts.spotify.com/authorize?{urlencode(params)}"
-    return {"redirect_url": spotify_url}
+    return RedirectResponse(url=spotify_url, status_code=302)
 
 
 # ---------------------------------------------------------------------------

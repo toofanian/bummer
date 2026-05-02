@@ -71,24 +71,23 @@ class TestPreviewLogin:
 
     @patch.dict("os.environ", _env_vars(), clear=False)
     @patch("routers.auth.limiter")
-    def test_preview_login_returns_redirect_url(self, mock_limiter):
-        """Valid POST body should return JSON with redirect_url to Spotify."""
+    def test_preview_login_returns_redirect(self, mock_limiter):
+        """Valid POST form should redirect to Spotify authorize URL."""
         mock_limiter.reset.return_value = None
 
         with patch("routers.auth_proxy.verify_supabase_jwt", return_value=TEST_USER_ID):
             response = client.post(
                 "/auth/preview-login",
-                json={
+                data={
                     "origin": VALID_ORIGIN,
                     "client_id": TEST_CLIENT_ID,
                     "supabase_token": TEST_SUPABASE_TOKEN,
                 },
+                follow_redirects=False,
             )
 
-        assert response.status_code == 200
-        data = response.json()
-        assert "redirect_url" in data
-        redirect_url = data["redirect_url"]
+        assert response.status_code == 302
+        redirect_url = response.headers["location"]
         assert redirect_url.startswith("https://accounts.spotify.com/authorize")
         assert "response_type=code" in redirect_url
         assert "code_challenge_method=S256" in redirect_url
@@ -101,7 +100,7 @@ class TestPreviewLogin:
         with patch("routers.auth_proxy.verify_supabase_jwt", return_value=TEST_USER_ID):
             response = client.post(
                 "/auth/preview-login",
-                json={
+                data={
                     "origin": "https://evil.example.com",
                     "client_id": TEST_CLIENT_ID,
                     "supabase_token": TEST_SUPABASE_TOKEN,
@@ -113,13 +112,13 @@ class TestPreviewLogin:
     def test_preview_login_rejects_missing_params(self):
         """Missing required fields should return 422."""
         # Missing all fields
-        response = client.post("/auth/preview-login", json={})
+        response = client.post("/auth/preview-login", data={})
         assert response.status_code == 422
 
         # Missing client_id
         response = client.post(
             "/auth/preview-login",
-            json={"origin": VALID_ORIGIN, "supabase_token": TEST_SUPABASE_TOKEN},
+            data={"origin": VALID_ORIGIN, "supabase_token": TEST_SUPABASE_TOKEN},
         )
         assert response.status_code == 422
 
@@ -132,7 +131,7 @@ class TestPreviewLogin:
         ):
             response = client.post(
                 "/auth/preview-login",
-                json={
+                data={
                     "origin": VALID_ORIGIN,
                     "client_id": TEST_CLIENT_ID,
                     "supabase_token": "bad-token",
@@ -149,7 +148,7 @@ class TestPreviewLogin:
         ):
             response = client.post(
                 "/auth/preview-login",
-                json={
+                data={
                     "origin": VALID_ORIGIN,
                     "client_id": TEST_CLIENT_ID,
                     "supabase_token": TEST_SUPABASE_TOKEN,

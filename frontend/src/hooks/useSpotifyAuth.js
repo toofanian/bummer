@@ -70,19 +70,26 @@ export function useSpotifyAuth() {
     if (!clientId) throw new Error('No Spotify client_id set')
 
     if (IS_PREVIEW && supabaseToken) {
-      // Preview mode: POST to prod's proxy endpoint (token in body, not URL)
-      const res = await fetch(`${PROD_ORIGIN}/api/auth/preview-login`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          origin: window.location.origin,
-          client_id: clientId,
-          supabase_token: supabaseToken,
-        }),
-      })
-      if (!res.ok) throw new Error('Preview login failed')
-      const { redirect_url } = await res.json()
-      window.location.assign(redirect_url)
+      // Preview mode: hidden form POST to prod's proxy endpoint.
+      // Uses a form (not fetch) to avoid CORS — the prod backend doesn't
+      // include preview origins in ALLOWED_ORIGINS. The token is in the
+      // POST body, not the URL, which was the security goal of M1.
+      const form = document.createElement('form')
+      form.method = 'POST'
+      form.action = `${PROD_ORIGIN}/api/auth/preview-login`
+      for (const [k, v] of Object.entries({
+        origin: window.location.origin,
+        client_id: clientId,
+        supabase_token: supabaseToken,
+      })) {
+        const input = document.createElement('input')
+        input.type = 'hidden'
+        input.name = k
+        input.value = v
+        form.appendChild(input)
+      }
+      document.body.appendChild(form)
+      form.submit()
       return
     }
 
