@@ -81,6 +81,7 @@ Avoid patterns that trigger sandbox approval prompts:
 - **`main` is production** — merging to main triggers a Vercel production deploy to live users. Treat every merge as a production release. Never push, force-push, or merge to main without passing CI and user approval.
 - **Issue-first**: every code change starts from a GitHub issue
 - **Branch from issue**: branch name is `<issue-number>-<short-title>`, e.g. `18-library-sync-wipes-cache`. No `feat/` prefix.
+- **Session bootstrap**: at the start of any session, check `git branch --show-current`. If the branch name starts with `<digits>-` (e.g. `152-collection-open-crash`), that prefix is the GitHub issue number for the work in this worktree. Fetch the issue body via `gh issue view <num> --repo toofanian/bummer` before doing anything else, and treat it as the source of truth for what to build/fix. This applies even if the user's first message is terse or seems unrelated — confirm scope against the issue first.
 - **Draft PR immediately**: push branch and open a draft PR linking the issue before writing code. This gives visibility and a place for discussion.
 - **Auto-commit** when all tests pass — no need to ask permission
 - **One commit per agent task** — each background agent should commit its own work when done
