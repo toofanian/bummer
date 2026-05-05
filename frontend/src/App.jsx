@@ -37,6 +37,8 @@ import CollectionPicker from './components/CollectionPicker'
 import SettingsPage from './components/SettingsPage'
 import TabBar from './components/TabBar'
 import { apiFetch } from './api'
+import supabase from './supabaseClient'
+import { useCollectionsViewMode } from './hooks/useCollectionsViewMode'
 const CACHE_KEY = 'bsi_albums_cache'
 
 export default function App() {
@@ -44,6 +46,15 @@ export default function App() {
   const [albums, setAlbums] = useState([])
   const [collections, setCollections] = useState([])
   const [collectionAlbums, setCollectionAlbums] = useState([])
+  // Tag tree for the collections sidebar (Task 12 wire-up).
+  const [tags, setTags] = useState([])
+  // Currently-selected tag id in the sidebar (null = "All").
+  const [selectedTagId, setSelectedTagId] = useState(null)
+  // Map of collectionId -> tagId[] used to filter the collections grid by tag.
+  // KNOWN SHORTCUT: populated via direct supabase query rather than a backend
+  // endpoint (see comment in loadData) to avoid an N+1 fetch and a new route.
+  const [collectionTagsMap, setCollectionTagsMap] = useState({})
+  const [viewMode, setViewMode] = useCollectionsViewMode()
   const [listenCounts, setListenCounts] = useState({})
   // albumCollectionMap: { [service_id]: string[] } — IDs of collections the album belongs to
   const {
@@ -164,6 +175,39 @@ export default function App() {
       setAlbumsLoading(true)
     }
 
+    // Fetch tags in parallel with collections (non-fatal: a failure leaves the
+    // sidebar empty rather than breaking the page).
+    const tagsPromise = (async () => {
+      try {
+        const tagsRaw = await apiFetch('/tags', {}, sessionRef.current).then(r => r.json())
+        setTags(Array.isArray(tagsRaw) ? tagsRaw : [])
+      } catch {
+        // swallow — sidebar will just show "No tags yet"
+      }
+    })()
+
+    // Fetch the full collection<->tag membership map directly via supabase.
+    // KNOWN SHORTCUT: avoids adding a new backend endpoint or N+1 calls to
+    // `/collections/{id}/tags`. The supabase client is already authed and RLS
+    // scopes rows to the current user. Revisit if we add a server-side
+    // `GET /collection-tags` endpoint.
+    const collectionTagsPromise = (async () => {
+      try {
+        const { data, error } = await supabase
+          .from('collection_tags')
+          .select('collection_id, tag_id')
+        if (error) return
+        const map = {}
+        for (const row of data || []) {
+          if (!map[row.collection_id]) map[row.collection_id] = []
+          map[row.collection_id].push(row.tag_id)
+        }
+        setCollectionTagsMap(map)
+      } catch {
+        // non-fatal
+      }
+    })()
+
     // Start collections fetch immediately (parallel with sync)
     const collectionsPromise = (async () => {
       try {
@@ -257,8 +301,8 @@ export default function App() {
       }
       setSyncing(false)
 
-      // Await collections (already started in parallel)
-      await collectionsPromise
+      // Await collections + tags + memberships (already started in parallel)
+      await Promise.all([collectionsPromise, tagsPromise, collectionTagsPromise])
     } catch (err) {
       // If we had cached data, keep it visible and swallow the error — a
       // failed background sync shouldn't wipe a warm UI. On cold start the
@@ -926,6 +970,14 @@ export default function App() {
                   setCollectionCreateName('')
                   setShowCollectionCreate(false)
                 }}
+                tags={tags}
+                selectedTagId={selectedTagId}
+                onSelectTag={setSelectedTagId}
+                viewMode={viewMode}
+                onViewModeChange={setViewMode}
+                onManageTags={handleEnterCollection}
+                onOpenTagManager={() => setView('tag-manager')}
+                collectionTagsMap={collectionTagsMap}
               />
               )}
             </div>
@@ -1264,6 +1316,14 @@ export default function App() {
               }}
               onCreateCollection={handleCreateCollection}
               onReorder={handleReorderCollections}
+              tags={tags}
+              selectedTagId={selectedTagId}
+              onSelectTag={setSelectedTagId}
+              viewMode={viewMode}
+              onViewModeChange={setViewMode}
+              onManageTags={handleEnterCollection}
+              onOpenTagManager={() => setView('tag-manager')}
+              collectionTagsMap={collectionTagsMap}
             />
             )}
           </div>

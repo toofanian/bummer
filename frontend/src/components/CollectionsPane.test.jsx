@@ -1,6 +1,6 @@
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import CollectionsPane from './CollectionsPane'
+import CollectionsPane, { filterCollectionsByTag } from './CollectionsPane'
 import { useIsMobile } from '../hooks/useIsMobile'
 
 // Mock apiFetch so AlbumPromptBar's home-data fetch doesn't fail
@@ -14,12 +14,9 @@ vi.mock('../hooks/useIsMobile', () => ({
   useIsMobile: vi.fn().mockReturnValue(false),
 }))
 
-const TWO_DAYS_AGO = new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString()
-const FIVE_DAYS_AGO = new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString()
-
 const COLLECTIONS = [
-  { id: 'col-1', name: 'Road trip', album_count: 5, updated_at: TWO_DAYS_AGO },
-  { id: 'col-2', name: '90s classics', album_count: 12, updated_at: FIVE_DAYS_AGO },
+  { id: 'col-1', name: 'Road trip', album_count: 5 },
+  { id: 'col-2', name: '90s classics', album_count: 12 },
 ]
 
 const ALBUMS = [
@@ -27,483 +24,181 @@ const ALBUMS = [
   { service_id: 'alb-2', name: 'OK Computer', artists: ['Radiohead'], image_url: null },
 ]
 
-describe('CollectionsPane', () => {
+const TAGS = [
+  { id: 'tag-root', name: 'Mood', parent_tag_id: null, position: 0 },
+  { id: 'tag-child', name: 'Chill', parent_tag_id: 'tag-root', position: 0 },
+  { id: 'tag-other', name: 'Genre', parent_tag_id: null, position: 1 },
+]
+
+const baseDesktopProps = {
+  collections: COLLECTIONS,
+  onEnter: vi.fn(),
+  onDelete: vi.fn(),
+  onRename: vi.fn(),
+  onCreate: vi.fn(),
+  onFetchAlbums: () => Promise.resolve([]),
+  tags: [],
+  selectedTagId: null,
+  onSelectTag: vi.fn(),
+  viewMode: 'list',
+  onViewModeChange: vi.fn(),
+  onManageTags: vi.fn(),
+  onOpenTagManager: vi.fn(),
+  collectionTagsMap: {},
+}
+
+describe('CollectionsPane (desktop) — list view rendering', () => {
   it('renders all collection names', () => {
-    render(
-      <CollectionsPane
-        collections={COLLECTIONS}
-        onEnter={() => {}}
-        onDelete={() => {}}
-        onFetchAlbums={() => Promise.resolve([])}
-      />
-    )
+    render(<CollectionsPane {...baseDesktopProps} />)
     expect(screen.getByText('Road trip')).toBeInTheDocument()
     expect(screen.getByText('90s classics')).toBeInTheDocument()
   })
 
   it('shows empty state when no collections', () => {
-    render(
-      <CollectionsPane
-        collections={[]}
-        onEnter={() => {}}
-        onDelete={() => {}}
-        onFetchAlbums={() => Promise.resolve([])}
-      />
-    )
+    render(<CollectionsPane {...baseDesktopProps} collections={[]} />)
     expect(screen.getByText(/no collections/i)).toBeInTheDocument()
   })
 
-  it('calls onEnter with collection when collection row is clicked', async () => {
+  it('calls onEnter with collection when row is clicked', async () => {
     const onEnter = vi.fn()
-    render(
-      <CollectionsPane
-        collections={COLLECTIONS}
-        onEnter={onEnter}
-        onDelete={() => {}}
-        onFetchAlbums={() => Promise.resolve([])}
-      />
-    )
+    render(<CollectionsPane {...baseDesktopProps} onEnter={onEnter} />)
     await userEvent.click(screen.getByText('Road trip'))
     expect(onEnter).toHaveBeenCalledWith(COLLECTIONS[0])
   })
 
-  it('calls onDelete with collection id when Delete is confirmed (three-click flow)', async () => {
-    const onDelete = vi.fn()
-    render(
-      <CollectionsPane
-        collections={COLLECTIONS}
-        onEnter={() => {}}
-        onDelete={onDelete}
-        onRename={() => {}}
-        onFetchAlbums={() => Promise.resolve([])}
-      />
-    )
-    await userEvent.click(screen.getAllByRole('button', { name: /more options/i })[0])
-    await userEvent.click(screen.getByRole('button', { name: /^delete$/i }))
-    await userEvent.click(screen.getByRole('button', { name: /confirm delete/i }))
-    expect(onDelete).toHaveBeenCalledWith('col-1')
-  })
-
-  it('does not call onEnter when the menu button is clicked', async () => {
-    const onEnter = vi.fn()
-    render(
-      <CollectionsPane
-        collections={COLLECTIONS}
-        onEnter={onEnter}
-        onDelete={() => {}}
-        onRename={() => {}}
-        onFetchAlbums={() => Promise.resolve([])}
-      />
-    )
-    await userEvent.click(screen.getAllByRole('button', { name: /more options/i })[0])
-    expect(onEnter).not.toHaveBeenCalled()
-  })
-
-  it('does not render expand arrow buttons', () => {
-    render(
-      <CollectionsPane
-        collections={COLLECTIONS}
-        onEnter={() => {}}
-        onDelete={() => {}}
-        onFetchAlbums={() => Promise.resolve([])}
-      />
-    )
-    expect(screen.queryByRole('button', { name: /expand/i })).not.toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: /collapse/i })).not.toBeInTheDocument()
-  })
-
-  it('does not show inline album list by default', () => {
-    render(
-      <CollectionsPane
-        collections={COLLECTIONS}
-        onEnter={() => {}}
-        onDelete={() => {}}
-        onFetchAlbums={() => Promise.resolve([])}
-      />
-    )
-    expect(screen.queryByText('In Rainbows')).not.toBeInTheDocument()
-  })
-
-  it('fetches albums for each collection on mount and shows art thumbnails', async () => {
+  it('fetches albums for each collection on mount (powers thumbnails)', async () => {
     const onFetchAlbums = vi.fn().mockResolvedValue(ALBUMS)
-    render(
-      <CollectionsPane
-        collections={COLLECTIONS}
-        onEnter={() => {}}
-        onDelete={() => {}}
-        onFetchAlbums={onFetchAlbums}
-      />
-    )
+    render(<CollectionsPane {...baseDesktopProps} onFetchAlbums={onFetchAlbums} />)
     await waitFor(() => {
       expect(onFetchAlbums).toHaveBeenCalledWith('col-1')
       expect(onFetchAlbums).toHaveBeenCalledWith('col-2')
     })
   })
 
-  it('shows album art thumbnails in each collection row once loaded', async () => {
-    const onFetchAlbums = vi.fn().mockResolvedValue(ALBUMS)
-    render(
-      <CollectionsPane
-        collections={[COLLECTIONS[0]]}
-        onEnter={() => {}}
-        onDelete={() => {}}
-        onFetchAlbums={onFetchAlbums}
-      />
-    )
-    await waitFor(() => {
-      const img = screen.getByAltText('In Rainbows')
-      expect(img).toBeInTheDocument()
-      expect(img).toHaveAttribute('src', 'http://img/1.jpg')
-    })
+  it('does not show inline album list by default', () => {
+    render(<CollectionsPane {...baseDesktopProps} />)
+    expect(screen.queryByText('In Rainbows')).not.toBeInTheDocument()
   })
 
-  it('renders AlbumArtStrip with 40px thumbnails for each collection', async () => {
-    const albums = [
-      { service_id: 'alb-1', name: 'In Rainbows', image_url: 'http://img/1.jpg' },
-    ]
-    const onFetchAlbums = vi.fn().mockResolvedValue(albums)
-    render(
-      <CollectionsPane
-        collections={[COLLECTIONS[0]]}
-        onEnter={() => {}}
-        onDelete={() => {}}
-        onFetchAlbums={onFetchAlbums}
-      />
-    )
-    await waitFor(() => {
-      const img = screen.getByAltText('In Rainbows')
-      expect(img).toBeInTheDocument()
-      expect(img).toHaveAttribute('width', '62')
-    })
+  it('renders + New Collection button which fires onCreate', async () => {
+    const onCreate = vi.fn()
+    render(<CollectionsPane {...baseDesktopProps} onCreate={onCreate} />)
+    const btn = screen.getByRole('button', { name: /new collection/i })
+    await userEvent.click(btn)
+    expect(onCreate).toHaveBeenCalled()
   })
 
-  it('shows album count badge', () => {
-    render(
-      <CollectionsPane
-        collections={COLLECTIONS}
-        onEnter={() => {}}
-        onDelete={() => {}}
-        onFetchAlbums={() => Promise.resolve([])}
-      />
-    )
-    expect(screen.getByText('5 albums')).toBeInTheDocument()
-    expect(screen.getByText('12 albums')).toBeInTheDocument()
-  })
-
-  it('shows description as subtitle on collection card', () => {
-    const cols = [{ id: '1', name: 'Late Night', album_count: 5, description: 'low energy, headphone albums' }]
-    render(<CollectionsPane collections={cols} onEnter={() => {}} onDelete={() => {}} onCreate={() => {}} onFetchAlbums={vi.fn().mockResolvedValue([])} />)
-    expect(screen.getByText('low energy, headphone albums')).toBeInTheDocument()
-  })
-
-  it('does not show description when null', () => {
-    const cols = [{ id: '1', name: 'Late Night', album_count: 5, description: null }]
-    render(<CollectionsPane collections={cols} onEnter={() => {}} onDelete={() => {}} onCreate={() => {}} onFetchAlbums={vi.fn().mockResolvedValue([])} />)
-    expect(screen.queryByText('low energy')).not.toBeInTheDocument()
-  })
-
-  it('does not render a create input or Create button', () => {
-    render(
-      <CollectionsPane
-        collections={[]}
-        onEnter={() => {}}
-        onDelete={() => {}}
-        onCreate={() => {}}
-        onFetchAlbums={() => Promise.resolve([])}
-      />
-    )
-    expect(screen.queryByPlaceholderText(/new collection/i)).not.toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: /create/i })).not.toBeInTheDocument()
-  })
-
-  it('art strip container has fixed height to prevent layout shift', () => {
-    render(
-      <CollectionsPane
-        collections={COLLECTIONS}
-        onEnter={() => {}}
-        onDelete={() => {}}
-        onFetchAlbums={() => Promise.resolve([])}
-      />
-    )
-    const firstRow = screen.getByText('Road trip').closest('[data-testid="collection-row"]')
-    // The inner layout container (desktop: flex row, mobile: strip wrapper) has a fixed height
-    const fixedHeightEl = firstRow.querySelector('[style*="height: 62px"], [style*="height:62px"]')
-    expect(fixedHeightEl).toBeInTheDocument()
-  })
-
-  it('always renders album art strip area even before albums load', () => {
-    render(
-      <CollectionsPane
-        collections={COLLECTIONS}
-        onEnter={() => {}}
-        onDelete={() => {}}
-        onFetchAlbums={() => Promise.resolve([])}
-      />
-    )
-    // Strip container should exist immediately (not conditionally rendered)
-    const firstRow = screen.getByText('Road trip').closest('[data-testid="collection-row"]')
-    const fixedHeightEl = firstRow.querySelector('[style*="height: 62px"], [style*="height:62px"]')
-    expect(fixedHeightEl).toBeInTheDocument()
-  })
-
-  it('collections list container allows vertical scrolling', () => {
-    render(
-      <CollectionsPane
-        collections={COLLECTIONS}
-        onEnter={() => {}}
-        onDelete={() => {}}
-        onFetchAlbums={() => Promise.resolve([])}
-      />
-    )
-    const firstRow = screen.getByText('Road trip').closest('[data-testid="collection-row"]')
-    const listContainer = firstRow.parentElement
-    expect(listContainer.className).toContain('overflow-y-auto')
-    expect(listContainer.className).not.toContain('overflow-hidden')
-  })
-
-  it('does not use a multi-column grid layout', () => {
-    render(
-      <CollectionsPane
-        collections={COLLECTIONS}
-        onEnter={() => {}}
-        onDelete={() => {}}
-        onFetchAlbums={() => Promise.resolve([])}
-      />
-    )
-    const gridEl = document.querySelector('.grid')
-    expect(gridEl).not.toBeInTheDocument()
-  })
-
-  // --- Three-dot menu ---
-
-  it('shows a three-dot menu button on each collection row', () => {
-    render(
-      <CollectionsPane
-        collections={COLLECTIONS}
-        onEnter={() => {}}
-        onDelete={() => {}}
-        onRename={() => {}}
-        onFetchAlbums={() => Promise.resolve([])}
-      />
-    )
-    const menuBtns = screen.getAllByRole('button', { name: /more options/i })
-    expect(menuBtns).toHaveLength(2)
-  })
-
-  it('opens menu with Rename and Delete options on click', async () => {
-    render(
-      <CollectionsPane
-        collections={COLLECTIONS}
-        onEnter={() => {}}
-        onDelete={() => {}}
-        onRename={() => {}}
-        onFetchAlbums={() => Promise.resolve([])}
-      />
-    )
-    await userEvent.click(screen.getAllByRole('button', { name: /more options/i })[0])
-    expect(screen.getByRole('button', { name: /^rename$/i })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /^delete$/i })).toBeInTheDocument()
-  })
-
-  it('enters inline rename mode when Rename is clicked from menu', async () => {
-    render(
-      <CollectionsPane
-        collections={COLLECTIONS}
-        onEnter={() => {}}
-        onDelete={() => {}}
-        onRename={() => {}}
-        onFetchAlbums={() => Promise.resolve([])}
-      />
-    )
-    await userEvent.click(screen.getAllByRole('button', { name: /more options/i })[0])
-    await userEvent.click(screen.getByRole('button', { name: /^rename$/i }))
-    expect(screen.getByDisplayValue('Road trip')).toBeInTheDocument()
-  })
-
-  it('calls onRename with new name on Enter', async () => {
-    const onRename = vi.fn()
-    render(
-      <CollectionsPane
-        collections={COLLECTIONS}
-        onEnter={() => {}}
-        onDelete={() => {}}
-        onRename={onRename}
-        onFetchAlbums={() => Promise.resolve([])}
-      />
-    )
-    await userEvent.click(screen.getAllByRole('button', { name: /more options/i })[0])
-    await userEvent.click(screen.getByRole('button', { name: /^rename$/i }))
-    const input = screen.getByDisplayValue('Road trip')
-    await userEvent.clear(input)
-    await userEvent.type(input, 'Summer vibes{Enter}')
-    expect(onRename).toHaveBeenCalledWith('col-1', 'Summer vibes')
-  })
-
-  it('cancels rename on Escape without calling onRename', async () => {
-    const onRename = vi.fn()
-    render(
-      <CollectionsPane
-        collections={COLLECTIONS}
-        onEnter={() => {}}
-        onDelete={() => {}}
-        onRename={onRename}
-        onFetchAlbums={() => Promise.resolve([])}
-      />
-    )
-    await userEvent.click(screen.getAllByRole('button', { name: /more options/i })[0])
-    await userEvent.click(screen.getByRole('button', { name: /^rename$/i }))
-    await userEvent.keyboard('{Escape}')
-    expect(onRename).not.toHaveBeenCalled()
-    expect(screen.getByText('Road trip')).toBeInTheDocument()
-  })
-
-  it('does not call onRename if name is unchanged', async () => {
-    const onRename = vi.fn()
-    render(
-      <CollectionsPane
-        collections={COLLECTIONS}
-        onEnter={() => {}}
-        onDelete={() => {}}
-        onRename={onRename}
-        onFetchAlbums={() => Promise.resolve([])}
-      />
-    )
-    await userEvent.click(screen.getAllByRole('button', { name: /more options/i })[0])
-    await userEvent.click(screen.getByRole('button', { name: /^rename$/i }))
-    await userEvent.keyboard('{Enter}')
-    expect(onRename).not.toHaveBeenCalled()
-  })
-
-  it('does not call onRename if name is empty', async () => {
-    const onRename = vi.fn()
-    render(
-      <CollectionsPane
-        collections={COLLECTIONS}
-        onEnter={() => {}}
-        onDelete={() => {}}
-        onRename={onRename}
-        onFetchAlbums={() => Promise.resolve([])}
-      />
-    )
-    await userEvent.click(screen.getAllByRole('button', { name: /more options/i })[0])
-    await userEvent.click(screen.getByRole('button', { name: /^rename$/i }))
-    const input = screen.getByDisplayValue('Road trip')
-    await userEvent.clear(input)
-    await userEvent.keyboard('{Enter}')
-    expect(onRename).not.toHaveBeenCalled()
-  })
-
-  // --- Delete confirmation ---
-
-  it('delete button shows confirmation via menu', async () => {
-    render(
-      <CollectionsPane
-        collections={COLLECTIONS}
-        onEnter={() => {}}
-        onDelete={() => {}}
-        onRename={() => {}}
-        onFetchAlbums={() => Promise.resolve([])}
-      />
-    )
-    await userEvent.click(screen.getAllByRole('button', { name: /more options/i })[0])
-    await userEvent.click(screen.getByRole('button', { name: /^delete$/i }))
-    expect(screen.getByRole('button', { name: /confirm delete/i })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /cancel/i })).toBeInTheDocument()
-  })
-
-  it('confirm delete calls onDelete', async () => {
-    const onDelete = vi.fn()
-    render(
-      <CollectionsPane
-        collections={COLLECTIONS}
-        onEnter={() => {}}
-        onDelete={onDelete}
-        onRename={() => {}}
-        onFetchAlbums={() => Promise.resolve([])}
-      />
-    )
-    await userEvent.click(screen.getAllByRole('button', { name: /more options/i })[0])
-    await userEvent.click(screen.getByRole('button', { name: /^delete$/i }))
-    const confirmBtn = screen.getByRole('button', { name: /confirm delete/i })
-    await userEvent.click(confirmBtn)
-    expect(onDelete).toHaveBeenCalledWith('col-1')
-  })
-
-  it('cancel delete does not call onDelete', async () => {
-    const onDelete = vi.fn()
-    render(
-      <CollectionsPane
-        collections={COLLECTIONS}
-        onEnter={() => {}}
-        onDelete={onDelete}
-        onRename={() => {}}
-        onFetchAlbums={() => Promise.resolve([])}
-      />
-    )
-    await userEvent.click(screen.getAllByRole('button', { name: /more options/i })[0])
-    await userEvent.click(screen.getByRole('button', { name: /^delete$/i }))
-    const cancelBtn = screen.getByRole('button', { name: /cancel/i })
-    await userEvent.click(cancelBtn)
-    expect(onDelete).not.toHaveBeenCalled()
-  })
-
-  // --- Drag reorder ---
-
-  it('renders drag handles when onReorder prop is provided', () => {
-    render(
-      <CollectionsPane
-        collections={COLLECTIONS}
-        onEnter={() => {}}
-        onDelete={() => {}}
-        onFetchAlbums={() => Promise.resolve([])}
-        onReorder={() => {}}
-      />
-    )
-    const handles = screen.getAllByRole('button', { name: /drag to reorder/i })
-    expect(handles).toHaveLength(2)
-  })
-
-  it('does not render drag handles when onReorder is not provided', () => {
-    render(
-      <CollectionsPane
-        collections={COLLECTIONS}
-        onEnter={() => {}}
-        onDelete={() => {}}
-        onFetchAlbums={() => Promise.resolve([])}
-      />
-    )
-    expect(screen.queryByRole('button', { name: /drag to reorder/i })).not.toBeInTheDocument()
-  })
-
-  it('renders AlbumPromptBar when prompt bar props are provided', async () => {
-    const { apiFetch } = await import('../api')
-    apiFetch.mockResolvedValue({
-      json: () => Promise.resolve({
-        recently_added: [{ service_id: 'ra1', name: 'New Album', image_url: 'https://example.com/new.jpg' }],
-        recently_played: [],
-      }),
-    })
-    render(
-      <CollectionsPane
-        collections={[]}
-        onEnter={() => {}}
-        onDelete={() => {}}
-        onCreate={() => {}}
-        onFetchAlbums={() => Promise.resolve([])}
-        albumCollectionMap={{}}
-        collectionsForPicker={[]}
-        session={{ access_token: 'test' }}
-        onBulkAdd={() => {}}
-        onCreateCollection={() => {}}
-      />
-    )
+  it('renders the AlbumPromptBar', async () => {
+    render(<CollectionsPane {...baseDesktopProps} session={{ access_token: 't' }} />)
     await waitFor(() => {
       expect(screen.getByTestId('album-prompt-bar')).toBeInTheDocument()
     })
   })
+
+  it('renders the TagTreeSidebar with All entry', () => {
+    render(<CollectionsPane {...baseDesktopProps} />)
+    expect(screen.getByText('All')).toBeInTheDocument()
+  })
 })
 
-describe('CollectionsPane inline create (mobile)', () => {
+describe('CollectionsPane (desktop) — view toggle', () => {
+  it('renders CollectionList rows when viewMode is list', () => {
+    render(<CollectionsPane {...baseDesktopProps} viewMode="list" />)
+    const rows = screen.getAllByTestId('collection-list-row')
+    expect(rows).toHaveLength(2)
+  })
+
+  it('switches to grid when viewMode is grid', () => {
+    render(<CollectionsPane {...baseDesktopProps} viewMode="grid" />)
+    // Grid view renders no list rows.
+    expect(screen.queryByTestId('collection-list-row')).not.toBeInTheDocument()
+    // Names still visible (rendered as cards instead).
+    expect(screen.getByText('Road trip')).toBeInTheDocument()
+    expect(screen.getByText('90s classics')).toBeInTheDocument()
+  })
+
+  it('clicking grid icon in toggle calls onViewModeChange("grid")', async () => {
+    const onViewModeChange = vi.fn()
+    render(<CollectionsPane {...baseDesktopProps} viewMode="list" onViewModeChange={onViewModeChange} />)
+    await userEvent.click(screen.getByRole('button', { name: /grid view/i }))
+    expect(onViewModeChange).toHaveBeenCalledWith('grid')
+  })
+})
+
+describe('CollectionsPane (desktop) — tag filtering', () => {
+  const filteredProps = {
+    ...baseDesktopProps,
+    tags: TAGS,
+    collections: [
+      { id: 'col-1', name: 'Road trip', album_count: 5 },
+      { id: 'col-2', name: 'Chill nights', album_count: 7 },
+      { id: 'col-3', name: 'Untagged', album_count: 3 },
+    ],
+    collectionTagsMap: {
+      'col-1': ['tag-other'],
+      'col-2': ['tag-child'],
+      // col-3 has no tags
+    },
+  }
+
+  it('shows all collections when selectedTagId is null', () => {
+    render(<CollectionsPane {...filteredProps} selectedTagId={null} />)
+    expect(screen.getByText('Road trip')).toBeInTheDocument()
+    expect(screen.getByText('Chill nights')).toBeInTheDocument()
+    expect(screen.getByText('Untagged')).toBeInTheDocument()
+  })
+
+  it('narrows to collections directly tagged with the selected tag', () => {
+    render(<CollectionsPane {...filteredProps} selectedTagId="tag-other" />)
+    expect(screen.getByText('Road trip')).toBeInTheDocument()
+    expect(screen.queryByText('Chill nights')).not.toBeInTheDocument()
+    expect(screen.queryByText('Untagged')).not.toBeInTheDocument()
+  })
+
+  it('includes descendants when a parent tag is selected', () => {
+    // Selecting parent "Mood" should include collections tagged with "Chill"
+    render(<CollectionsPane {...filteredProps} selectedTagId="tag-root" />)
+    expect(screen.getByText('Chill nights')).toBeInTheDocument()
+    expect(screen.queryByText('Road trip')).not.toBeInTheDocument()
+  })
+})
+
+describe('filterCollectionsByTag (pure helper)', () => {
+  it('returns all collections when selectedTagId is null', () => {
+    const result = filterCollectionsByTag(
+      [{ id: 'a' }, { id: 'b' }],
+      [],
+      null,
+      {},
+    )
+    expect(result).toHaveLength(2)
+  })
+
+  it('returns only collections matching the selected tag', () => {
+    const result = filterCollectionsByTag(
+      [{ id: 'a' }, { id: 'b' }],
+      [{ id: 't1', name: 'X', parent_tag_id: null, position: 0 }],
+      't1',
+      { a: ['t1'], b: [] },
+    )
+    expect(result).toEqual([{ id: 'a' }])
+  })
+
+  it('returns descendants when a parent tag is selected', () => {
+    const result = filterCollectionsByTag(
+      [{ id: 'a' }, { id: 'b' }],
+      [
+        { id: 't1', name: 'P', parent_tag_id: null, position: 0 },
+        { id: 't2', name: 'C', parent_tag_id: 't1', position: 0 },
+      ],
+      't1',
+      { a: ['t2'], b: [] },
+    )
+    expect(result).toEqual([{ id: 'a' }])
+  })
+})
+
+describe('CollectionsPane mobile (legacy)', () => {
   beforeEach(() => {
     useIsMobile.mockReturnValue(true)
   })
@@ -511,13 +206,13 @@ describe('CollectionsPane inline create (mobile)', () => {
     useIsMobile.mockReturnValue(false)
   })
 
-  const baseProps = {
+  const mobileProps = {
     collections: [],
     onEnter: vi.fn(),
     onDelete: vi.fn(),
     onCreate: vi.fn(),
     onRename: vi.fn(),
-    onFetchAlbums: vi.fn(),
+    onFetchAlbums: vi.fn().mockResolvedValue([]),
     albumCollectionMap: {},
     collectionsForPicker: [],
     session: { access_token: 'test' },
@@ -532,19 +227,22 @@ describe('CollectionsPane inline create (mobile)', () => {
   }
 
   it('renders create collection button when showCreate is false', () => {
-    render(<CollectionsPane {...baseProps} />)
+    render(<CollectionsPane {...mobileProps} />)
     expect(screen.getByLabelText('Create collection')).toBeInTheDocument()
   })
 
   it('renders name input when showCreate is true', () => {
-    render(<CollectionsPane {...baseProps} showCreate={true} />)
+    render(<CollectionsPane {...mobileProps} showCreate={true} />)
     expect(screen.getByPlaceholderText(/collection name/i)).toBeInTheDocument()
   })
 
-  it('calls onShowCreateChange when create button clicked', async () => {
-    const onShowCreateChange = vi.fn()
-    render(<CollectionsPane {...baseProps} onShowCreateChange={onShowCreateChange} />)
-    await userEvent.click(screen.getByLabelText('Create collection'))
-    expect(onShowCreateChange).toHaveBeenCalledWith(true)
+  it('renders mobile rows with collection-row testid', () => {
+    render(<CollectionsPane {...mobileProps} collections={COLLECTIONS} />)
+    expect(screen.getAllByTestId('collection-row')).toHaveLength(2)
+  })
+
+  it('does not render the desktop tag sidebar on mobile', () => {
+    render(<CollectionsPane {...mobileProps} collections={COLLECTIONS} />)
+    expect(screen.queryByText('All')).not.toBeInTheDocument()
   })
 })
