@@ -58,6 +58,7 @@ bummer/
 - `IS_PREVIEW` (computed from `VITE_VERCEL_ENV`) is used only in `useSpotifyAuth.js` to route Spotify OAuth through the proxy; it does not bypass authentication
 - Preview users' data lives in the prod DB alongside real users, isolated by `user_id`
 - Prod (`VERCEL_ENV=production`) is unaffected: Vercel injects `VERCEL_ENV=production` for prod deploys, which cannot be overridden from the Vercel env-var UI in the Production scope
+- The `rc` branch deploys to `staging.bummer.app` (via Vercel branch deploy + custom domain). Unlike preview deploys, `rc` uses **direct Spotify OAuth** (its callback URI is registered in the Spotify Dashboard) — not the callback proxy. RC shares the prod Supabase DB, same as preview deploys.
 
 ## Conventions
 
@@ -78,7 +79,7 @@ Avoid patterns that trigger sandbox approval prompts:
 
 ## Git workflow
 
-- **`main` is production** — merging to main triggers a Vercel production deploy to live users. Treat every merge as a production release. Never push, force-push, or merge to main without passing CI and user approval.
+- **`production` is production** — merging to `production` triggers a Vercel production deploy to live users. Treat every merge to `production` as a release. Never push, force-push, or merge to `production` without passing CI and user approval. `main` is the integration branch and gets preview deploys per PR; merges to `main` do NOT deploy to prod.
 - **Issue-first**: every code change starts from a GitHub issue
 - **Branch from issue**: branch name is `<issue-number>-<short-title>`, e.g. `18-library-sync-wipes-cache`. No `feat/` prefix.
 - **Session bootstrap**: at the start of every session, check your branch and see if it's got an associated GitHub issue for context.
@@ -87,6 +88,23 @@ Avoid patterns that trigger sandbox approval prompts:
 - **One commit per agent task** — each background agent should commit its own work when done
 - **Never commit directly to `main`** — `main` is branch-protected. All changes go through a PR, no matter how small.
 - Commit message format: concise imperative summary + bullet points for details + `Co-Authored-By: Claude Opus 4.6 (1M context) <noreply@anthropic.com>`
+
+### Release flow (rc + production)
+
+Three long-lived branches: `main` (integration), `rc` (release candidate, deploys to `staging.bummer.app`), `production` (live).
+
+1. Feature work merges to `main` via PR (current behavior).
+2. When a batch is ready to ship, fast-forward `rc` to current `main` HEAD: `git push origin main:rc`. This is the code freeze.
+3. Soak the staging URL (`staging.bummer.app`) on phone + Mac with real Spotify auth.
+4. Bug found during soak → fix on `rc` directly (PR `fix/x` → `rc`), then backport to `main` (PR or cherry-pick). Soak continues — no reset. **Every rc-only fix MUST land on `main` before the next `rc` snapshot, or it gets clobbered.**
+5. Stable → open PR `rc` → `production`. CI runs (lint + tests). Merge with a merge commit (no squash, no rebase — the merge commit is the ship event and the revert target).
+6. Tag the release: `git tag vX.Y.Z && git push --tags` (manual semver bump).
+7. Vercel auto-deploys `production`. The `Production Smoke Test` workflow hits `/health` and fails loudly if broken.
+
+**Rollback:**
+- Fast: Vercel UI → Instant Rollback to prior production deployment.
+- Durable: `git revert -m 1 <merge-sha>` on `production` and push.
+
 - **Local preview before PR**: after tests pass, run `make dev-bg` (pass `MAIN_REPO=<path-to-main-repo>` if in a worktree) to start dev servers in the background, then tell the user to open `http://localhost:5173` and review. Do not push or open a PR until the user confirms the local preview looks good. Run `make stop` to clean up after. If ports 5173/8000 are already in use (another agent's preview is running), do NOT kill them — just tell the user another preview is active and wait for them to finish that review first.
 
 ## Local dev setup
