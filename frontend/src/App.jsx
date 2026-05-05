@@ -1051,15 +1051,6 @@ export default function App() {
                 }}
                 onCreateCollection={handleCreateCollection}
                 onReorder={handleReorderCollections}
-                showCreate={showCollectionCreate}
-                onShowCreateChange={setShowCollectionCreate}
-                createName={collectionCreateName}
-                onCreateNameChange={setCollectionCreateName}
-                onCreateSubmit={(name) => {
-                  handleCreateCollection(name)
-                  setCollectionCreateName('')
-                  setShowCollectionCreate(false)
-                }}
                 tags={tags}
                 selectedTagId={selectedTagId}
                 onSelectTag={setSelectedTagId}
