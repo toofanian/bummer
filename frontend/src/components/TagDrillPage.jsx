@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import CollectionGrid from './CollectionGrid'
 import { buildTagTree, findNode, getDescendantIds } from '../lib/tagTree'
 
@@ -13,8 +13,11 @@ export default function TagDrillPage({
   currentTagId,
   onSelectTag,
   onOpenCollection,
+  onCreateCollection,
   servingPlatter,
 }) {
+  const [showCreate, setShowCreate] = useState(false)
+  const [createName, setCreateName] = useState('')
   const tree = useMemo(() => buildTagTree(tags || []), [tags])
   const currentNode = useMemo(
     () => (currentTagId ? findNode(tree, currentTagId) : null),
@@ -48,7 +51,45 @@ export default function TagDrillPage({
     <div className="w-full flex flex-col h-full overflow-hidden">
       <div className="flex items-center px-4 py-3 border-b border-border flex-shrink-0 gap-2">
         {isRoot ? (
-          <h1 className="text-base font-semibold text-text">Collections</h1>
+          <>
+            <h1 className="text-base font-semibold text-text">Collections</h1>
+            {onCreateCollection && (
+              <div className="ml-auto">
+                {showCreate ? (
+                  <input
+                    autoFocus
+                    className="bg-surface-2 text-text border border-border rounded-full px-3 py-1 text-sm w-48"
+                    placeholder="Collection name…"
+                    value={createName}
+                    onChange={(e) => setCreateName(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        const trimmed = createName.trim()
+                        if (trimmed) onCreateCollection(trimmed)
+                        setCreateName('')
+                        setShowCreate(false)
+                      } else if (e.key === 'Escape') {
+                        setCreateName('')
+                        setShowCreate(false)
+                      }
+                    }}
+                    onBlur={() => {
+                      setCreateName('')
+                      setShowCreate(false)
+                    }}
+                  />
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => setShowCreate(true)}
+                    className="bg-transparent border border-border text-text text-xs px-3 py-1 rounded cursor-pointer hover:bg-bg-elevated"
+                  >
+                    + New Collection
+                  </button>
+                )}
+              </div>
+            )}
+          </>
         ) : (
           <>
             <button

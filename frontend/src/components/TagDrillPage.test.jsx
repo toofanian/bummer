@@ -64,6 +64,43 @@ describe('TagDrillPage — root view', () => {
     await userEvent.click(screen.getByText('Mood'))
     expect(onSelectTag).toHaveBeenCalledWith('tag-mood')
   })
+
+  it('renders + New Collection trigger at root', () => {
+    render(<TagDrillPage {...baseProps} onCreateCollection={vi.fn()} />)
+    expect(screen.getByRole('button', { name: /new collection/i })).toBeInTheDocument()
+  })
+
+  it('clicking + reveals input; Enter calls onCreateCollection with trimmed name', async () => {
+    const onCreateCollection = vi.fn()
+    render(<TagDrillPage {...baseProps} onCreateCollection={onCreateCollection} />)
+    await userEvent.click(screen.getByRole('button', { name: /new collection/i }))
+    const input = screen.getByPlaceholderText(/collection name/i)
+    await userEvent.type(input, '  Road Trip  {Enter}')
+    expect(onCreateCollection).toHaveBeenCalledWith('Road Trip')
+  })
+
+  it('Escape cancels the inline input without calling onCreateCollection', async () => {
+    const onCreateCollection = vi.fn()
+    render(<TagDrillPage {...baseProps} onCreateCollection={onCreateCollection} />)
+    await userEvent.click(screen.getByRole('button', { name: /new collection/i }))
+    const input = screen.getByPlaceholderText(/collection name/i)
+    await userEvent.type(input, 'Discard{Escape}')
+    expect(onCreateCollection).not.toHaveBeenCalled()
+    expect(screen.queryByPlaceholderText(/collection name/i)).not.toBeInTheDocument()
+  })
+})
+
+describe('TagDrillPage — create affordance only at root', () => {
+  it('does NOT render + New Collection inside a tag view', () => {
+    render(
+      <TagDrillPage
+        {...baseProps}
+        currentTagId="tag-mood"
+        onCreateCollection={vi.fn()}
+      />,
+    )
+    expect(screen.queryByRole('button', { name: /new collection/i })).not.toBeInTheDocument()
+  })
 })
 
 describe('TagDrillPage — tag view', () => {
