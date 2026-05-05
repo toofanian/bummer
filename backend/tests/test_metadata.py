@@ -909,6 +909,233 @@ def test_remove_album_from_collection_scopes_by_user_id():
     clear_overrides()
 
 
+# --- Collection <-> Tag association tests ---
+
+
+def test_list_collection_tags_empty():
+    db = mock_db()
+    # Collection ownership lookup
+    db.table.return_value.select.return_value.eq.return_value.eq.return_value.execute.return_value = MagicMock(
+        data=[{"id": "col-uuid-1"}]
+    )
+    # collection_tags lookup (.select().eq().execute())
+    db.table.return_value.select.return_value.eq.return_value.execute.return_value = (
+        MagicMock(data=[])
+    )
+    override_db(db)
+    override_spotify(mock_spotify())
+
+    response = client.get("/collections/col-uuid-1/tags")
+
+    assert response.status_code == 200
+    assert response.json() == []
+
+    clear_overrides()
+
+
+def test_list_collection_tags_returns_tag_objects():
+    db = mock_db()
+    db.table.return_value.select.return_value.eq.return_value.eq.return_value.execute.return_value = MagicMock(
+        data=[{"id": "col-uuid-1"}]
+    )
+    db.table.return_value.select.return_value.eq.return_value.execute.return_value = MagicMock(
+        data=[
+            {
+                "tag_id": "tag-1",
+                "tags": {
+                    "id": "tag-1",
+                    "name": "Mood",
+                    "parent_tag_id": None,
+                    "position": 0,
+                },
+            }
+        ]
+    )
+    override_db(db)
+    override_spotify(mock_spotify())
+
+    response = client.get("/collections/col-uuid-1/tags")
+
+    assert response.status_code == 200
+    data = response.json()
+    assert len(data) == 1
+    assert data[0]["name"] == "Mood"
+
+    clear_overrides()
+
+
+def test_list_collection_tags_404_when_collection_not_owned():
+    db = mock_db()
+    db.table.return_value.select.return_value.eq.return_value.eq.return_value.execute.return_value = MagicMock(
+        data=[]
+    )
+    override_db(db)
+    override_spotify(mock_spotify())
+
+    response = client.get("/collections/col-uuid-1/tags")
+
+    assert response.status_code == 404
+
+    clear_overrides()
+
+
+def test_set_collection_tags_replaces_existing():
+    db = mock_db()
+    # Collection ownership: .select("id").eq("id",...).eq("user_id",...).execute()
+    # Tags ownership: .select("id").in_("id",...).eq("user_id",...).execute()
+    # We need the .eq().eq() chain to return the collection, AND the .in_().eq() chain
+    # to return all tags as owned.
+    tag_a = "11111111-1111-1111-1111-111111111111"
+    tag_b = "22222222-2222-2222-2222-222222222222"
+    db.table.return_value.select.return_value.eq.return_value.eq.return_value.execute.return_value = MagicMock(
+        data=[{"id": "col-uuid-1"}]
+    )
+    db.table.return_value.select.return_value.in_.return_value.eq.return_value.execute.return_value = MagicMock(
+        data=[{"id": tag_a}, {"id": tag_b}]
+    )
+    # Delete existing rows: .delete().eq().execute()
+    db.table.return_value.delete.return_value.eq.return_value.execute.return_value = (
+        MagicMock(data=[])
+    )
+    db.table.return_value.insert.return_value.execute.return_value = MagicMock(data=[])
+    override_db(db)
+    override_spotify(mock_spotify())
+
+    response = client.put(
+        "/collections/col-uuid-1/tags",
+        json={"tag_ids": [tag_a, tag_b]},
+    )
+
+    assert response.status_code == 200
+    assert response.json() == {"ok": True}
+    # Verify delete then insert called
+    assert db.table.return_value.delete.called
+    insert_call = db.table.return_value.insert.call_args[0][0]
+    assert len(insert_call) == 2
+    assert {row["tag_id"] for row in insert_call} == {tag_a, tag_b}
+
+    clear_overrides()
+
+
+def test_set_collection_tags_clears_when_empty_array():
+    db = mock_db()
+    db.table.return_value.select.return_value.eq.return_value.eq.return_value.execute.return_value = MagicMock(
+        data=[{"id": "col-uuid-1"}]
+    )
+    db.table.return_value.delete.return_value.eq.return_value.execute.return_value = (
+        MagicMock(data=[])
+    )
+    override_db(db)
+    override_spotify(mock_spotify())
+
+    response = client.put("/collections/col-uuid-1/tags", json={"tag_ids": []})
+
+    assert response.status_code == 200
+    assert response.json() == {"ok": True}
+    # delete called, insert NOT called
+    assert db.table.return_value.delete.called
+    assert not db.table.return_value.insert.called
+
+    clear_overrides()
+
+
+def test_set_collection_tags_validates_tag_ownership():
+    """Passing a tag the user does not own → 400."""
+    db = mock_db()
+    db.table.return_value.select.return_value.eq.return_value.eq.return_value.execute.return_value = MagicMock(
+        data=[{"id": "col-uuid-1"}]
+    )
+    # Only one of two requested tags is owned
+    db.table.return_value.select.return_value.in_.return_value.eq.return_value.execute.return_value = MagicMock(
+        data=[{"id": "11111111-1111-1111-1111-111111111111"}]
+    )
+    override_db(db)
+    override_spotify(mock_spotify())
+
+    response = client.put(
+        "/collections/col-uuid-1/tags",
+        json={
+            "tag_ids": [
+                "11111111-1111-1111-1111-111111111111",
+                "22222222-2222-2222-2222-222222222222",
+            ]
+        },
+    )
+
+    assert response.status_code == 400
+
+    clear_overrides()
+
+
+def test_set_collection_tags_404_when_collection_not_owned():
+    db = mock_db()
+    db.table.return_value.select.return_value.eq.return_value.eq.return_value.execute.return_value = MagicMock(
+        data=[]
+    )
+    override_db(db)
+    override_spotify(mock_spotify())
+
+    response = client.put("/collections/col-uuid-1/tags", json={"tag_ids": []})
+
+    assert response.status_code == 404
+
+    clear_overrides()
+
+
+def test_list_collections_for_tag():
+    db = mock_db()
+    # Tag ownership lookup: .select("id").eq("id",...).eq("user_id",...).execute()
+    db.table.return_value.select.return_value.eq.return_value.eq.return_value.execute.return_value = MagicMock(
+        data=[{"id": "tag-1"}]
+    )
+    # collection_tags lookup
+    db.table.return_value.select.return_value.eq.return_value.execute.return_value = MagicMock(
+        data=[{"collection_id": "col-uuid-1"}, {"collection_id": "col-uuid-2"}]
+    )
+    override_db(db)
+    override_spotify(mock_spotify())
+
+    response = client.get("/tags/11111111-1111-1111-1111-111111111111/collections")
+
+    assert response.status_code == 200
+    data = response.json()
+    assert len(data) == 2
+    assert {r["collection_id"] for r in data} == {"col-uuid-1", "col-uuid-2"}
+
+    clear_overrides()
+
+
+def test_list_collections_for_tag_404_when_not_owned():
+    db = mock_db()
+    db.table.return_value.select.return_value.eq.return_value.eq.return_value.execute.return_value = MagicMock(
+        data=[]
+    )
+    override_db(db)
+    override_spotify(mock_spotify())
+
+    response = client.get("/tags/11111111-1111-1111-1111-111111111111/collections")
+
+    assert response.status_code == 404
+
+    clear_overrides()
+
+
+def test_user_isolation_for_collection_tags():
+    """A request as OTHER_USER must apply OTHER_USER_ID in ownership filters."""
+    db = mock_db()
+    db.table.return_value.select.return_value.eq.return_value.eq.return_value.execute.return_value = MagicMock(
+        data=[]
+    )
+    _override_as_other_user(db)
+
+    client.get("/collections/col-uuid-1/tags")
+
+    all_calls_str = str(db.mock_calls)
+    assert OTHER_USER_ID in all_calls_str
+
+    clear_overrides()
+
+
 def test_list_collections_works_without_spotify_token():
     """list_collections should not depend on Spotify — it only reads from DB."""
     db = mock_db(execute_data=[COLLECTION])

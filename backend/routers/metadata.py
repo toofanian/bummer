@@ -1,7 +1,8 @@
 from typing import Literal
+from uuid import UUID
 
 import spotipy
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 
 import routers.library as library_module
@@ -41,6 +42,10 @@ class BulkAddBody(BaseModel):
 
 class CoverBody(BaseModel):
     cover_album_id: str | None
+
+
+class CollectionTagsSet(BaseModel):
+    tag_ids: list[UUID]
 
 
 # --- Bulk ---
@@ -359,3 +364,92 @@ def get_collection_albums(
     album_map = {a["service_id"]: a for a in cached_albums if a["service_id"] in ids}
     albums = [album_map[sid] for sid in ordered_ids if sid in album_map]
     return {"albums": albums}
+
+
+# --- Collection <-> Tag associations ---
+
+
+@router.get("/collections/{collection_id}/tags")
+def list_collection_tags(
+    collection_id: str,
+    db=Depends(get_authed_db),
+    user: dict = Depends(get_current_user),
+):
+    user_id = user["user_id"]
+    coll = (
+        db.table("collections")
+        .select("id")
+        .eq("id", collection_id)
+        .eq("user_id", user_id)
+        .execute()
+    )
+    if not coll.data:
+        raise HTTPException(status_code=404, detail="Collection not found")
+    res = (
+        db.table("collection_tags")
+        .select("tag_id, tags(id, name, parent_tag_id, position)")
+        .eq("collection_id", collection_id)
+        .execute()
+    )
+    return [row["tags"] for row in res.data if row.get("tags")]
+
+
+@router.put("/collections/{collection_id}/tags")
+def set_collection_tags(
+    collection_id: str,
+    body: CollectionTagsSet,
+    db=Depends(get_authed_db),
+    user: dict = Depends(get_current_user),
+):
+    user_id = user["user_id"]
+    coll = (
+        db.table("collections")
+        .select("id")
+        .eq("id", collection_id)
+        .eq("user_id", user_id)
+        .execute()
+    )
+    if not coll.data:
+        raise HTTPException(status_code=404, detail="Collection not found")
+    if body.tag_ids:
+        owned = (
+            db.table("tags")
+            .select("id")
+            .in_("id", [str(t) for t in body.tag_ids])
+            .eq("user_id", user_id)
+            .execute()
+        )
+        if len(owned.data) != len(body.tag_ids):
+            raise HTTPException(status_code=400, detail="One or more tag_ids invalid")
+    db.table("collection_tags").delete().eq("collection_id", collection_id).execute()
+    if body.tag_ids:
+        rows = [
+            {"collection_id": collection_id, "tag_id": str(t)} for t in body.tag_ids
+        ]
+        db.table("collection_tags").insert(rows).execute()
+    return {"ok": True}
+
+
+@router.get("/tags/{tag_id}/collections")
+def list_collections_for_tag(
+    tag_id: str,
+    db=Depends(get_authed_db),
+    user: dict = Depends(get_current_user),
+):
+    user_id = user["user_id"]
+    tag = (
+        db.table("tags")
+        .select("id")
+        .eq("id", tag_id)
+        .eq("user_id", user_id)
+        .execute()
+    )
+    if not tag.data:
+        raise HTTPException(status_code=404, detail="Tag not found")
+    res = (
+        db.table("collection_tags")
+        .select("collection_id")
+        .eq("tag_id", tag_id)
+        .execute()
+    )
+    return [{"collection_id": row["collection_id"]} for row in res.data]
