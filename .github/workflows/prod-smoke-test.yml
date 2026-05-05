@@ -1,0 +1,45 @@
+name: Production Smoke Test
+
+on:
+  push:
+    branches: [production]
+
+jobs:
+  smoke-test:
+    name: Smoke test /health on production
+    runs-on: ubuntu-latest
+    steps:
+      - name: Wait for Vercel deploy to propagate
+        run: sleep 90
+
+      - name: Hit /health with retries
+        env:
+          PROD_URL: ${{ vars.PROD_URL }}
+        run: |
+          if [ -z "$PROD_URL" ]; then
+            echo "PROD_URL repository variable is not set" >&2
+            exit 1
+          fi
+
+          attempts=0
+          max_attempts=5
+          delay=20
+
+          while [ $attempts -lt $max_attempts ]; do
+            attempts=$((attempts + 1))
+            echo "Attempt $attempts: GET $PROD_URL/health"
+
+            http_code=$(curl -s -o /tmp/health.json -w "%{http_code}" --max-time 15 "$PROD_URL/health" || echo "000")
+            body=$(cat /tmp/health.json 2>/dev/null || echo "")
+
+            if [ "$http_code" = "200" ] && echo "$body" | grep -q '"status":"ok"'; then
+              echo "Smoke test passed: $body"
+              exit 0
+            fi
+
+            echo "Attempt $attempts failed (status=$http_code, body=$body). Retrying in ${delay}s..."
+            sleep $delay
+          done
+
+          echo "Smoke test failed after $max_attempts attempts" >&2
+          exit 1
