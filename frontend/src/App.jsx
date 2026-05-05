@@ -753,7 +753,7 @@ export default function App() {
           localStorage.setItem('spotify_client_id', data.client_id)
           setOnboardingCheckState('reconnecting')
           try {
-            await spotifyAuth.initiateLogin()
+            await spotifyAuth.initiateLogin(session?.access_token)
           } catch {
             if (!cancelled) setOnboardingCheckState('needs_onboarding')
           }
