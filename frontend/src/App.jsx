@@ -28,6 +28,7 @@ import LibraryViewToggle from './components/LibraryViewToggle'
 import { useIsMobile } from './hooks/useIsMobile'
 import { useAuth } from './hooks/useAuth'
 import { useSpotifyAuth } from './hooks/useSpotifyAuth'
+import { useCollectionMembership } from './hooks/useCollectionMembership'
 import SignupScreen from './components/SignupScreen'
 import OnboardingWizard from './components/OnboardingWizard'
 import BulkAddBar from './components/BulkAddBar'
@@ -45,7 +46,13 @@ export default function App() {
   const [collectionAlbums, setCollectionAlbums] = useState([])
   const [listenCounts, setListenCounts] = useState({})
   // albumCollectionMap: { [service_id]: string[] } — IDs of collections the album belongs to
-  const [albumCollectionMap, setAlbumCollectionMap] = useState({})
+  const {
+    albumCollectionMap,
+    setAlbumCollectionMap,
+    addAlbumsToCollection,
+    removeAlbumFromCollection,
+    deleteCollection: removeCollectionFromMap,
+  } = useCollectionMembership({})
   const [albumsLoading, setAlbumsLoading] = useState(true)
   const [collectionsLoading, setCollectionsLoading] = useState(true)
   const [syncing, setSyncing] = useState(false)
@@ -357,13 +364,7 @@ export default function App() {
     })
 
     const prevAlbumCollectionMap = albumCollectionMap
-    setAlbumCollectionMap(prev => {
-      const next = {}
-      for (const [albumId, colIds] of Object.entries(prev)) {
-        next[albumId] = colIds.filter(cid => cid !== id)
-      }
-      return next
-    })
+    removeCollectionFromMap(id)
 
     try {
       const res = await apiFetch(`/collections/${id}`, { method: 'DELETE' }, sessionRef.current)
@@ -382,16 +383,7 @@ export default function App() {
     const data = await res.json()
     // Update albumCollectionMap with this collection's membership
     if (data.albums) {
-      setAlbumCollectionMap(prev => {
-        const next = { ...prev }
-        data.albums.forEach(album => {
-          if (!next[album.service_id]) next[album.service_id] = []
-          if (!next[album.service_id].includes(collectionId)) {
-            next[album.service_id] = [...next[album.service_id], collectionId]
-          }
-        })
-        return next
-      })
+      addAlbumsToCollection(collectionId, data.albums.map(a => a.service_id))
     }
     return data.albums
   }
@@ -400,6 +392,9 @@ export default function App() {
     const res = await apiFetch(`/collections/${collection.id}/albums`, {}, sessionRef.current)
     const data = await res.json()
     setCollectionAlbums(data.albums)
+    if (data.albums) {
+      addAlbumsToCollection(collection.id, data.albums.map(a => a.service_id))
+    }
     setView(collection)
   }
 
@@ -572,19 +567,12 @@ export default function App() {
         method: 'POST',
         body: JSON.stringify({ service_id: albumId }),
       }, sessionRef.current)
-      setAlbumCollectionMap(prev => {
-        const existing = prev[albumId] || []
-        if (existing.includes(collectionId)) return prev
-        return { ...prev, [albumId]: [...existing, collectionId] }
-      })
+      addAlbumsToCollection(collectionId, [albumId])
     } else {
       await apiFetch(`/collections/${collectionId}/albums/${albumId}`, { method: 'DELETE' }, sessionRef.current)
-      setAlbumCollectionMap(prev => ({
-        ...prev,
-        [albumId]: (prev[albumId] || []).filter(id => id !== collectionId),
-      }))
+      removeAlbumFromCollection(collectionId, albumId)
     }
-  }, [])
+  }, [addAlbumsToCollection, removeAlbumFromCollection])
 
   async function handleReorderCollectionAlbums(albumIds) {
     // Optimistic reorder: rearrange collectionAlbums to match the new order
@@ -658,16 +646,7 @@ export default function App() {
       if (!res.ok) throw new Error('Failed to bulk add albums')
       const data = await res.json()
       // Update albumCollectionMap
-      setAlbumCollectionMap(prev => {
-        const next = { ...prev }
-        ids.forEach(id => {
-          if (!next[id]) next[id] = []
-          if (!next[id].includes(collectionId)) {
-            next[id] = [...next[id], collectionId]
-          }
-        })
-        return next
-      })
+      addAlbumsToCollection(collectionId, ids)
       // Use server-reported count if available, otherwise re-count
       if (data.album_count != null) {
         setCollections(prev => prev.map(c =>
@@ -929,16 +908,7 @@ export default function App() {
                   }, sessionRef.current)
                   if (!res.ok) throw new Error('Failed to bulk add')
                   const data = await res.json()
-                  setAlbumCollectionMap(prev => {
-                    const next = { ...prev }
-                    albumIds.forEach(id => {
-                      if (!next[id]) next[id] = []
-                      if (!next[id].includes(collectionId)) {
-                        next[id] = [...next[id], collectionId]
-                      }
-                    })
-                    return next
-                  })
+                  addAlbumsToCollection(collectionId, albumIds)
                   if (data.album_count != null) {
                     setCollections(prev => prev.map(c =>
                       c.id === collectionId ? { ...c, album_count: data.album_count } : c
@@ -1285,16 +1255,7 @@ export default function App() {
                 }, sessionRef.current)
                 if (!res.ok) throw new Error('Failed to bulk add')
                 const data = await res.json()
-                setAlbumCollectionMap(prev => {
-                  const next = { ...prev }
-                  albumIds.forEach(id => {
-                    if (!next[id]) next[id] = []
-                    if (!next[id].includes(collectionId)) {
-                      next[id] = [...next[id], collectionId]
-                    }
-                  })
-                  return next
-                })
+                addAlbumsToCollection(collectionId, albumIds)
                 if (data.album_count != null) {
                   setCollections(prev => prev.map(c =>
                     c.id === collectionId ? { ...c, album_count: data.album_count } : c
