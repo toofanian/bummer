@@ -399,7 +399,7 @@ export default function App() {
   async function handleEnterCollection(collection) {
     const res = await apiFetch(`/collections/${collection.id}/albums`, {}, sessionRef.current)
     const data = await res.json()
-    setCollectionAlbums(data.albums)
+    setCollectionAlbums(flattenArtists(data.albums || []))
     setView(collection)
   }
 
@@ -601,7 +601,7 @@ export default function App() {
       // Re-fetch server order on failure
       const res = await apiFetch(`/collections/${view.id}/albums`, {}, sessionRef.current)
       const data = await res.json()
-      setCollectionAlbums(data.albums)
+      setCollectionAlbums(flattenArtists(data.albums || []))
     }
   }
 

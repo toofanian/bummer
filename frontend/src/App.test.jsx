@@ -1866,3 +1866,64 @@ describe('App — create collection from nav bar', () => {
     clearLocalStorageCache()
   })
 })
+
+// Regression for #152 — opening a collection whose albums have artist
+// entries as objects ({id, name}) used to trigger React error #31 because
+// the artist objects were rendered directly. handleEnterCollection now
+// normalizes via flattenArtists.
+describe('App — collection open with object-shaped artists [#152]', () => {
+  it('opens a collection containing albums with artist objects without crashing', async () => {
+    seedLocalStorageCache([])
+
+    const collectionsData = [
+      { id: 'col-1', name: 'Trip', album_count: 1, updated_at: '2025-01-01T00:00:00Z' },
+    ]
+    const albumWithArtistObjects = {
+      service_id: 'alb-obj-1',
+      name: 'Object Artist Album',
+      artists: [{ id: 'art-1', name: 'Cached Artist' }],
+      image_url: null,
+      release_date: '2020',
+      total_tracks: 10,
+      added_at: '2021-01-01T00:00:00Z',
+    }
+
+    global.fetch = vi.fn().mockImplementation((url, options) => {
+      if (url.includes('/library/sync-complete') && options?.method === 'POST') {
+        return Promise.resolve({ ok: true, json: () => Promise.resolve({ ok: true }) })
+      }
+      if (url.includes('/library/sync') && !url.includes('/sync-complete') && options?.method === 'POST') {
+        return Promise.resolve({ ok: true, json: () => Promise.resolve(SYNC_DONE) })
+      }
+      if (url.includes('/collections/col-1/albums')) {
+        return Promise.resolve({ ok: true, json: () => Promise.resolve({ albums: [albumWithArtistObjects] }) })
+      }
+      if (url.includes('/collections')) {
+        return Promise.resolve({ ok: true, json: () => Promise.resolve(collectionsData) })
+      }
+      if (url.includes('/library/albums') && !url.includes('/tracks')) {
+        return Promise.resolve({ ok: true, json: () => Promise.resolve(LIBRARY_OK) })
+      }
+      if (url.includes('/home')) {
+        return Promise.resolve({ ok: true, json: () => Promise.resolve(HOME_OK) })
+      }
+      return Promise.resolve({ ok: true, json: () => Promise.resolve({}) })
+    })
+
+    render(<App />)
+
+    await userEvent.click(await screen.findByRole('button', { name: /collections/i }))
+    const row = await screen.findByText('Trip')
+    await userEvent.click(row)
+
+    // CollectionDetailHeader appears with the collection name input — proves
+    // the detail view rendered without throwing. The artist name should
+    // appear as text rather than crashing the tree.
+    await waitFor(() => {
+      expect(screen.getByDisplayValue('Trip')).toBeInTheDocument()
+    })
+    expect(screen.getByText(/Cached Artist/)).toBeInTheDocument()
+
+    clearLocalStorageCache()
+  })
+})
