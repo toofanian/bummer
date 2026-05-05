@@ -198,7 +198,7 @@ describe('filterCollectionsByTag (pure helper)', () => {
   })
 })
 
-describe('CollectionsPane mobile (legacy)', () => {
+describe('CollectionsPane mobile (drill-down)', () => {
   beforeEach(() => {
     useIsMobile.mockReturnValue(true)
   })
@@ -207,7 +207,7 @@ describe('CollectionsPane mobile (legacy)', () => {
   })
 
   const mobileProps = {
-    collections: [],
+    collections: COLLECTIONS,
     onEnter: vi.fn(),
     onDelete: vi.fn(),
     onCreate: vi.fn(),
@@ -219,30 +219,36 @@ describe('CollectionsPane mobile (legacy)', () => {
     onBulkAdd: vi.fn(),
     onCreateCollection: vi.fn(),
     onReorder: null,
-    showCreate: false,
-    onShowCreateChange: vi.fn(),
-    createName: '',
-    onCreateNameChange: vi.fn(),
-    onCreateSubmit: vi.fn(),
+    tags: TAGS,
+    selectedTagId: null,
+    onSelectTag: vi.fn(),
+    collectionTagsMap: {},
   }
 
-  it('renders create collection button when showCreate is false', () => {
+  it('renders Collections header at root', () => {
     render(<CollectionsPane {...mobileProps} />)
-    expect(screen.getByLabelText('Create collection')).toBeInTheDocument()
+    expect(screen.getByText('Collections')).toBeInTheDocument()
   })
 
-  it('renders name input when showCreate is true', () => {
-    render(<CollectionsPane {...mobileProps} showCreate={true} />)
-    expect(screen.getByPlaceholderText(/collection name/i)).toBeInTheDocument()
+  it('renders root tag rows', () => {
+    render(<CollectionsPane {...mobileProps} />)
+    expect(screen.getByText('Mood')).toBeInTheDocument()
+    expect(screen.getByText('Genre')).toBeInTheDocument()
   })
 
-  it('renders mobile rows with collection-row testid', () => {
-    render(<CollectionsPane {...mobileProps} collections={COLLECTIONS} />)
-    expect(screen.getAllByTestId('collection-row')).toHaveLength(2)
+  it('renders all collections at root', () => {
+    render(<CollectionsPane {...mobileProps} />)
+    expect(screen.getByText('Road trip')).toBeInTheDocument()
+    expect(screen.getByText('90s classics')).toBeInTheDocument()
   })
 
   it('does not render the desktop tag sidebar on mobile', () => {
-    render(<CollectionsPane {...mobileProps} collections={COLLECTIONS} />)
+    render(<CollectionsPane {...mobileProps} />)
     expect(screen.queryByText('All')).not.toBeInTheDocument()
+  })
+
+  it('shows back button when inside a tag', () => {
+    render(<CollectionsPane {...mobileProps} selectedTagId="tag-root" />)
+    expect(screen.getByLabelText(/back/i)).toBeInTheDocument()
   })
 })
