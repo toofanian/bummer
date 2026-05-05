@@ -13,6 +13,7 @@ function flattenArtists(albums) {
 import AlbumTable from './components/AlbumTable'
 import CollectionsPane from './components/CollectionsPane'
 import CollectionDetailHeader from './components/CollectionDetailHeader'
+import TagManagerPage from './components/TagManagerPage'
 import PlaybackBar from './components/PlaybackBar'
 import NowPlayingPane from './components/NowPlayingPane'
 import DigestView from './components/DigestView'
@@ -125,7 +126,7 @@ export default function App() {
   const [playbackOrigin, setPlaybackOrigin] = useState(null)
   const viewRef = useRef(view)
   viewRef.current = view
-  const isInCollection = view !== 'home' && view !== 'library' && view !== 'collections' && view !== 'digest' && view !== 'settings'
+  const isInCollection = view !== 'home' && view !== 'library' && view !== 'collections' && view !== 'digest' && view !== 'settings' && view !== 'tag-manager'
   const artistCount = useMemo(() => {
     const artists = new Set()
     for (const album of albums) {
@@ -666,6 +667,95 @@ export default function App() {
     ))
   }
 
+  // Re-fetch the tag tree from the backend. Used after any tag mutation so the
+   // sidebar / tag manager / picker all reflect the new state.
+  const refreshTags = useCallback(async () => {
+    try {
+      const tagsRaw = await apiFetch('/tags', {}, sessionRef.current).then(r => r.json())
+      setTags(Array.isArray(tagsRaw) ? tagsRaw : [])
+    } catch {
+      // non-fatal — leave existing tag state
+    }
+  }, [])
+
+  // Re-fetch the collection<->tag membership map. Used after a tag delete (which
+   // cascades into collection_tags) and after a collection's tag-set is edited.
+  const refreshCollectionTagsMap = useCallback(async () => {
+    try {
+      const { data, error } = await supabase
+        .from('collection_tags')
+        .select('collection_id, tag_id')
+      if (error) return
+      const map = {}
+      for (const row of data || []) {
+        if (!map[row.collection_id]) map[row.collection_id] = []
+        map[row.collection_id].push(row.tag_id)
+      }
+      setCollectionTagsMap(map)
+    } catch {
+      // non-fatal
+    }
+  }, [])
+
+  async function handleCreateTag({ name, parent_tag_id }) {
+    const res = await apiFetch('/tags', {
+      method: 'POST',
+      body: JSON.stringify({ name, parent_tag_id: parent_tag_id ?? null }),
+    }, sessionRef.current)
+    if (!res.ok) return null
+    const created = await res.json()
+    await refreshTags()
+    return created
+  }
+
+  async function handleRenameTag(tagId, name) {
+    await apiFetch(`/tags/${tagId}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ name }),
+    }, sessionRef.current)
+    await refreshTags()
+  }
+
+  async function handleDeleteTag(tagId) {
+    await apiFetch(`/tags/${tagId}`, { method: 'DELETE' }, sessionRef.current)
+    // Children cascade-delete on the server, which can free collection_tag rows.
+    await Promise.all([refreshTags(), refreshCollectionTagsMap()])
+    if (selectedTagId === tagId) setSelectedTagId(null)
+  }
+
+  async function handleMoveTag(tagId, { parent_tag_id, position }) {
+    await apiFetch(`/tags/${tagId}/move`, {
+      method: 'PUT',
+      body: JSON.stringify({ parent_tag_id: parent_tag_id ?? null, position }),
+    }, sessionRef.current)
+    await refreshTags()
+  }
+
+  async function handleReorderTags(parent_tag_id, tagIds) {
+    await apiFetch('/tags/reorder', {
+      method: 'PUT',
+      body: JSON.stringify({ parent_tag_id: parent_tag_id ?? null, tag_ids: tagIds }),
+    }, sessionRef.current)
+    await refreshTags()
+  }
+
+  // Used by TagPickerInput on a collection: PUT the new full tag id list,
+  // then update collectionTagsMap so the sidebar filter reflects the change
+  // immediately without a full re-fetch.
+  async function handleSetCollectionTags(collectionId, nextIds) {
+    await apiFetch(`/collections/${collectionId}/tags`, {
+      method: 'PUT',
+      body: JSON.stringify({ tag_ids: nextIds }),
+    }, sessionRef.current)
+    setCollectionTagsMap(prev => ({ ...prev, [collectionId]: nextIds }))
+  }
+
+  // Picker's onCreate: create a root-level tag, refresh, and return the created
+  // tag so the picker can append its id to selectedTagIds.
+  async function handleCreateTagFromPicker(name) {
+    return handleCreateTag({ name, parent_tag_id: null })
+  }
+
   function handleToggleSelect(albumId) {
     setSelectedAlbumIds(prev =>
       prev.includes(albumId) ? prev.filter(id => id !== albumId) : [...prev, albumId]
@@ -989,6 +1079,20 @@ export default function App() {
             </div>
           )}
 
+          {view === 'tag-manager' && (
+            <div className="flex-1 overflow-hidden">
+              <TagManagerPage
+                tags={tags}
+                onCreate={handleCreateTag}
+                onRename={handleRenameTag}
+                onDelete={handleDeleteTag}
+                onMove={handleMoveTag}
+                onReorder={handleReorderTags}
+                onClose={() => setView('collections')}
+              />
+            </div>
+          )}
+
           {isInCollection && (
             <div className="flex flex-col flex-1 overflow-hidden">
               <CollectionDetailHeader
@@ -999,6 +1103,10 @@ export default function App() {
                 onDescriptionChange={(desc) => handleUpdateCollectionDescription(view.id, desc)}
                 onRename={(newName) => handleRenameCollection(view.id, newName)}
                 onPlay={handlePlayCollection}
+                allTags={tags}
+                selectedTagIds={collectionTagsMap[view.id] ?? []}
+                onTagsChange={(nextIds) => handleSetCollectionTags(view.id, nextIds)}
+                onCreateTag={handleCreateTagFromPicker}
               />
               <div className="flex-1 overflow-y-auto">
                 <AlbumTable
@@ -1335,6 +1443,20 @@ export default function App() {
           </div>
         )}
 
+        {view === 'tag-manager' && (
+          <div className="flex-1 overflow-hidden">
+            <TagManagerPage
+              tags={tags}
+              onCreate={handleCreateTag}
+              onRename={handleRenameTag}
+              onDelete={handleDeleteTag}
+              onMove={handleMoveTag}
+              onReorder={handleReorderTags}
+              onClose={() => setView('collections')}
+            />
+          </div>
+        )}
+
         {isInCollection && (
           <div className="flex flex-col flex-1 overflow-hidden">
             <CollectionDetailHeader
@@ -1345,6 +1467,10 @@ export default function App() {
               onDescriptionChange={(desc) => handleUpdateCollectionDescription(view.id, desc)}
               onRename={(newName) => handleRenameCollection(view.id, newName)}
               onPlay={handlePlayCollection}
+              allTags={tags}
+              selectedTagIds={collectionTagsMap[view.id] ?? []}
+              onTagsChange={(nextIds) => handleSetCollectionTags(view.id, nextIds)}
+              onCreateTag={handleCreateTagFromPicker}
             />
             <div className="flex-1 overflow-y-auto pb-20">
               <AlbumTable
