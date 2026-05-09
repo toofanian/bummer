@@ -1,22 +1,23 @@
 # Project hooks for worktrunk (`wt`). Runs in the new worktree cwd.
-# Each pre-start step is blocking and sequential.
+# pre-start as a list-of-maps = sequential (new schema; map form will become parallel).
 
-[pre-start]
-# Symlink venv and backend/.env from main repo (cheap, doesn't duplicate state).
-venv = "ln -sfn {{ primary_worktree_path }}/backend/.venv backend/.venv"
-backend_env = "ln -sfn {{ primary_worktree_path }}/backend/.env backend/.env"
+pre-start = [
+    # Symlink venv and backend/.env from main repo (cheap, no duplicated state).
+    { venv = "ln -sfn {{ primary_worktree_path }}/backend/.venv backend/.venv" },
+    { backend_env = "ln -sfn {{ primary_worktree_path }}/backend/.env backend/.env" },
 
-# Vercel project link must exist before `vercel env pull`. Copy from main repo.
-vercel_link = "mkdir -p .vercel && cp {{ primary_worktree_path }}/.vercel/project.json .vercel/project.json"
+    # Vercel project link must exist before `vercel env pull`. Copy from main repo.
+    { vercel_link = "mkdir -p .vercel && cp {{ primary_worktree_path }}/.vercel/project.json .vercel/project.json" },
 
-# Pull preview-scope env vars for the frontend.
-frontend_env_pull = "vercel env pull frontend/.env --environment=preview --yes --cwd ."
+    # Pull preview-scope env vars for the frontend.
+    { frontend_env_pull = "vercel env pull frontend/.env --environment=preview --yes --cwd ." },
 
-# Fix Vercel CLI quirks + swap preview values to local-dev values.
-# - Strip trailing literal \n that Vercel CLI sometimes appends
-# - VITE_API_URL: /api (preview) -> local backend
-# - VITE_VERCEL_ENV: preview -> development (avoid preview auth short-circuit)
-frontend_env_fix = '''sed -i '' -e 's/\\n"$/"/' -e 's|^VITE_API_URL=.*|VITE_API_URL="http://127.0.0.1:8000"|' -e 's|^VITE_VERCEL_ENV=.*|VITE_VERCEL_ENV="development"|' frontend/.env'''
+    # Fix Vercel CLI quirks + swap preview values to local-dev values.
+    # - Strip trailing literal \n that Vercel CLI sometimes appends
+    # - VITE_API_URL: /api (preview) -> local backend
+    # - VITE_VERCEL_ENV: preview -> development (avoid preview auth short-circuit)
+    { frontend_env_fix = '''sed -i '' -e 's/\\n"$/"/' -e 's|^VITE_API_URL=.*|VITE_API_URL="http://127.0.0.1:8000"|' -e 's|^VITE_VERCEL_ENV=.*|VITE_VERCEL_ENV="development"|' frontend/.env''' },
 
-# Frontend deps are not shared across worktrees and not symlinked.
-frontend_install = "npm --prefix frontend install"
+    # Frontend deps are not shared across worktrees and not symlinked.
+    { frontend_install = "npm --prefix frontend install" },
+]
