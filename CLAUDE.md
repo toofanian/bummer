@@ -87,7 +87,7 @@ Avoid patterns that trigger sandbox approval prompts:
 - **One commit per agent task** — each background agent should commit its own work when done
 - **Never commit directly to `main`** — `main` is branch-protected. All changes go through a PR, no matter how small.
 - Commit message format: concise imperative summary + bullet points for details + `Co-Authored-By: Claude Opus 4.6 (1M context) <noreply@anthropic.com>`
-- **Local preview before PR**: after tests pass, run `make dev-bg` (pass `MAIN_REPO=<path-to-main-repo>` if in a worktree) to start dev servers in the background, then tell the user to open `http://localhost:5173` and review. Do not push or open a PR until the user confirms the local preview looks good. Run `make stop` to clean up after. If ports 5173/8000 are already in use (another agent's preview is running), do NOT kill them — just tell the user another preview is active and wait for them to finish that review first.
+- **Local preview before PR**: after tests pass, run `make dev-bg` to start dev servers in the background. In worktrees, `wt`'s pre-start hook has already wired symlinks; no `MAIN_REPO=` needed. The target health-checks both servers and prints `OK:`/`FAIL:` lines — if `FAIL:`, fix the issue before telling the user. Once both `OK:`, tell the user to open `http://localhost:5173` and review. Do not push or open a PR until the user confirms. Run `make stop` to clean up. If ports 5173/8000 are already in use (another agent's preview is running), do NOT kill them — tell the user another preview is active and wait.
 
 ## Local dev setup
 
@@ -95,31 +95,32 @@ Running locally requires env vars that aren't committed.
 
 ### Main repo
 
-1. **Backend `.env`** — must exist at `backend/.env` with `SUPABASE_URL`, `SUPABASE_SERVICE_KEY`, `SUPABASE_ANON_KEY`, `SPOTIFY_CLIENT_ID`, `SPOTIFY_CLIENT_SECRET`, `SPOTIFY_REDIRECT_URI=http://127.0.0.1:8000/auth/callback`.
+1. **Backend `.env`** — must exist at `backend/.env` with `SUPABASE_URL`, `SUPABASE_SERVICE_KEY`, `SUPABASE_ANON_KEY`, `SPOTIFY_CLIENT_ID`, `SPOTIFY_CLIENT_SECRET`, `SPOTIFY_REDIRECT_URI=http://127.0.0.1:8000/auth/callback`. Not in Vercel — must be reconstructed manually if missing.
 2. **Frontend `.env`** — pull from Vercel preview scope: `vercel env pull frontend/.env --environment=preview --cwd <project-root>`. The project must be linked (`.vercel/project.json`). After pulling, fix these values:
    - `VITE_API_URL` → `"http://127.0.0.1:8000"` (pulled value is `/api` for Vercel)
    - `VITE_VERCEL_ENV` → `"development"` (pulled value `preview` triggers preview auth short-circuit which skips real Google OAuth)
    - `VITE_SUPABASE_URL` / `VITE_SUPABASE_ANON_KEY` — remove any trailing `\n` (Vercel CLI bug)
-3. **Backend venv** — if `backend/.venv` doesn't exist: `/opt/homebrew/bin/python3.12 -m venv backend/.venv && backend/.venv/bin/pip install -r backend/requirements.txt`
+3. **Backend venv** — if `backend/.venv` is missing or broken: `make venv-rebuild`. (Refuses to run inside a worktree where `.venv` is a symlink.)
 4. **Frontend node_modules** — if `frontend/node_modules` doesn't exist: `npm --prefix frontend install`
 5. **Vite entry point** — the app entry is `frontend/app.html`, not `index.html`. A Vite dev server plugin rewrites `/` and `/auth/*` to `app.html`. Browse to `http://localhost:5173` (not `127.0.0.1` — Vite binds to localhost by default).
 6. **Spotify redirect URI** — Spotify Dashboard must have `http://127.0.0.1:8000/auth/callback` registered. Spotify rejects `localhost` as insecure; use `127.0.0.1`.
 
 ### Worktree setup
 
-In a worktree, complete ALL of these steps before running `make dev-bg`:
+Worktrees are managed by `wt` (worktrunk). The `pre-start` hooks in `.config/wt.toml` automate everything: symlink backend `.venv` and `.env` from main repo, copy `.vercel/project.json`, `vercel env pull`, fix env values, and `npm --prefix frontend install`.
 
-1. `npm --prefix frontend install` — node_modules are not shared across worktrees and not symlinked by `make dev-bg`. Without this, Vite fails with `vite: command not found`.
-2. Copy `.vercel/project.json` from main repo — needed for `vercel env pull`.
-3. Pull and fix `frontend/.env` (see main repo step 2). The main repo may not have one; if not, pull fresh from Vercel.
-4. Run: `make dev-bg MAIN_REPO=<path-to-main-repo>` — symlinks `backend/.env` and `backend/.venv` from main repo.
-5. Verify both ports before telling user to check: `lsof -i :5173 -i :8000 | grep LISTEN`
+Workflow:
+1. `wt switch --create <issue-number>-<short-title>` — creates worktree, runs all pre-start hooks. First run prompts to approve the hook commands.
+2. `make dev-bg` — start servers (no `MAIN_REPO=` needed; symlinks already in place from `wt`).
+3. The dev-bg target health-checks both servers and prints `OK:`/`FAIL:` lines. If `FAIL:`, read the printed log tail.
+
+If main-repo `backend/.venv` is broken, every worktree's symlinked venv is broken. Run `make venv-rebuild` in the main repo to fix at the root.
 
 ### Troubleshooting
 
-- **Black screen** at localhost:5173 → missing or broken `frontend/.env` (no Supabase URL → app can't initialize)
-- **`vite: command not found`** in frontend log → `npm --prefix frontend install` was skipped
-- **Backend 8000 up but frontend 5173 missing** → check `/tmp/bsi-frontend.log` for errors
+- **`make dev-bg` prints `FAIL: Backend ...`** → backend died on startup. Tail shown inline; common cause is missing/broken `backend/.venv` in main repo (run `make venv-rebuild`) or missing `backend/.env`.
+- **Black screen** at localhost:5173 → missing or broken `frontend/.env` (no Supabase URL → app can't initialize). Re-run `wt hook pre-start` or pull manually.
+- **`vite: command not found`** in frontend log → `npm --prefix frontend install` did not run; re-run `wt hook pre-start`.
 
 - **Merging PRs** — never use `--auto` or `--admin` flags. When the user approves a merge, poll CI checks (`gh pr checks`) until they pass, then run `gh pr merge --squash --repo toofanian/bummer`. Do not ask the user to merge manually.
 - Compatible with worktrees — agents can work in isolated worktrees on their branch
