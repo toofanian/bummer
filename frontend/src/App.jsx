@@ -436,7 +436,7 @@ export default function App() {
   async function handleEnterCollection(collection) {
     const res = await apiFetch(`/collections/${collection.id}/albums`, {}, sessionRef.current)
     const data = await res.json()
-    setCollectionAlbums(data.albums)
+    setCollectionAlbums(flattenArtists(data.albums || []))
     if (data.albums) {
       addAlbumsToCollection(collection.id, data.albums.map(a => a.service_id))
     }
@@ -634,7 +634,7 @@ export default function App() {
       // Re-fetch server order on failure
       const res = await apiFetch(`/collections/${view.id}/albums`, {}, sessionRef.current)
       const data = await res.json()
-      setCollectionAlbums(data.albums)
+      setCollectionAlbums(flattenArtists(data.albums || []))
     }
   }
 
@@ -866,7 +866,7 @@ export default function App() {
           localStorage.setItem('spotify_client_id', data.client_id)
           setOnboardingCheckState('reconnecting')
           try {
-            await spotifyAuth.initiateLogin()
+            await spotifyAuth.initiateLogin(session?.access_token)
           } catch {
             if (!cancelled) setOnboardingCheckState('needs_onboarding')
           }
