@@ -363,7 +363,7 @@ def get_collection_albums(
     cached_albums = library_module.get_album_cache(db, user_id=user_id)
     album_map = {a["service_id"]: a for a in cached_albums if a["service_id"] in ids}
     albums = [album_map[sid] for sid in ordered_ids if sid in album_map]
-    return {"albums": albums}
+    return {"albums": library_module._flatten_artists_for_response(albums)}
 
 
 # --- Collection <-> Tag associations ---

@@ -406,6 +406,38 @@ def test_get_collection_albums_returns_empty_when_collection_empty(monkeypatch):
     clear_overrides()
 
 
+def test_get_collection_albums_flattens_artist_objects(monkeypatch):
+    """Regression for #152 — cached albums store artists as {id, name} dicts;
+    the endpoint must flatten them to plain strings before returning so the
+    frontend doesn't render objects as React children."""
+    import routers.library as library_module
+
+    cached = [
+        {
+            "service_id": "id1",
+            "name": "Album One",
+            "artists": [{"id": "art-1", "name": "Cached Artist"}],
+            "release_date": "2020",
+            "total_tracks": 10,
+            "image_url": None,
+            "added_at": "2021-01-01T00:00:00Z",
+        },
+    ]
+    monkeypatch.setattr(
+        library_module, "get_album_cache", lambda db=None, user_id=None: cached
+    )
+
+    db = mock_db(execute_data=[{"service_id": "id1"}])
+    override_db(db)
+
+    response = client.get("/collections/col-uuid-1/albums")
+
+    assert response.status_code == 200
+    assert response.json()["albums"][0]["artists"] == ["Cached Artist"]
+
+    clear_overrides()
+
+
 # --- Collection rename ---
 
 
