@@ -94,7 +94,7 @@ Avoid patterns that trigger sandbox approval prompts:
 Three long-lived branches: `main` (integration), `rc` (release candidate, deploys to `staging.bummer.app`), `production` (live).
 
 1. Feature work merges to `main` via PR (current behavior).
-2. When a batch is ready to ship, fast-forward `rc` to current `main` HEAD: `git push origin main:rc`. This is the code freeze.
+2. When a batch is ready to ship, snapshot `rc` from current `main` HEAD: `git push origin main:rc`. This is the code freeze. If `rc` has diverged from `main` (because an rc-only fix wasn't backported yet), this push will be rejected as non-fast-forward — that's the signal that step 4's backport rule was skipped. Backport the missing commit to `main` first, then re-run the snapshot. Use `--force-with-lease` only as a last resort, after confirming the divergent commits are accounted for on `main`.
 3. Soak the staging URL (`staging.bummer.app`) on phone + Mac with real Spotify auth.
 4. Bug found during soak → fix on `rc` directly (PR `fix/x` → `rc`), then backport to `main` (PR or cherry-pick). Soak continues — no reset. **Every rc-only fix MUST land on `main` before the next `rc` snapshot, or it gets clobbered.**
 5. Stable → open PR `rc` → `production`. CI runs (lint + tests). Merge with a merge commit (no squash, no rebase — the merge commit is the ship event and the revert target).
@@ -139,7 +139,7 @@ In a worktree, complete ALL of these steps before running `make dev-bg`:
 - **`vite: command not found`** in frontend log → `npm --prefix frontend install` was skipped
 - **Backend 8000 up but frontend 5173 missing** → check `/tmp/bsi-frontend.log` for errors
 
-- **Merging PRs** — never use `--auto` or `--admin` flags. When the user approves a merge, poll CI checks (`gh pr checks`) until they pass, then run `gh pr merge --squash --repo toofanian/bummer`. Do not ask the user to merge manually.
+- **Merging PRs** — never use `--auto` or `--admin` flags. When the user approves a merge, poll CI checks (`gh pr checks`) until they pass, then run `gh pr merge --squash --repo toofanian/bummer`. Do not ask the user to merge manually. **Exception:** `rc` → `production` PRs use a merge commit (`gh pr merge --merge`), not squash — see "Release flow" below for why.
 - Compatible with worktrees — agents can work in isolated worktrees on their branch
 - Never commit `.env` files or secrets
 
