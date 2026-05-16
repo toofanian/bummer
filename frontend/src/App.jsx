@@ -13,6 +13,7 @@ function flattenArtists(albums) {
 import AlbumTable from './components/AlbumTable'
 import CollectionsPane from './components/CollectionsPane'
 import CollectionDetailHeader from './components/CollectionDetailHeader'
+import TagManagerPage from './components/TagManagerPage'
 import PlaybackBar from './components/PlaybackBar'
 import NowPlayingPane from './components/NowPlayingPane'
 import DigestView from './components/DigestView'
@@ -28,6 +29,7 @@ import LibraryViewToggle from './components/LibraryViewToggle'
 import { useIsMobile } from './hooks/useIsMobile'
 import { useAuth } from './hooks/useAuth'
 import { useSpotifyAuth } from './hooks/useSpotifyAuth'
+import { useCollectionMembership } from './hooks/useCollectionMembership'
 import SignupScreen from './components/SignupScreen'
 import OnboardingWizard from './components/OnboardingWizard'
 import BulkAddBar from './components/BulkAddBar'
@@ -36,6 +38,8 @@ import CollectionPicker from './components/CollectionPicker'
 import SettingsPage from './components/SettingsPage'
 import TabBar from './components/TabBar'
 import { apiFetch } from './api'
+import supabase from './supabaseClient'
+import { useCollectionsViewMode } from './hooks/useCollectionsViewMode'
 const CACHE_KEY = 'bsi_albums_cache'
 
 export default function App() {
@@ -43,9 +47,24 @@ export default function App() {
   const [albums, setAlbums] = useState([])
   const [collections, setCollections] = useState([])
   const [collectionAlbums, setCollectionAlbums] = useState([])
+  // Tag tree for the collections sidebar (Task 12 wire-up).
+  const [tags, setTags] = useState([])
+  // Currently-selected tag id in the sidebar (null = "All").
+  const [selectedTagId, setSelectedTagId] = useState(null)
+  // Map of collectionId -> tagId[] used to filter the collections grid by tag.
+  // KNOWN SHORTCUT: populated via direct supabase query rather than a backend
+  // endpoint (see comment in loadData) to avoid an N+1 fetch and a new route.
+  const [collectionTagsMap, setCollectionTagsMap] = useState({})
+  const [viewMode, setViewMode] = useCollectionsViewMode()
   const [listenCounts, setListenCounts] = useState({})
   // albumCollectionMap: { [service_id]: string[] } — IDs of collections the album belongs to
-  const [albumCollectionMap, setAlbumCollectionMap] = useState({})
+  const {
+    albumCollectionMap,
+    setAlbumCollectionMap,
+    addAlbumsToCollection,
+    removeAlbumFromCollection,
+    deleteCollection: removeCollectionFromMap,
+  } = useCollectionMembership({})
   const [albumsLoading, setAlbumsLoading] = useState(true)
   const [collectionsLoading, setCollectionsLoading] = useState(true)
   const [syncing, setSyncing] = useState(false)
@@ -107,7 +126,7 @@ export default function App() {
   const [playbackOrigin, setPlaybackOrigin] = useState(null)
   const viewRef = useRef(view)
   viewRef.current = view
-  const isInCollection = view !== 'home' && view !== 'library' && view !== 'collections' && view !== 'digest' && view !== 'settings'
+  const isInCollection = view !== 'home' && view !== 'library' && view !== 'collections' && view !== 'digest' && view !== 'settings' && view !== 'tag-manager'
   const artistCount = useMemo(() => {
     const artists = new Set()
     for (const album of albums) {
@@ -156,6 +175,39 @@ export default function App() {
       setAlbums([])
       setAlbumsLoading(true)
     }
+
+    // Fetch tags in parallel with collections (non-fatal: a failure leaves the
+    // sidebar empty rather than breaking the page).
+    const tagsPromise = (async () => {
+      try {
+        const tagsRaw = await apiFetch('/tags', {}, sessionRef.current).then(r => r.json())
+        setTags(Array.isArray(tagsRaw) ? tagsRaw : [])
+      } catch {
+        // swallow — sidebar will just show "No tags yet"
+      }
+    })()
+
+    // Fetch the full collection<->tag membership map directly via supabase.
+    // KNOWN SHORTCUT: avoids adding a new backend endpoint or N+1 calls to
+    // `/collections/{id}/tags`. The supabase client is already authed and RLS
+    // scopes rows to the current user. Revisit if we add a server-side
+    // `GET /collection-tags` endpoint.
+    const collectionTagsPromise = (async () => {
+      try {
+        const { data, error } = await supabase
+          .from('collection_tags')
+          .select('collection_id, tag_id')
+        if (error) return
+        const map = {}
+        for (const row of data || []) {
+          if (!map[row.collection_id]) map[row.collection_id] = []
+          map[row.collection_id].push(row.tag_id)
+        }
+        setCollectionTagsMap(map)
+      } catch {
+        // non-fatal
+      }
+    })()
 
     // Start collections fetch immediately (parallel with sync)
     const collectionsPromise = (async () => {
@@ -250,8 +302,8 @@ export default function App() {
       }
       setSyncing(false)
 
-      // Await collections (already started in parallel)
-      await collectionsPromise
+      // Await collections + tags + memberships (already started in parallel)
+      await Promise.all([collectionsPromise, tagsPromise, collectionTagsPromise])
     } catch (err) {
       // If we had cached data, keep it visible and swallow the error — a
       // failed background sync shouldn't wipe a warm UI. On cold start the
@@ -357,13 +409,7 @@ export default function App() {
     })
 
     const prevAlbumCollectionMap = albumCollectionMap
-    setAlbumCollectionMap(prev => {
-      const next = {}
-      for (const [albumId, colIds] of Object.entries(prev)) {
-        next[albumId] = colIds.filter(cid => cid !== id)
-      }
-      return next
-    })
+    removeCollectionFromMap(id)
 
     try {
       const res = await apiFetch(`/collections/${id}`, { method: 'DELETE' }, sessionRef.current)
@@ -382,16 +428,7 @@ export default function App() {
     const data = await res.json()
     // Update albumCollectionMap with this collection's membership
     if (data.albums) {
-      setAlbumCollectionMap(prev => {
-        const next = { ...prev }
-        data.albums.forEach(album => {
-          if (!next[album.service_id]) next[album.service_id] = []
-          if (!next[album.service_id].includes(collectionId)) {
-            next[album.service_id] = [...next[album.service_id], collectionId]
-          }
-        })
-        return next
-      })
+      addAlbumsToCollection(collectionId, data.albums.map(a => a.service_id))
     }
     return data.albums
   }
@@ -400,6 +437,9 @@ export default function App() {
     const res = await apiFetch(`/collections/${collection.id}/albums`, {}, sessionRef.current)
     const data = await res.json()
     setCollectionAlbums(flattenArtists(data.albums || []))
+    if (data.albums) {
+      addAlbumsToCollection(collection.id, data.albums.map(a => a.service_id))
+    }
     setView(collection)
   }
 
@@ -572,19 +612,12 @@ export default function App() {
         method: 'POST',
         body: JSON.stringify({ service_id: albumId }),
       }, sessionRef.current)
-      setAlbumCollectionMap(prev => {
-        const existing = prev[albumId] || []
-        if (existing.includes(collectionId)) return prev
-        return { ...prev, [albumId]: [...existing, collectionId] }
-      })
+      addAlbumsToCollection(collectionId, [albumId])
     } else {
       await apiFetch(`/collections/${collectionId}/albums/${albumId}`, { method: 'DELETE' }, sessionRef.current)
-      setAlbumCollectionMap(prev => ({
-        ...prev,
-        [albumId]: (prev[albumId] || []).filter(id => id !== collectionId),
-      }))
+      removeAlbumFromCollection(collectionId, albumId)
     }
-  }, [])
+  }, [addAlbumsToCollection, removeAlbumFromCollection])
 
   async function handleReorderCollectionAlbums(albumIds) {
     // Optimistic reorder: rearrange collectionAlbums to match the new order
@@ -634,6 +667,95 @@ export default function App() {
     ))
   }
 
+  // Re-fetch the tag tree from the backend. Used after any tag mutation so the
+   // sidebar / tag manager / picker all reflect the new state.
+  const refreshTags = useCallback(async () => {
+    try {
+      const tagsRaw = await apiFetch('/tags', {}, sessionRef.current).then(r => r.json())
+      setTags(Array.isArray(tagsRaw) ? tagsRaw : [])
+    } catch {
+      // non-fatal — leave existing tag state
+    }
+  }, [])
+
+  // Re-fetch the collection<->tag membership map. Used after a tag delete (which
+   // cascades into collection_tags) and after a collection's tag-set is edited.
+  const refreshCollectionTagsMap = useCallback(async () => {
+    try {
+      const { data, error } = await supabase
+        .from('collection_tags')
+        .select('collection_id, tag_id')
+      if (error) return
+      const map = {}
+      for (const row of data || []) {
+        if (!map[row.collection_id]) map[row.collection_id] = []
+        map[row.collection_id].push(row.tag_id)
+      }
+      setCollectionTagsMap(map)
+    } catch {
+      // non-fatal
+    }
+  }, [])
+
+  async function handleCreateTag({ name, parent_tag_id }) {
+    const res = await apiFetch('/tags', {
+      method: 'POST',
+      body: JSON.stringify({ name, parent_tag_id: parent_tag_id ?? null }),
+    }, sessionRef.current)
+    if (!res.ok) return null
+    const created = await res.json()
+    await refreshTags()
+    return created
+  }
+
+  async function handleRenameTag(tagId, name) {
+    await apiFetch(`/tags/${tagId}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ name }),
+    }, sessionRef.current)
+    await refreshTags()
+  }
+
+  async function handleDeleteTag(tagId) {
+    await apiFetch(`/tags/${tagId}`, { method: 'DELETE' }, sessionRef.current)
+    // Children cascade-delete on the server, which can free collection_tag rows.
+    await Promise.all([refreshTags(), refreshCollectionTagsMap()])
+    if (selectedTagId === tagId) setSelectedTagId(null)
+  }
+
+  async function handleMoveTag(tagId, { parent_tag_id, position }) {
+    await apiFetch(`/tags/${tagId}/move`, {
+      method: 'PUT',
+      body: JSON.stringify({ parent_tag_id: parent_tag_id ?? null, position }),
+    }, sessionRef.current)
+    await refreshTags()
+  }
+
+  async function handleReorderTags(parent_tag_id, tagIds) {
+    await apiFetch('/tags/reorder', {
+      method: 'PUT',
+      body: JSON.stringify({ parent_tag_id: parent_tag_id ?? null, tag_ids: tagIds }),
+    }, sessionRef.current)
+    await refreshTags()
+  }
+
+  // Used by TagPickerInput on a collection: PUT the new full tag id list,
+  // then update collectionTagsMap so the sidebar filter reflects the change
+  // immediately without a full re-fetch.
+  async function handleSetCollectionTags(collectionId, nextIds) {
+    await apiFetch(`/collections/${collectionId}/tags`, {
+      method: 'PUT',
+      body: JSON.stringify({ tag_ids: nextIds }),
+    }, sessionRef.current)
+    setCollectionTagsMap(prev => ({ ...prev, [collectionId]: nextIds }))
+  }
+
+  // Picker's onCreate: create a root-level tag, refresh, and return the created
+  // tag so the picker can append its id to selectedTagIds.
+  async function handleCreateTagFromPicker(name) {
+    return handleCreateTag({ name, parent_tag_id: null })
+  }
+
   function handleToggleSelect(albumId) {
     setSelectedAlbumIds(prev =>
       prev.includes(albumId) ? prev.filter(id => id !== albumId) : [...prev, albumId]
@@ -658,16 +780,7 @@ export default function App() {
       if (!res.ok) throw new Error('Failed to bulk add albums')
       const data = await res.json()
       // Update albumCollectionMap
-      setAlbumCollectionMap(prev => {
-        const next = { ...prev }
-        ids.forEach(id => {
-          if (!next[id]) next[id] = []
-          if (!next[id].includes(collectionId)) {
-            next[id] = [...next[id], collectionId]
-          }
-        })
-        return next
-      })
+      addAlbumsToCollection(collectionId, ids)
       // Use server-reported count if available, otherwise re-count
       if (data.album_count != null) {
         setCollections(prev => prev.map(c =>
@@ -929,16 +1042,7 @@ export default function App() {
                   }, sessionRef.current)
                   if (!res.ok) throw new Error('Failed to bulk add')
                   const data = await res.json()
-                  setAlbumCollectionMap(prev => {
-                    const next = { ...prev }
-                    albumIds.forEach(id => {
-                      if (!next[id]) next[id] = []
-                      if (!next[id].includes(collectionId)) {
-                        next[id] = [...next[id], collectionId]
-                      }
-                    })
-                    return next
-                  })
+                  addAlbumsToCollection(collectionId, albumIds)
                   if (data.album_count != null) {
                     setCollections(prev => prev.map(c =>
                       c.id === collectionId ? { ...c, album_count: data.album_count } : c
@@ -947,15 +1051,14 @@ export default function App() {
                 }}
                 onCreateCollection={handleCreateCollection}
                 onReorder={handleReorderCollections}
-                showCreate={showCollectionCreate}
-                onShowCreateChange={setShowCollectionCreate}
-                createName={collectionCreateName}
-                onCreateNameChange={setCollectionCreateName}
-                onCreateSubmit={(name) => {
-                  handleCreateCollection(name)
-                  setCollectionCreateName('')
-                  setShowCollectionCreate(false)
-                }}
+                tags={tags}
+                selectedTagId={selectedTagId}
+                onSelectTag={setSelectedTagId}
+                viewMode={viewMode}
+                onViewModeChange={setViewMode}
+                onManageTags={handleEnterCollection}
+                onOpenTagManager={() => setView('tag-manager')}
+                collectionTagsMap={collectionTagsMap}
               />
               )}
             </div>
@@ -964,6 +1067,20 @@ export default function App() {
           {view === 'digest' && (
             <div className="flex-1 overflow-hidden">
               <DigestView onPlay={handlePlay} session={session} />
+            </div>
+          )}
+
+          {view === 'tag-manager' && (
+            <div className="flex-1 overflow-hidden">
+              <TagManagerPage
+                tags={tags}
+                onCreate={handleCreateTag}
+                onRename={handleRenameTag}
+                onDelete={handleDeleteTag}
+                onMove={handleMoveTag}
+                onReorder={handleReorderTags}
+                onClose={() => setView('collections')}
+              />
             </div>
           )}
 
@@ -977,6 +1094,10 @@ export default function App() {
                 onDescriptionChange={(desc) => handleUpdateCollectionDescription(view.id, desc)}
                 onRename={(newName) => handleRenameCollection(view.id, newName)}
                 onPlay={handlePlayCollection}
+                allTags={tags}
+                selectedTagIds={collectionTagsMap[view.id] ?? []}
+                onTagsChange={(nextIds) => handleSetCollectionTags(view.id, nextIds)}
+                onCreateTag={handleCreateTagFromPicker}
               />
               <div className="flex-1 overflow-y-auto">
                 <AlbumTable
@@ -1285,16 +1406,7 @@ export default function App() {
                 }, sessionRef.current)
                 if (!res.ok) throw new Error('Failed to bulk add')
                 const data = await res.json()
-                setAlbumCollectionMap(prev => {
-                  const next = { ...prev }
-                  albumIds.forEach(id => {
-                    if (!next[id]) next[id] = []
-                    if (!next[id].includes(collectionId)) {
-                      next[id] = [...next[id], collectionId]
-                    }
-                  })
-                  return next
-                })
+                addAlbumsToCollection(collectionId, albumIds)
                 if (data.album_count != null) {
                   setCollections(prev => prev.map(c =>
                     c.id === collectionId ? { ...c, album_count: data.album_count } : c
@@ -1303,6 +1415,14 @@ export default function App() {
               }}
               onCreateCollection={handleCreateCollection}
               onReorder={handleReorderCollections}
+              tags={tags}
+              selectedTagId={selectedTagId}
+              onSelectTag={setSelectedTagId}
+              viewMode={viewMode}
+              onViewModeChange={setViewMode}
+              onManageTags={handleEnterCollection}
+              onOpenTagManager={() => setView('tag-manager')}
+              collectionTagsMap={collectionTagsMap}
             />
             )}
           </div>
@@ -1311,6 +1431,20 @@ export default function App() {
         {view === 'digest' && (
           <div className="flex-1 overflow-y-auto pb-20">
             <DigestView onPlay={handlePlay} session={session} />
+          </div>
+        )}
+
+        {view === 'tag-manager' && (
+          <div className="flex-1 overflow-hidden">
+            <TagManagerPage
+              tags={tags}
+              onCreate={handleCreateTag}
+              onRename={handleRenameTag}
+              onDelete={handleDeleteTag}
+              onMove={handleMoveTag}
+              onReorder={handleReorderTags}
+              onClose={() => setView('collections')}
+            />
           </div>
         )}
 
@@ -1324,6 +1458,10 @@ export default function App() {
               onDescriptionChange={(desc) => handleUpdateCollectionDescription(view.id, desc)}
               onRename={(newName) => handleRenameCollection(view.id, newName)}
               onPlay={handlePlayCollection}
+              allTags={tags}
+              selectedTagIds={collectionTagsMap[view.id] ?? []}
+              onTagsChange={(nextIds) => handleSetCollectionTags(view.id, nextIds)}
+              onCreateTag={handleCreateTagFromPicker}
             />
             <div className="flex-1 overflow-y-auto pb-20">
               <AlbumTable

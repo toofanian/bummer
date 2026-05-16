@@ -20,6 +20,11 @@ function rewriteRootToApp() {
 
 export default defineConfig({
   plugins: [react(), tailwindcss(), rewriteRootToApp()],
+  resolve: {
+    alias: {
+      '@': resolve(__dirname, './src'),
+    },
+  },
   define: {
     __APP_VERSION__: JSON.stringify(
       process.env.VERCEL_GIT_COMMIT_SHA?.slice(0, 7) ?? 'dev'

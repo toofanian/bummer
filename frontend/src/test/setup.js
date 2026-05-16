@@ -14,6 +14,12 @@ globalThis.IntersectionObserver = class IntersectionObserver {
   disconnect() {}
 }
 
+// jsdom does not implement Element.prototype.scrollIntoView — stub it.
+// cmdk (used by shadcn Command) calls this on highlighted items.
+if (!Element.prototype.scrollIntoView) {
+  Element.prototype.scrollIntoView = function scrollIntoView() {}
+}
+
 // jsdom does not implement matchMedia — stub it so useIsMobile doesn't crash.
 // Returns matches: false (desktop) by default; individual tests can override.
 Object.defineProperty(window, 'matchMedia', {
