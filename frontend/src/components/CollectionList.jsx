@@ -79,9 +79,6 @@ function CollectionRow({
           ⠿
         </button>
       )}
-      <div className="flex-shrink-0" style={{ height: THUMB_SIZE }}>
-        <AlbumArtStrip albums={(artAlbums || []).slice(0, MAX_THUMBS)} size={THUMB_SIZE} />
-      </div>
       <div className="min-w-0 flex-1 flex items-center">
         {isRenaming ? (
           <input
@@ -99,6 +96,9 @@ function CollectionRow({
         ) : (
           <span className="text-sm text-text truncate">{col.name}</span>
         )}
+      </div>
+      <div className="flex-shrink-0" style={{ height: THUMB_SIZE }}>
+        <AlbumArtStrip albums={(artAlbums || []).slice(0, MAX_THUMBS)} size={THUMB_SIZE} />
       </div>
       {col.album_count != null && !isRenaming && (
         <span className="text-xs text-text-dim flex-shrink-0">{col.album_count}</span>
