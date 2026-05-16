@@ -80,4 +80,7 @@ app.include_router(export.router)
 
 @app.get("/health")
 def health():
-    return {"status": "ok"}
+    return {
+        "status": "ok",
+        "sha": os.environ.get("VERCEL_GIT_COMMIT_SHA", "unknown"),
+    }
