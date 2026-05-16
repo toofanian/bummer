@@ -15,6 +15,7 @@ jobs:
       - name: Hit /health with retries
         env:
           PROD_URL: ${{ vars.PROD_URL }}
+          EXPECTED_SHA: ${{ github.sha }}
         run: |
           if [ -z "$PROD_URL" ]; then
             echo "PROD_URL repository variable is not set" >&2
@@ -22,7 +23,7 @@ jobs:
           fi
 
           attempts=0
-          max_attempts=5
+          max_attempts=10
           delay=20
 
           while [ $attempts -lt $max_attempts ]; do
@@ -31,13 +32,15 @@ jobs:
 
             http_code=$(curl -s -o /tmp/health.json -w "%{http_code}" --max-time 15 "$PROD_URL/health" || echo "000")
             body=$(cat /tmp/health.json 2>/dev/null || echo "")
+            status=$(jq -r '.status // empty' /tmp/health.json 2>/dev/null || true)
+            deployed_sha=$(jq -r '.sha // empty' /tmp/health.json 2>/dev/null || true)
 
-            if [ "$http_code" = "200" ] && echo "$body" | grep -q '"status":"ok"'; then
-              echo "Smoke test passed: $body"
+            if [ "$http_code" = "200" ] && [ "$status" = "ok" ] && [ "$deployed_sha" = "$EXPECTED_SHA" ]; then
+              echo "Smoke test passed: status=$status sha=$deployed_sha"
               exit 0
             fi
 
-            echo "Attempt $attempts failed (status=$http_code, body=$body). Retrying in ${delay}s..."
+            echo "Attempt $attempts failed (status_code=$http_code, status=$status, deployed_sha=$deployed_sha, expected_sha=$EXPECTED_SHA, body=$body). Retrying in ${delay}s..."
             sleep $delay
           done
 
