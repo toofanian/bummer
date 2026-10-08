@@ -1,0 +1,6 @@
+# Gitignored local config copied into every worktree Claude Code creates
+# (agent view background sessions, `claude --worktree`, subagent worktrees).
+# Uses .gitignore syntax; only files that are also gitignored are copied.
+backend/.env
+frontend/.env
+.vercel/project.json
