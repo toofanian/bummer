@@ -82,9 +82,10 @@ Avoid patterns that trigger sandbox approval prompts:
 - **Issue-first**: every code change starts from a GitHub issue
 - **Branch from issue**: branch name is `<issue-number>-<short-title>`, e.g. `18-library-sync-wipes-cache`. No `feat/` prefix.
 - **Session bootstrap**: at the start of any session, check `git branch --show-current`. If the branch name starts with `<digits>-` (e.g. `152-collection-open-crash`), that prefix is the GitHub issue number for the work in this worktree. Fetch the issue body via `gh issue view <num> --repo toofanian/bummer` before doing anything else, and treat it as the source of truth for what to build/fix. This applies even if the user's first message is terse or seems unrelated — confirm scope against the issue first.
+- **Agent view sessions**: a session dispatched from `claude agents` starts in an auto-created worktree under `.claude/worktrees/` on a branch named `worktree-<name>`. Before the first commit, find or create the GitHub issue for the task and rename the branch to the issue convention: `git branch -m <issue-number>-<short-title>`. Never push a `worktree-*` branch.
 - **Draft PR immediately**: push branch and open a draft PR linking the issue before writing code. This gives visibility and a place for discussion.
 - **Auto-commit** when all tests pass — no need to ask permission
-- **One commit per agent task** — each background agent should commit its own work when done
+- **One commit per task** — each session commits its own work when done. Deleting a session in agent view deletes its worktree, so uncommitted work there is lost.
 - **Never commit directly to `main`** — `main` is branch-protected. All changes go through a PR, no matter how small.
 - Commit message format: concise imperative summary + bullet points for details + `Co-Authored-By: Claude Opus 4.6 (1M context) <noreply@anthropic.com>`
 - **Local preview before PR**: after tests pass, run `make dev-bg` (pass `MAIN_REPO=<path-to-main-repo>` if in a worktree) to start dev servers in the background, then tell the user to open `http://localhost:5173` and review. Do not push or open a PR until the user confirms the local preview looks good. Run `make stop` to clean up after. If ports 5173/8000 are already in use (another agent's preview is running), do NOT kill them — just tell the user another preview is active and wait for them to finish that review first.
@@ -107,13 +108,16 @@ Running locally requires env vars that aren't committed.
 
 ### Worktree setup
 
+Worktrees that Claude Code creates (agent view sessions, `claude --worktree`, subagent worktrees) live under `.claude/worktrees/<name>/` and branch from a fresh `origin/main`. `.worktreeinclude` copies `backend/.env`, `frontend/.env`, and `.vercel/project.json` from the main repo into each one at creation, if they exist there. Worktrees made by hand with `git worktree add` do not get these copies.
+
 In a worktree, complete ALL of these steps before running `make dev-bg`:
 
 1. `npm --prefix frontend install` — node_modules are not shared across worktrees and not symlinked by `make dev-bg`. Without this, Vite fails with `vite: command not found`.
-2. Copy `.vercel/project.json` from main repo — needed for `vercel env pull`.
-3. Pull and fix `frontend/.env` (see main repo step 2). The main repo may not have one; if not, pull fresh from Vercel.
-4. Run: `make dev-bg MAIN_REPO=<path-to-main-repo>` — symlinks `backend/.env` and `backend/.venv` from main repo.
-5. Verify both ports before telling user to check: `lsof -i :5173 -i :8000 | grep LISTEN`
+2. Check that `frontend/.env` and `.vercel/project.json` exist. If `.worktreeinclude` did not copy them (hand-made worktree, or the main repo has no `frontend/.env`), copy `.vercel/project.json` from the main repo, then pull and fix `frontend/.env` (see main repo step 2).
+3. Run: `make dev-bg MAIN_REPO=<path-to-main-repo>` — symlinks `backend/.venv` (and `backend/.env` if missing) from main repo. For a worktree under `.claude/worktrees/<name>/`, the main repo is three directories up.
+4. Verify both ports before telling user to check: `lsof -i :5173 -i :8000 | grep LISTEN`
+
+Ports 5173 and 8000 are shared by every worktree, so only one local preview can run at a time no matter how many sessions are active.
 
 ### Troubleshooting
 
@@ -144,9 +148,8 @@ In a worktree, complete ALL of these steps before running `make dev-bg`:
 
 ## Collaboration style
 
-- Claude acts as a **PM-orchestrator**: receive requests from the user, immediately spin up background subagents for discrete tasks, return to the user quickly for more input
-- Never implement features directly in the main chat thread — always delegate to a background Agent with a detailed prompt
-- For any task that touches code, spin up an agent with `run_in_background: true`
-- Multiple independent tasks should be parallelized across multiple agents simultaneously
-- Keep main-thread responses brief: confirm what agents were launched, then ask what's next
-- Only integrate agent output yourself (final wiring, merging results) if agents cannot write to files due to permission issues in their worktree
+- Parallel work is orchestrated by the user through **agent view** (`claude agents`): one dispatched session per GitHub issue, each in its own worktree
+- A session does its own task directly, in its own worktree. Do not hand the task off to background subagents by default; the session is already the worker
+- Use subagents only when the task itself splits into independent pieces or the user asks for them
+- If asked for work that belongs to a different issue, say so and suggest dispatching a separate session rather than widening this one
+- Keep responses brief. When blocked on the user (preview review, merge approval), say exactly what is needed so it reads clearly from the agent view peek panel
