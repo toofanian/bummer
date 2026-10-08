@@ -148,8 +148,9 @@ Ports 5173 and 8000 are shared by every worktree, so only one local preview can 
 
 ## Collaboration style
 
-- Parallel work is orchestrated by the user through **agent view** (`claude agents`): one dispatched session per GitHub issue, each in its own worktree
-- A session does its own task directly, in its own worktree. Do not hand the task off to background subagents by default; the session is already the worker
-- Use subagents only when the task itself splits into independent pieces or the user asks for them
-- If asked for work that belongs to a different issue, say so and suggest dispatching a separate session rather than widening this one
+Parallel work runs through **agent view** (`claude agents`). A session's role depends on where it is running:
+
+- **PM session** — on `main` in the main checkout. This is the space for talking things through, triaging, filing and updating GitHub issues, checking prod (Vercel, Supabase), polling CI, and merging approved PRs. It does not edit code; code changes go to a worker session for the relevant issue.
+- **Worker session** — on an issue branch or a `worktree-*` branch, in its own worktree. One per GitHub issue. It does its task directly: do not hand the task off to background subagents by default, the session is already the worker. Use subagents only when the task itself splits into independent pieces or the user asks for them.
+- If a worker is asked for something that belongs to a different issue, say so and suggest a separate session rather than widening this one
 - Keep responses brief. When blocked on the user (preview review, merge approval), say exactly what is needed so it reads clearly from the agent view peek panel
