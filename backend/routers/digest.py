@@ -1,15 +1,26 @@
+import logging
+import threading
 from collections import Counter, defaultdict
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta
 
+import requests
 import spotipy
 from fastapi import APIRouter, Depends
 from supabase import Client
 
 from auth_middleware import get_authed_db, get_current_user
-from routers.library import get_album_cache
+from routers.library import _get_supabase_cache, get_album_cache
 from spotify_client import get_user_spotify
 
+logger = logging.getLogger(__name__)
+
 router = APIRouter(prefix="/digest", tags=["digest"])
+
+# Concurrent GET /artists/{id} requests per image resolution.
+_ARTIST_FETCH_WORKERS = 5
+_SPOTIFY_ERRORS = (spotipy.SpotifyException, requests.RequestException)
+_UNRESOLVED = object()
 
 
 def _flatten_album_artists(album_meta: dict) -> dict:
@@ -69,16 +80,20 @@ def _resolve_artist_images(
     artist_names_and_ids: list[tuple[str, str | None]],
     sp: spotipy.Spotify,
 ) -> dict[str, str | None]:
-    """Batch-resolve artist profile images from Spotify.
-    Returns dict mapping artist name -> smallest image URL (or None).
+    """Resolve artist profile images from Spotify, one GET /artists/{id} each.
+
+    Spotify removed the batch GET /artists endpoint (February 2026), so callers
+    should only pass artists they have no cached image for.
+
+    Returns dict mapping artist name -> smallest image URL, or None when Spotify
+    has no image (or no such artist). Artists whose lookup failed are logged and
+    left out, so callers don't cache a failure as "no image".
     """
     result = {}
-    ids_to_fetch = []
     name_by_id = {}
     names_without_id = []
     for name, artist_id in artist_names_and_ids:
         if artist_id:
-            ids_to_fetch.append(artist_id)
             name_by_id[artist_id] = name
         else:
             names_without_id.append(name)
@@ -87,32 +102,61 @@ def _resolve_artist_images(
     for name in names_without_id:
         try:
             search = sp.search(q=f'artist:"{name}"', type="artist", limit=1)
-            items = search.get("artists", {}).get("items", [])
-            if items:
-                artist_id = items[0]["id"]
-                ids_to_fetch.append(artist_id)
-                name_by_id[artist_id] = name
-            else:
-                result[name] = None
-        except Exception:
+        except _SPOTIFY_ERRORS as exc:
+            logger.warning(
+                "Spotify artist search failed: artist_name=%r status=%s error=%s",
+                name,
+                getattr(exc, "http_status", None),
+                exc,
+            )
+            continue
+        items = search.get("artists", {}).get("items", [])
+        if items:
+            name_by_id[items[0]["id"]] = name
+        else:
             result[name] = None
 
-    for i in range(0, len(ids_to_fetch), 50):
-        batch = ids_to_fetch[i : i + 50]
+    # Any failure other than a 404 (rate limit, auth, removed endpoint, network)
+    # will hit every artist alike, so stop sending requests once one is seen.
+    stop = threading.Event()
+
+    def fetch(artist_id: str):
+        if stop.is_set():
+            return _UNRESOLVED
         try:
-            resp = sp.artists(batch)
-            for artist in resp.get("artists", []):
-                if not artist:
-                    continue
-                name = name_by_id.get(artist["id"], artist["name"])
-                images = artist.get("images", [])
-                smallest = min(
-                    images, key=lambda img: img.get("height", 0), default=None
-                )
-                result[name] = smallest["url"] if smallest else None
-        except Exception:
-            for aid in batch:
-                result[name_by_id.get(aid, aid)] = None
+            artist = sp.artist(artist_id)
+        except _SPOTIFY_ERRORS as exc:
+            status = getattr(exc, "http_status", None)
+            logger.warning(
+                "Spotify artist lookup failed: artist_id=%s status=%s error=%s",
+                artist_id,
+                status,
+                exc,
+            )
+            if status == 404:
+                return None
+            stop.set()
+            return _UNRESOLVED
+        images = artist.get("images") or []
+        smallest = min(images, key=lambda img: img.get("height") or 0, default=None)
+        return smallest["url"] if smallest else None
+
+    artist_ids = list(name_by_id)
+    with ThreadPoolExecutor(max_workers=_ARTIST_FETCH_WORKERS) as pool:
+        outcomes = list(pool.map(fetch, artist_ids))
+
+    unresolved = 0
+    for artist_id, outcome in zip(artist_ids, outcomes):
+        if outcome is _UNRESOLVED:
+            unresolved += 1
+        else:
+            result[name_by_id[artist_id]] = outcome
+    if unresolved:
+        logger.warning(
+            "Spotify artist images unresolved for %d of %d artists",
+            unresolved,
+            len(artist_ids),
+        )
     return result
 
 
@@ -197,7 +241,8 @@ def get_stats(
     play_counts = Counter(row["album_id"] for row in rows)
     top_album_ids = [aid for aid, _ in play_counts.most_common(10)]
 
-    album_cache = get_album_cache(db, user_id=user["user_id"])
+    cache_row = _get_supabase_cache(db, user_id=user["user_id"]) or {}
+    album_cache = cache_row.get("albums") or []
     all_album_ids = list(play_counts.keys())
     metadata = _resolve_album_metadata(all_album_ids, album_cache, sp)
     meta_lookup = {m["service_id"]: m for m in metadata}
@@ -233,10 +278,19 @@ def get_stats(
                     artist_id_map[name] = artist["id"]
 
     top_artist_names = [name for name, _ in artist_counts.most_common(10)]
-    artist_images = _resolve_artist_images(
-        [(name, artist_id_map.get(name)) for name in top_artist_names],
-        sp,
-    )
+    # Images cached by /library/artist-images first; Spotify only for the rest
+    cached_images = cache_row.get("artist_images") or {}
+    artist_images = {
+        **cached_images,
+        **_resolve_artist_images(
+            [
+                (name, artist_id_map.get(name))
+                for name in top_artist_names
+                if name not in cached_images
+            ],
+            sp,
+        ),
+    }
 
     top_artists = [
         {
