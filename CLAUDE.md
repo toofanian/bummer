@@ -58,6 +58,7 @@ bummer/
 - `IS_PREVIEW` (computed from `VITE_VERCEL_ENV`) is used only in `useSpotifyAuth.js` to route Spotify OAuth through the proxy; it does not bypass authentication
 - Preview users' data lives in the prod DB alongside real users, isolated by `user_id`
 - Prod (`VERCEL_ENV=production`) is unaffected: Vercel injects `VERCEL_ENV=production` for prod deploys, which cannot be overridden from the Vercel env-var UI in the Production scope
+- The `rc` branch deploys to `staging.thedeathofshuffle.com` (via Vercel branch deploy + custom domain). Unlike preview deploys, `rc` uses **direct Spotify OAuth** (its callback URI is registered in the Spotify Dashboard) — not the callback proxy. RC shares the prod Supabase DB, same as preview deploys.
 
 ## Conventions
 
@@ -78,7 +79,7 @@ Avoid patterns that trigger sandbox approval prompts:
 
 ## Git workflow
 
-- **`main` is production** — merging to main triggers a Vercel production deploy to live users. Treat every merge as a production release. Never push, force-push, or merge to main without passing CI and user approval.
+- **`production` is production** — merging to `production` triggers a Vercel production deploy to live users. Treat every merge to `production` as a release. Never push, force-push, or merge to `production` without passing CI and user approval. `main` is the integration branch and gets preview deploys per PR; merges to `main` do NOT deploy to prod.
 - **Issue-first**: every code change starts from a GitHub issue
 - **Branch from issue**: branch name is `<issue-number>-<short-title>`, e.g. `18-library-sync-wipes-cache`. No `feat/` prefix.
 - **Session bootstrap**: at the start of any session, check `git branch --show-current`. If the branch name starts with `<digits>-` (e.g. `152-collection-open-crash`), that prefix is the GitHub issue number for the work in this worktree. Fetch the issue body via `gh issue view <num> --repo toofanian/bummer` before doing anything else, and treat it as the source of truth for what to build/fix. This applies even if the user's first message is terse or seems unrelated — confirm scope against the issue first.
@@ -88,6 +89,23 @@ Avoid patterns that trigger sandbox approval prompts:
 - **One commit per task** — each session commits its own work when done. Deleting a session in agent view deletes its worktree, so uncommitted work there is lost.
 - **Never commit directly to `main`** — `main` is branch-protected. All changes go through a PR, no matter how small.
 - Commit message format: concise imperative summary + bullet points for details + `Co-Authored-By: Claude Opus 4.6 (1M context) <noreply@anthropic.com>`
+
+### Release flow (rc + production)
+
+Three long-lived branches: `main` (integration), `rc` (release candidate, deploys to `staging.thedeathofshuffle.com`), `production` (live).
+
+1. Feature work merges to `main` via PR (current behavior).
+2. When a batch is ready to ship, snapshot `rc` from current `main` HEAD: `git push origin main:rc`. This is the code freeze. If `rc` has diverged from `main` (because an rc-only fix wasn't backported yet), this push will be rejected as non-fast-forward — that's the signal that step 4's backport rule was skipped. Backport the missing commit to `main` first, then re-run the snapshot. Use `--force-with-lease` only as a last resort, after confirming the divergent commits are accounted for on `main`.
+3. Soak the staging URL (`staging.thedeathofshuffle.com`) on phone + Mac with real Spotify auth.
+4. Bug found during soak → fix on `rc` directly (PR `fix/x` → `rc`), then backport to `main` (PR or cherry-pick). Soak continues — no reset. **Every rc-only fix MUST land on `main` before the next `rc` snapshot, or it gets clobbered.**
+5. Stable → open PR `rc` → `production`. CI runs (lint + tests). Merge with a merge commit (no squash, no rebase — the merge commit is the ship event and the revert target).
+6. Tag the release: `git tag vX.Y.Z && git push --tags` (manual semver bump).
+7. Vercel auto-deploys `production`. The `Production Smoke Test` workflow hits `/health` and fails loudly if broken.
+
+**Rollback:**
+- Fast: Vercel UI → Instant Rollback to prior production deployment.
+- Durable: `git revert -m 1 <merge-sha>` on `production` and push.
+
 - **Local preview before PR**: after tests pass, run `make dev-bg` (pass `MAIN_REPO=<path-to-main-repo>` if in a worktree) to start dev servers in the background, then tell the user to open `http://localhost:5173` and review. Do not push or open a PR until the user confirms the local preview looks good. Run `make stop` to clean up after. If ports 5173/8000 are already in use (another agent's preview is running), do NOT kill them — just tell the user another preview is active and wait for them to finish that review first.
 
 ## Local dev setup
@@ -125,7 +143,7 @@ Ports 5173 and 8000 are shared by every worktree, so only one local preview can 
 - **`vite: command not found`** in frontend log → `npm --prefix frontend install` was skipped
 - **Backend 8000 up but frontend 5173 missing** → check `/tmp/bsi-frontend.log` for errors
 
-- **Merging PRs** — never use `--auto` or `--admin` flags. When the user approves a merge, poll CI checks (`gh pr checks`) until they pass, then run `gh pr merge --squash --repo toofanian/bummer`. Do not ask the user to merge manually.
+- **Merging PRs** — never use `--auto` or `--admin` flags. When the user approves a merge, poll CI checks (`gh pr checks`) until they pass, then run `gh pr merge --squash --repo toofanian/bummer`. Do not ask the user to merge manually. **Exception:** `rc` → `production` PRs use a merge commit (`gh pr merge --merge`), not squash — see "Release flow" below for why.
 - Compatible with worktrees — agents can work in isolated worktrees on their branch
 - Never commit `.env` files or secrets
 
