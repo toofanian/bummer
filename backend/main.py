@@ -20,6 +20,7 @@ from routers import (
     library,
     metadata,
     playback,
+    tags,
 )
 
 load_dotenv()
@@ -76,6 +77,7 @@ app.include_router(metadata.router)
 app.include_router(playback.router)
 app.include_router(digest.router)
 app.include_router(export.router)
+app.include_router(tags.router)
 
 
 @app.get("/health")

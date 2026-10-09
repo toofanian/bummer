@@ -1867,6 +1867,48 @@ describe('App — create collection from nav bar', () => {
   })
 })
 
+describe('App — tag manager routing', () => {
+  it('clicking "Manage tags" in the sidebar opens the TagManagerPage view', async () => {
+    seedLocalStorageCache()
+    const TAGS = [
+      { id: 'tag-1', name: 'mood', parent_tag_id: null, position: 0 },
+    ]
+    global.fetch = vi.fn().mockImplementation((url, options) => {
+      if (url.includes('/library/sync-complete') && options?.method === 'POST') {
+        return Promise.resolve({ ok: true, json: () => Promise.resolve({ ok: true }) })
+      }
+      if (url.includes('/library/sync') && !url.includes('/sync-complete') && options?.method === 'POST') {
+        return Promise.resolve({ ok: true, json: () => Promise.resolve(SYNC_DONE) })
+      }
+      if (url.includes('/library/albums') && !url.includes('/tracks')) {
+        return Promise.resolve({ ok: true, json: () => Promise.resolve(LIBRARY_OK) })
+      }
+      if (url.endsWith('/tags')) {
+        return Promise.resolve({ ok: true, json: () => Promise.resolve(TAGS) })
+      }
+      if (url.includes('/collections')) {
+        return Promise.resolve({ ok: true, json: () => Promise.resolve(COLLECTIONS_OK) })
+      }
+      if (url.includes('/home')) {
+        return Promise.resolve({ ok: true, json: () => Promise.resolve(HOME_OK) })
+      }
+      return Promise.resolve({ ok: true, json: () => Promise.resolve({}) })
+    })
+
+    render(<App />)
+
+    await userEvent.click(await screen.findByRole('button', { name: /collections/i }))
+
+    const manage = await screen.findByRole('button', { name: /manage tags/i })
+    await userEvent.click(manage)
+
+    // TagManagerPage renders a "Tag Manager" heading
+    expect(await screen.findByRole('heading', { name: /tag manager/i })).toBeInTheDocument()
+
+    clearLocalStorageCache()
+  })
+})
+
 // Regression for #152 — opening a collection whose albums have artist
 // entries as objects ({id, name}) used to trigger React error #31 because
 // the artist objects were rendered directly. handleEnterCollection now

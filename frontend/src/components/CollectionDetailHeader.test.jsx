@@ -143,6 +143,67 @@ describe('CollectionDetailHeader', () => {
     expect(onRename).not.toHaveBeenCalled()
   })
 
+  it('renders the TagPickerInput when tag picker props are provided', () => {
+    const allTags = [
+      { id: 'tag-1', name: 'mood', parent_tag_id: null, position: 0 },
+      { id: 'tag-2', name: 'energy', parent_tag_id: null, position: 1 },
+    ]
+    render(
+      <CollectionDetailHeader
+        name="Late Night"
+        description={null}
+        albumCount={5}
+        onBack={() => {}}
+        onDescriptionChange={() => {}}
+        allTags={allTags}
+        selectedTagIds={['tag-1']}
+        onTagsChange={() => {}}
+        onCreateTag={async () => null}
+      />
+    )
+    expect(screen.getByTestId('collection-tag-picker')).toBeInTheDocument()
+    // Currently-applied tag chip is shown
+    expect(screen.getByText('mood')).toBeInTheDocument()
+    // The remove button for the chip exists, proving onChange wiring path
+    expect(screen.getByRole('button', { name: /remove mood/i })).toBeInTheDocument()
+  })
+
+  it('removing a tag chip calls onTagsChange with the new id list', async () => {
+    const onTagsChange = vi.fn()
+    const allTags = [
+      { id: 'tag-1', name: 'mood', parent_tag_id: null, position: 0 },
+      { id: 'tag-2', name: 'energy', parent_tag_id: null, position: 1 },
+    ]
+    render(
+      <CollectionDetailHeader
+        name="Late Night"
+        description={null}
+        albumCount={5}
+        onBack={() => {}}
+        onDescriptionChange={() => {}}
+        allTags={allTags}
+        selectedTagIds={['tag-1', 'tag-2']}
+        onTagsChange={onTagsChange}
+        onCreateTag={async () => null}
+      />
+    )
+    await userEvent.click(screen.getByRole('button', { name: /remove mood/i }))
+    expect(onTagsChange).toHaveBeenCalledWith(['tag-2'])
+  })
+
+  it('does not render the tag picker when tag props are absent', () => {
+    render(
+      <CollectionDetailHeader
+        name="Late Night"
+        description={null}
+        albumCount={5}
+        onBack={() => {}}
+        onDescriptionChange={() => {}}
+      />
+    )
+    expect(screen.queryByTestId('collection-tag-picker')).not.toBeInTheDocument()
+  })
+
   it('submits name on Enter key', async () => {
     const onRename = vi.fn()
     render(
