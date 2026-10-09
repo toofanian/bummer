@@ -4,7 +4,7 @@
 
 **Goal:** Decouple production deploys from `main` by introducing `rc` (staging) and `production` long-lived branches, with manual promotion gates and a post-deploy smoke test.
 
-**Architecture:** Three branches — `main` (integration, preview deploys), `rc` (release candidate, soak target at `staging.bummer.app`), `production` (live). Promotion is manual: snapshot `main` → `rc`, soak, then PR `rc` → `production`. A new GitHub Action runs after each `production` push to verify `/health` on the live domain.
+**Architecture:** Three branches — `main` (integration, preview deploys), `rc` (release candidate, soak target at `staging.thedeathofshuffle.com`), `production` (live). Promotion is manual: snapshot `main` → `rc`, soak, then PR `rc` → `production`. A new GitHub Action runs after each `production` push to verify `/health` on the live domain.
 
 **Tech Stack:** GitHub Actions (YAML), Vercel (manual config), Spotify Developer Dashboard (manual config), GitHub branch protection (manual config).
 
@@ -181,11 +181,11 @@ Find the "Git workflow" heading (`## Git workflow`). After the existing bullets 
 ```markdown
 ### Release flow (rc + production)
 
-Three long-lived branches: `main` (integration), `rc` (release candidate, deploys to `staging.bummer.app`), `production` (live).
+Three long-lived branches: `main` (integration), `rc` (release candidate, deploys to `staging.thedeathofshuffle.com`), `production` (live).
 
 1. Feature work merges to `main` via PR (current behavior).
 2. When a batch is ready to ship, fast-forward `rc` to current `main` HEAD: `git push origin main:rc`. This is the code freeze.
-3. Soak the staging URL (`staging.bummer.app`) on phone + Mac with real Spotify auth.
+3. Soak the staging URL (`staging.thedeathofshuffle.com`) on phone + Mac with real Spotify auth.
 4. Bug found during soak → fix on `rc` directly (PR `fix/x` → `rc`), then backport to `main` (PR or cherry-pick). Soak continues — no reset. **Every rc-only fix MUST land on `main` before the next `rc` snapshot, or it gets clobbered.**
 5. Stable → open PR `rc` → `production`. CI runs (lint + tests). Merge with a merge commit (no squash, no rebase — the merge commit is the ship event and the revert target).
 6. Tag the release: `git tag vX.Y.Z && git push --tags` (manual semver bump).
@@ -201,7 +201,7 @@ Three long-lived branches: `main` (integration), `rc` (release candidate, deploy
 Find the heading `## Preview deploys`. Add a new bullet at the end of the existing bullet list:
 
 ```markdown
-- The `rc` branch deploys to `staging.bummer.app` (via Vercel branch deploy + custom domain). Unlike preview deploys, `rc` uses **direct Spotify OAuth** (its callback URI is registered in the Spotify Dashboard) — not the callback proxy. RC shares the prod Supabase DB, same as preview deploys.
+- The `rc` branch deploys to `staging.thedeathofshuffle.com` (via Vercel branch deploy + custom domain). Unlike preview deploys, `rc` uses **direct Spotify OAuth** (its callback URI is registered in the Spotify Dashboard) — not the callback proxy. RC shares the prod Supabase DB, same as preview deploys.
 ```
 
 - [ ] **Step 4: Verify the file still reads cleanly**
@@ -209,7 +209,7 @@ Find the heading `## Preview deploys`. Add a new bullet at the end of the existi
 Open `CLAUDE.md` and read the modified sections top-to-bottom. Confirm:
 - No duplicate "main is production" wording
 - The release flow bullets are numbered 1–7 with no gaps
-- The `staging.bummer.app` bullet is grouped with the other preview-deploy bullets
+- The `staging.thedeathofshuffle.com` bullet is grouped with the other preview-deploy bullets
 
 - [ ] **Step 5: Commit**
 
@@ -340,12 +340,12 @@ GitHub UI: Settings → Branches → Add rule. Branch name pattern: `rc`. Enable
 
 Save.
 
-- [ ] **Step 3: Attach `staging.bummer.app` to `rc` branch in Vercel**
+- [ ] **Step 3: Attach `staging.thedeathofshuffle.com` to `rc` branch in Vercel**
 
-Vercel Dashboard → Project → Settings → Domains. Add `staging.bummer.app` (or your chosen subdomain). Configure it to deploy from the `rc` branch:
+Vercel Dashboard → Project → Settings → Domains. Add `staging.thedeathofshuffle.com` (or your chosen subdomain). Configure it to deploy from the `rc` branch:
 - Click the new domain → Edit → Git Branch → set to `rc`. Save.
 
-DNS: add a CNAME for `staging.bummer.app` pointing at `cname.vercel-dns.com` (or whatever Vercel instructs). Wait for SSL cert to provision.
+DNS: add a CNAME for `staging.thedeathofshuffle.com` pointing at `cname.vercel-dns.com` (or whatever Vercel instructs). Wait for SSL cert to provision.
 
 - [ ] **Step 4: Configure env vars for the `rc` branch**
 
@@ -353,7 +353,7 @@ Vercel Dashboard → Settings → Environment Variables. For each prod env var, 
 
 - [ ] **Step 5: Verify staging deploys**
 
-Vercel Dashboard → Deployments. Confirm a deploy was triggered for `rc`. Once finished, open `https://staging.bummer.app/health`. Expect 200 + `{"status":"ok"}`.
+Vercel Dashboard → Deployments. Confirm a deploy was triggered for `rc`. Once finished, open `https://staging.thedeathofshuffle.com/health`. Expect 200 + `{"status":"ok"}`.
 
 ---
 
@@ -364,14 +364,14 @@ Vercel Dashboard → Deployments. Confirm a deploy was triggered for `rc`. Once 
 Spotify Developer Dashboard → your app → Edit Settings → Redirect URIs. Add:
 
 ```
-https://staging.bummer.app/auth/callback
+https://staging.thedeathofshuffle.com/auth/callback
 ```
 
 Save.
 
 - [ ] **Step 2: Verify direct OAuth flow on staging**
 
-Open `https://staging.bummer.app` on phone or Mac. Sign in with Google, then connect Spotify. Confirm the OAuth round-trip completes without going through the callback proxy. (You can verify by watching Network tab — the callback hits staging.bummer.app directly, not the prod backend.)
+Open `https://staging.thedeathofshuffle.com` on phone or Mac. Sign in with Google, then connect Spotify. Confirm the OAuth round-trip completes without going through the callback proxy. (You can verify by watching Network tab — the callback hits staging.thedeathofshuffle.com directly, not the prod backend.)
 
 ---
 
@@ -388,7 +388,7 @@ git push origin origin/main:rc
 
 - [ ] **Step 2: Verify staging deploys and works**
 
-Wait for Vercel deploy on `rc`. Open `staging.bummer.app`, log in, do a quick smoke test (load library, play a track if Premium).
+Wait for Vercel deploy on `rc`. Open `staging.thedeathofshuffle.com`, log in, do a quick smoke test (load library, play a track if Premium).
 
 - [ ] **Step 3: Open ship PR**
 

@@ -20,7 +20,7 @@ Three long-lived branches with manual promotion gates:
 | Branch | Purpose | Deploys to |
 |--------|---------|------------|
 | `main` | Integration. PR target for all feature work. | Per-PR Vercel preview URLs (unchanged) |
-| `rc` | Release candidate. Snapshot of `main` at freeze time. Soak target. | `staging.bummer.app` (Vercel branch deploy + custom domain) |
+| `rc` | Release candidate. Snapshot of `main` at freeze time. Soak target. | `staging.thedeathofshuffle.com` (Vercel branch deploy + custom domain) |
 | `production` | Live users. | Production domain (unchanged) |
 
 Promotion is manual at every step. Solo dev cadence — no scheduled releases.
@@ -29,7 +29,7 @@ Promotion is manual at every step. Solo dev cadence — no scheduled releases.
 
 1. Feature work merges to `main` via PR (current behavior).
 2. When a batch is ready to ship, fast-forward `rc` to current `main` HEAD: `git push origin main:rc`. This is the code freeze.
-3. Vercel deploys `rc` to `staging.bummer.app`. Owner soaks against the staging URL using real Spotify auth and the prod Supabase database.
+3. Vercel deploys `rc` to `staging.thedeathofshuffle.com`. Owner soaks against the staging URL using real Spotify auth and the prod Supabase database.
 4. **Bug found during soak:** fix on `rc` directly (PR `fix/x` → `rc`), then backport to `main` (cherry-pick or PR `fix/x` → `main`). Soak continues — no reset.
 5. Stable → open PR `rc` → `production`. CI runs (lint + tests). Merge with a merge commit (no squash, no rebase).
 6. Manually tag `vMAJOR.MINOR.PATCH` on `production` and push: `git tag vX.Y.Z && git push --tags`.
@@ -57,13 +57,13 @@ Two mechanisms, used together:
 ## Vercel configuration
 
 - **Production branch setting:** `main` → `production`
-- **Staging custom domain:** `staging.bummer.app` attached to `rc` branch deploys
+- **Staging custom domain:** `staging.thedeathofshuffle.com` attached to `rc` branch deploys
 - **Env vars:** `rc` branch uses production-scoped env vars (since RC shares the prod Supabase DB and the prod Spotify app)
 - **Preview deploys:** unchanged — every PR to `main` gets a preview URL with the existing OAuth proxy behavior
 
 ## Spotify OAuth
 
-- Register `https://staging.bummer.app/auth/callback` as a second Spotify redirect URI
+- Register `https://staging.thedeathofshuffle.com/auth/callback` as a second Spotify redirect URI
 - `rc` branch uses direct Spotify OAuth, not the preview-deploy callback proxy
 - Reason: soak should exercise the real callback path, not the proxy. Preview deploys keep using the proxy as today.
 
@@ -97,7 +97,7 @@ Manual for v1. Owner runs `git tag vX.Y.Z && git push --tags` after merging to `
 
 - Replace "`main` is production" warning with "`production` branch is production"
 - Add the release flow steps to the "Git workflow" section
-- Update "Preview deploys" section to mention `staging.bummer.app` (rc branch) alongside preview URLs
+- Update "Preview deploys" section to mention `staging.thedeathofshuffle.com` (rc branch) alongside preview URLs
 - Document the rc-bugfix-then-backport rule
 
 ## One-time migration steps
@@ -109,8 +109,8 @@ Order matters. Each step is reversible until step 3.
 3. Vercel: change production branch from `main` to `production`. Verify next deploy from `production` works.
 4. Tag current state `v1.0.0` on `production` and push tag.
 5. Create `rc` branch from current `main` HEAD; push.
-6. Vercel: attach `staging.bummer.app` to `rc` branch deploys. Configure env vars to mirror prod.
-7. Spotify Dashboard: add `https://staging.bummer.app/auth/callback` as a redirect URI.
+6. Vercel: attach `staging.thedeathofshuffle.com` to `rc` branch deploys. Configure env vars to mirror prod.
+7. Spotify Dashboard: add `https://staging.thedeathofshuffle.com/auth/callback` as a redirect URI.
 8. Add branch protection on `rc` (PR for bugfixes, CI required, no force push, allow fast-forward direct push from owner).
 9. Add `production` as a target branch in the existing CI workflow. Add the new smoke-test workflow.
 10. Update CLAUDE.md.

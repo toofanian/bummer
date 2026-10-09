@@ -58,7 +58,7 @@ bummer/
 - `IS_PREVIEW` (computed from `VITE_VERCEL_ENV`) is used only in `useSpotifyAuth.js` to route Spotify OAuth through the proxy; it does not bypass authentication
 - Preview users' data lives in the prod DB alongside real users, isolated by `user_id`
 - Prod (`VERCEL_ENV=production`) is unaffected: Vercel injects `VERCEL_ENV=production` for prod deploys, which cannot be overridden from the Vercel env-var UI in the Production scope
-- The `rc` branch deploys to `staging.bummer.app` (via Vercel branch deploy + custom domain). Unlike preview deploys, `rc` uses **direct Spotify OAuth** (its callback URI is registered in the Spotify Dashboard) — not the callback proxy. RC shares the prod Supabase DB, same as preview deploys.
+- The `rc` branch deploys to `staging.thedeathofshuffle.com` (via Vercel branch deploy + custom domain). Unlike preview deploys, `rc` uses **direct Spotify OAuth** (its callback URI is registered in the Spotify Dashboard) — not the callback proxy. RC shares the prod Supabase DB, same as preview deploys.
 
 ## Conventions
 
@@ -92,11 +92,11 @@ Avoid patterns that trigger sandbox approval prompts:
 
 ### Release flow (rc + production)
 
-Three long-lived branches: `main` (integration), `rc` (release candidate, deploys to `staging.bummer.app`), `production` (live).
+Three long-lived branches: `main` (integration), `rc` (release candidate, deploys to `staging.thedeathofshuffle.com`), `production` (live).
 
 1. Feature work merges to `main` via PR (current behavior).
 2. When a batch is ready to ship, snapshot `rc` from current `main` HEAD: `git push origin main:rc`. This is the code freeze. If `rc` has diverged from `main` (because an rc-only fix wasn't backported yet), this push will be rejected as non-fast-forward — that's the signal that step 4's backport rule was skipped. Backport the missing commit to `main` first, then re-run the snapshot. Use `--force-with-lease` only as a last resort, after confirming the divergent commits are accounted for on `main`.
-3. Soak the staging URL (`staging.bummer.app`) on phone + Mac with real Spotify auth.
+3. Soak the staging URL (`staging.thedeathofshuffle.com`) on phone + Mac with real Spotify auth.
 4. Bug found during soak → fix on `rc` directly (PR `fix/x` → `rc`), then backport to `main` (PR or cherry-pick). Soak continues — no reset. **Every rc-only fix MUST land on `main` before the next `rc` snapshot, or it gets clobbered.**
 5. Stable → open PR `rc` → `production`. CI runs (lint + tests). Merge with a merge commit (no squash, no rebase — the merge commit is the ship event and the revert target).
 6. Tag the release: `git tag vX.Y.Z && git push --tags` (manual semver bump).
