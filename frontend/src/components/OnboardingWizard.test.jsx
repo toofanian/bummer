@@ -102,6 +102,18 @@ describe('OnboardingWizard', () => {
       })
     })
 
+    it('shows a reconnect notice and prefills the saved client id when reauth is set', () => {
+      localStorage.setItem('spotify_client_id', 'saved-cid')
+      render(<OnboardingWizard session={fakeSession} onComplete={vi.fn()} reauth />)
+      expect(screen.getByText(/spotify connection expired/i)).toBeInTheDocument()
+      expect(screen.getByPlaceholderText(/client id/i)).toHaveValue('saved-cid')
+    })
+
+    it('shows no reconnect notice during normal onboarding', () => {
+      render(<OnboardingWizard session={fakeSession} onComplete={vi.fn()} />)
+      expect(screen.queryByText(/spotify connection expired/i)).not.toBeInTheDocument()
+    })
+
     it('shows consent language on the client_id step', () => {
       render(<OnboardingWizard session={fakeSession} onComplete={vi.fn()} />)
       expect(screen.getByText(/Bummer can read and modify your library/i)).toBeInTheDocument()

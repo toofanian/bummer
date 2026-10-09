@@ -21,6 +21,7 @@ from routers import (
     metadata,
     playback,
 )
+from spotify_client import SpotifyReauthRequired
 
 load_dotenv()
 
@@ -50,6 +51,14 @@ app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 @app.exception_handler(SpotifyException)
 async def spotify_exception_handler(request, exc):
     return JSONResponse(status_code=502, content={"detail": "Spotify API error"})
+
+
+@app.exception_handler(SpotifyReauthRequired)
+async def spotify_reauth_required_handler(request, exc):
+    return JSONResponse(
+        status_code=exc.status_code,
+        content={"detail": exc.detail, "code": exc.code},
+    )
 
 
 origins_raw = os.getenv("ALLOWED_ORIGINS", "")

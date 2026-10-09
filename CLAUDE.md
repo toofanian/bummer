@@ -49,6 +49,16 @@ bummer/
 - Always apply migrations to prod BEFORE merging a PR that depends on them — previews share the prod DB, so a pending migration on an open PR will break prod's preview deploy until applied
 - Source of truth for what's applied: the remote `supabase_migrations.schema_migrations` table, viewable via the Supabase MCP's `list_migrations` tool
 
+## TOKEN_ENCRYPTION_KEY and rotation
+
+- `TOKEN_ENCRYPTION_KEY` (Fernet key, Vercel Production + Preview) encrypts `music_tokens.refresh_token` at rest (`backend/crypto.py`). Encrypted values start with `gAAAAA`; legacy plaintext rows start with `AQ` and are passed through unchanged.
+- A missing, empty, malformed, or wrong key makes `decrypt_token` raise `TokenDecryptError` for every encrypted row: all Spotify-backed endpoints return 500 and log `Cannot decrypt music_tokens.refresh_token for user <id>`. Rows are **not** deleted automatically — restoring the correct key restores service.
+- **Changing the key invalidates every encrypted row.** There is no dual-key support. To rotate, pick one:
+  1. **Re-encrypt**: with both keys in hand, decrypt each `gAAAAA` row with the old key and write it back encrypted with the new key, then swap the env var and redeploy. Do it in one window — requests served between the row rewrite and the deploy will fail.
+  2. **Wipe**: set the new key, redeploy, then delete the `gAAAAA` rows from `music_tokens`. Affected users get `401 spotify_reauth_required` and are sent through the Spotify connect flow on their next request.
+- If the old key is lost, option 2 is the only option.
+- Never set the key to an empty string: `encrypt_token` then stores new tokens as plaintext.
+
 ## Preview deploys
 
 - Every PR gets an automatic Vercel preview deploy

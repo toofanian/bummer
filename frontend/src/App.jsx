@@ -35,7 +35,7 @@ import SearchOverlay from './components/SearchOverlay'
 import CollectionPicker from './components/CollectionPicker'
 import SettingsPage from './components/SettingsPage'
 import TabBar from './components/TabBar'
-import { apiFetch } from './api'
+import { apiFetch, SPOTIFY_REAUTH_EVENT } from './api'
 const CACHE_KEY = 'bsi_albums_cache'
 
 export default function App() {
@@ -220,10 +220,13 @@ export default function App() {
       let offset = 0
       let progress = null
       do {
-        const resp = await apiFetch('/library/sync', {
+        const res = await apiFetch('/library/sync', {
           method: 'POST',
           body: JSON.stringify({ offset }),
-        }, sessionRef.current).then(r => r.json())
+        }, sessionRef.current)
+        // An error body has no `done` flag — without this the loop never ends.
+        if (!res.ok) throw new Error(`Library sync failed (${res.status})`)
+        const resp = await res.json()
         accumulated = accumulated.concat(resp.albums)
         progress = resp
         offset = progress.next_offset
@@ -767,6 +770,20 @@ export default function App() {
     return () => { cancelled = true }
   }, [onboardingCheckState, session, spotifyAuth])
 
+  // Backend says the stored Spotify token is missing or dead: drop the stale
+  // local access token and send the user back through the connect flow.
+  const [spotifyReauth, setSpotifyReauth] = useState(false)
+  useEffect(() => {
+    const onReauthRequired = () => {
+      localStorage.removeItem('spotify_access_token')
+      localStorage.removeItem('spotify_expires_at')
+      setSpotifyReauth(true)
+      setOnboardingCheckState('needs_onboarding')
+    }
+    window.addEventListener(SPOTIFY_REAUTH_EVENT, onReauthRequired)
+    return () => window.removeEventListener(SPOTIFY_REAUTH_EVENT, onReauthRequired)
+  }, [])
+
   // Re-run when session becomes available AND onboarding is complete
   useEffect(() => {
     if (hasSession && onboardingCheckState === 'ready') loadData()
@@ -796,6 +813,7 @@ export default function App() {
     return (
       <OnboardingWizard
         session={session}
+        reauth={spotifyReauth}
         onComplete={() => window.location.reload()}
       />
     )

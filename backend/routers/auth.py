@@ -3,7 +3,6 @@ from datetime import datetime, timedelta, timezone
 from fastapi import (
     APIRouter,
     Depends,
-    HTTPException,
     Request,
 )
 from pydantic import BaseModel, Field
@@ -13,7 +12,7 @@ from slowapi.util import get_remote_address
 from auth_middleware import get_current_user
 from crypto import encrypt_token
 from db import get_service_db
-from spotify_client import get_spotify_for_user
+from spotify_client import SpotifyReauthRequired, get_spotify_for_user
 
 limiter = Limiter(key_func=get_remote_address)
 
@@ -118,7 +117,7 @@ def refresh_spotify_token(
         .execute()
     )
     if not result.data:
-        raise HTTPException(status_code=401, detail="No Spotify credentials")
+        raise SpotifyReauthRequired("No Spotify credentials")
     token = result.data[0]
     return {"access_token": token["access_token"], "expires_at": token["expires_at"]}
 
