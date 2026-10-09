@@ -160,9 +160,7 @@ def test_create_child_tag_with_parent_id():
     )
     override_db(db)
 
-    response = client.post(
-        "/tags", json={"name": "Chill", "parent_tag_id": parent_id}
-    )
+    response = client.post("/tags", json={"name": "Chill", "parent_tag_id": parent_id})
 
     assert response.status_code == 201
     insert_call = db.table.return_value.insert.call_args[0][0]

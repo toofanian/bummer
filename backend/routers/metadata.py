@@ -438,11 +438,7 @@ def list_collections_for_tag(
 ):
     user_id = user["user_id"]
     tag = (
-        db.table("tags")
-        .select("id")
-        .eq("id", tag_id)
-        .eq("user_id", user_id)
-        .execute()
+        db.table("tags").select("id").eq("id", tag_id).eq("user_id", user_id).execute()
     )
     if not tag.data:
         raise HTTPException(status_code=404, detail="Tag not found")

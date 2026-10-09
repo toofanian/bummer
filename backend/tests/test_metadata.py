@@ -970,18 +970,20 @@ def test_list_collection_tags_returns_tag_objects():
     db.table.return_value.select.return_value.eq.return_value.eq.return_value.execute.return_value = MagicMock(
         data=[{"id": "col-uuid-1"}]
     )
-    db.table.return_value.select.return_value.eq.return_value.execute.return_value = MagicMock(
-        data=[
-            {
-                "tag_id": "tag-1",
-                "tags": {
-                    "id": "tag-1",
-                    "name": "Mood",
-                    "parent_tag_id": None,
-                    "position": 0,
-                },
-            }
-        ]
+    db.table.return_value.select.return_value.eq.return_value.execute.return_value = (
+        MagicMock(
+            data=[
+                {
+                    "tag_id": "tag-1",
+                    "tags": {
+                        "id": "tag-1",
+                        "name": "Mood",
+                        "parent_tag_id": None,
+                        "position": 0,
+                    },
+                }
+            ]
+        )
     )
     override_db(db)
     override_spotify(mock_spotify())
@@ -1121,8 +1123,10 @@ def test_list_collections_for_tag():
         data=[{"id": "tag-1"}]
     )
     # collection_tags lookup
-    db.table.return_value.select.return_value.eq.return_value.execute.return_value = MagicMock(
-        data=[{"collection_id": "col-uuid-1"}, {"collection_id": "col-uuid-2"}]
+    db.table.return_value.select.return_value.eq.return_value.execute.return_value = (
+        MagicMock(
+            data=[{"collection_id": "col-uuid-1"}, {"collection_id": "col-uuid-2"}]
+        )
     )
     override_db(db)
     override_spotify(mock_spotify())

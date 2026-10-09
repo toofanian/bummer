@@ -142,7 +142,9 @@ def move_tag(
         db.table("tags")
         .update(
             {
-                "parent_tag_id": str(body.parent_tag_id) if body.parent_tag_id else None,
+                "parent_tag_id": str(body.parent_tag_id)
+                if body.parent_tag_id
+                else None,
                 "position": body.position,
             }
         )
