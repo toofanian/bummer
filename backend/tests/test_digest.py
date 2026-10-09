@@ -1,6 +1,10 @@
+import logging
 from datetime import datetime, timedelta, timezone
 from unittest.mock import MagicMock
 
+import pytest
+import requests
+import spotipy
 from fastapi.testclient import TestClient
 
 from auth_middleware import get_authed_db, get_current_user
@@ -441,17 +445,13 @@ def test_stats_returns_artist_image_urls():
     ]
 
     sp = mock_spotify()
-    sp.artists.return_value = {
-        "artists": [
-            {
-                "id": "artA",
-                "name": "Artist A",
-                "images": [
-                    {"url": "https://artist-img/artA-large.jpg", "height": 640},
-                    {"url": "https://artist-img/artA-small.jpg", "height": 64},
-                ],
-            }
-        ]
+    sp.artist.return_value = {
+        "id": "artA",
+        "name": "Artist A",
+        "images": [
+            {"url": "https://artist-img/artA-large.jpg", "height": 640},
+            {"url": "https://artist-img/artA-small.jpg", "height": 64},
+        ],
     }
 
     db = MagicMock()
@@ -477,7 +477,8 @@ def test_stats_returns_artist_image_urls():
         assert (
             data["top_artists"][0]["image_url"] == "https://artist-img/artA-small.jpg"
         )
-        sp.artists.assert_called_once_with(["artA"])
+        sp.artist.assert_called_once_with("artA")
+        sp.artists.assert_not_called()
     finally:
         clear_overrides()
 
@@ -573,16 +574,12 @@ def test_stats_resolves_artist_images_via_search_when_no_id():
             ]
         }
     }
-    sp.artists.return_value = {
-        "artists": [
-            {
-                "id": "artA",
-                "name": "Artist A",
-                "images": [
-                    {"url": "https://artist-img/artA.jpg", "height": 64},
-                ],
-            }
-        ]
+    sp.artist.return_value = {
+        "id": "artA",
+        "name": "Artist A",
+        "images": [
+            {"url": "https://artist-img/artA.jpg", "height": 64},
+        ],
     }
 
     db = MagicMock()
@@ -607,5 +604,166 @@ def test_stats_resolves_artist_images_via_search_when_no_id():
         data = res.json()
         assert data["top_artists"][0]["image_url"] == "https://artist-img/artA.jpg"
         sp.search.assert_called_once()
+        sp.artist.assert_called_once_with("artA")
     finally:
         clear_overrides()
+
+
+def test_stats_uses_cached_artist_images_before_spotify():
+    """Artists already in library_cache.artist_images are not re-fetched."""
+    plays = [
+        {"album_id": "a1", "played_at": "2026-04-10T10:00:00+00:00"},
+        {"album_id": "a2", "played_at": "2026-04-11T10:00:00+00:00"},
+    ]
+    cache_row = {
+        "albums": ALBUM_CACHE,
+        "artist_images": {"Artist A": "https://artist-img/artA-cached.jpg"},
+    }
+
+    sp = mock_spotify()
+    sp.artist.return_value = {
+        "id": "artB",
+        "name": "Artist B",
+        "images": [{"url": "https://artist-img/artB.jpg", "height": 64}],
+    }
+
+    db = MagicMock()
+
+    def table_router(table_name):
+        mock_table = MagicMock()
+        if table_name == "play_history":
+            mock_table.select.return_value.gte.return_value.execute.return_value = (
+                MagicMock(data=plays)
+            )
+        elif table_name == "library_cache":
+            mock_table.select.return_value.eq.return_value.execute.return_value = (
+                MagicMock(data=[cache_row])
+            )
+        return mock_table
+
+    db.table.side_effect = table_router
+    setup_overrides(db=db, sp=sp)
+    try:
+        res = client.get("/digest/stats")
+        assert res.status_code == 200
+        images = {a["artist"]: a["image_url"] for a in res.json()["top_artists"]}
+        assert images == {
+            "Artist A": "https://artist-img/artA-cached.jpg",
+            "Artist B": "https://artist-img/artB.jpg",
+        }
+        sp.artist.assert_called_once_with("artB")
+    finally:
+        clear_overrides()
+
+
+# --- _resolve_artist_images ---
+
+
+def _spotify_error(status):
+    return spotipy.SpotifyException(status, -1, "boom")
+
+
+def test_resolve_artist_images_fetches_each_artist_once():
+    from routers.digest import _resolve_artist_images
+
+    sp = MagicMock()
+    sp.artist.side_effect = lambda artist_id: {
+        "id": artist_id,
+        "images": [{"url": f"https://img/{artist_id}.jpg", "height": 64}],
+    }
+
+    result = _resolve_artist_images(
+        [("Artist A", "artA"), ("Artist B", "artB"), ("Artist A", "artA")], sp
+    )
+
+    assert result == {
+        "Artist A": "https://img/artA.jpg",
+        "Artist B": "https://img/artB.jpg",
+    }
+    assert sorted(c.args[0] for c in sp.artist.call_args_list) == ["artA", "artB"]
+    sp.artists.assert_not_called()
+
+
+def test_resolve_artist_images_logs_failure_with_artist_id_and_status(caplog):
+    from routers.digest import _resolve_artist_images
+
+    sp = MagicMock()
+    sp.artist.side_effect = _spotify_error(403)
+
+    with caplog.at_level(logging.WARNING, logger="routers.digest"):
+        result = _resolve_artist_images([("Artist A", "artA")], sp)
+
+    assert "Artist A" not in result
+    assert "artA" in caplog.text
+    assert "403" in caplog.text
+
+
+def test_resolve_artist_images_logs_network_failure_with_artist_id(caplog):
+    from routers.digest import _resolve_artist_images
+
+    sp = MagicMock()
+    sp.artist.side_effect = requests.ConnectionError("down")
+
+    with caplog.at_level(logging.WARNING, logger="routers.digest"):
+        result = _resolve_artist_images([("Artist A", "artA")], sp)
+
+    assert "Artist A" not in result
+    assert "artA" in caplog.text
+
+
+def test_resolve_artist_images_unknown_artist_is_none_and_others_resolve(caplog):
+    """A 404 is specific to one artist: record None and keep going."""
+    from routers.digest import _resolve_artist_images
+
+    def artist(artist_id):
+        if artist_id == "gone":
+            raise _spotify_error(404)
+        return {"id": artist_id, "images": [{"url": "https://img/ok.jpg"}]}
+
+    sp = MagicMock()
+    sp.artist.side_effect = artist
+
+    with caplog.at_level(logging.WARNING, logger="routers.digest"):
+        result = _resolve_artist_images([("Gone", "gone"), ("Okay", "ok")], sp)
+
+    assert result == {"Gone": None, "Okay": "https://img/ok.jpg"}
+    assert "gone" in caplog.text
+    assert "404" in caplog.text
+
+
+def test_resolve_artist_images_stops_requesting_after_non_404_failure():
+    """A 429/403 is not about one artist; don't repeat it for every artist."""
+    from routers.digest import _ARTIST_FETCH_WORKERS, _resolve_artist_images
+
+    sp = MagicMock()
+    sp.artist.side_effect = _spotify_error(429)
+
+    result = _resolve_artist_images([(f"Artist {i}", f"art{i}") for i in range(40)], sp)
+
+    assert result == {}
+    assert sp.artist.call_count <= _ARTIST_FETCH_WORKERS
+
+
+def test_resolve_artist_images_does_not_swallow_unexpected_errors():
+    from routers.digest import _resolve_artist_images
+
+    sp = MagicMock()
+    sp.artist.side_effect = ValueError("bug")
+
+    with pytest.raises(ValueError):
+        _resolve_artist_images([("Artist A", "artA")], sp)
+
+
+def test_resolve_artist_images_logs_search_failure_with_artist_name(caplog):
+    from routers.digest import _resolve_artist_images
+
+    sp = MagicMock()
+    sp.search.side_effect = _spotify_error(500)
+
+    with caplog.at_level(logging.WARNING, logger="routers.digest"):
+        result = _resolve_artist_images([("Artist A", None)], sp)
+
+    assert result == {}
+    assert "Artist A" in caplog.text
+    assert "500" in caplog.text
+    sp.artist.assert_not_called()

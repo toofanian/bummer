@@ -735,14 +735,10 @@ def test_sync_complete_filters_suppressed_albums():
 
 def test_artist_images_returns_image_map():
     sp = MagicMock()
-    sp.artists.return_value = {
-        "artists": [
-            {
-                "id": "art1",
-                "name": "Artist One",
-                "images": [{"url": "https://img/art1.jpg", "height": 64}],
-            },
-        ]
+    sp.artist.return_value = {
+        "id": "art1",
+        "name": "Artist One",
+        "images": [{"url": "https://img/art1.jpg", "height": 64}],
     }
     db = MagicMock()
     db.table.return_value.select.return_value.eq.return_value.execute.return_value = (
@@ -768,6 +764,8 @@ def test_artist_images_returns_image_map():
         assert res.status_code == 200
         data = res.json()
         assert data["artist_images"]["Artist One"] == "https://img/art1.jpg"
+        sp.artist.assert_called_once_with("art1")
+        sp.artists.assert_not_called()
     finally:
         clear_overrides()
 
@@ -794,6 +792,74 @@ def test_artist_images_returns_cached_without_spotify_call():
         assert res.status_code == 200
         data = res.json()
         assert data["artist_images"]["Artist One"] == "https://img/cached.jpg"
+        sp.artist.assert_not_called()
         sp.artists.assert_not_called()
+    finally:
+        clear_overrides()
+
+
+def _artist_images_db(albums, artist_images):
+    db = MagicMock()
+    db.table.return_value.select.return_value.eq.return_value.execute.return_value = (
+        MagicMock(data=[{"albums": albums, "artist_images": artist_images}])
+    )
+    return db
+
+
+TWO_ARTIST_ALBUMS = [
+    {
+        "service_id": "a1",
+        "name": "Album",
+        "artists": [{"name": "Artist One", "id": "art1"}],
+        "image_url": None,
+    },
+    {
+        "service_id": "a2",
+        "name": "Album Two",
+        "artists": [{"name": "Artist Two", "id": "art2"}],
+        "image_url": None,
+    },
+]
+
+
+def test_artist_images_fetches_only_artists_missing_from_cache():
+    sp = MagicMock()
+    sp.artist.return_value = {
+        "id": "art2",
+        "images": [{"url": "https://img/art2.jpg", "height": 64}],
+    }
+    db = _artist_images_db(TWO_ARTIST_ALBUMS, {"Artist One": "https://img/cached.jpg"})
+    override_db(db)
+    override_spotify(sp)
+    try:
+        res = client.get("/library/artist-images")
+        assert res.status_code == 200
+        expected = {
+            "Artist One": "https://img/cached.jpg",
+            "Artist Two": "https://img/art2.jpg",
+        }
+        assert res.json()["artist_images"] == expected
+        sp.artist.assert_called_once_with("art2")
+        db.table.return_value.update.assert_called_once_with(
+            {"artist_images": expected}
+        )
+    finally:
+        clear_overrides()
+
+
+def test_artist_images_does_not_cache_failed_lookups():
+    """A failed Spotify lookup must be retried later, not cached as 'no image'."""
+    import spotipy
+
+    sp = MagicMock()
+    sp.artist.side_effect = spotipy.SpotifyException(403, -1, "forbidden")
+    db = _artist_images_db(TWO_ARTIST_ALBUMS, {})
+    override_db(db)
+    override_spotify(sp)
+    try:
+        res = client.get("/library/artist-images")
+        assert res.status_code == 200
+        assert res.json()["artist_images"] == {}
+        db.table.return_value.update.assert_not_called()
     finally:
         clear_overrides()

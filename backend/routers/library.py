@@ -246,28 +246,34 @@ def get_artist_images(
 ):
     """Return artist name -> image_url map for all artists in user's library.
 
-    Uses a write-through cache in library_cache.artist_images. First request
-    resolves from Spotify and persists; subsequent requests return cached data.
+    Uses a write-through cache in library_cache.artist_images. Only artists
+    missing from the cache are resolved from Spotify (one request each) and
+    persisted; failed lookups are not cached, so they are retried next request.
     """
     from routers.digest import _resolve_artist_images
 
-    # Check cache first
-    cache_row = _get_supabase_cache(db, user_id=user["user_id"])
-    cached_images = (cache_row or {}).get("artist_images") or {}
-    if cached_images:
-        return {"artist_images": cached_images}
+    cache_row = _get_supabase_cache(db, user_id=user["user_id"]) or {}
+    cached_images = cache_row.get("artist_images") or {}
 
-    # Cache miss — resolve from Spotify
-    albums = get_album_cache(db, user_id=user["user_id"])
     artist_id_map = {}
-    for album in albums:
+    for album in cache_row.get("albums") or []:
         for artist in album.get("artists", []):
             if isinstance(artist, dict) and artist.get("id"):
                 artist_id_map[artist["name"]] = artist["id"]
 
-    images = _resolve_artist_images(list(artist_id_map.items()), sp)
+    missing = [
+        (name, artist_id)
+        for name, artist_id in artist_id_map.items()
+        if name not in cached_images
+    ]
+    if not missing:
+        return {"artist_images": cached_images}
 
-    # Write to cache
+    resolved = _resolve_artist_images(missing, sp)
+    if not resolved:
+        return {"artist_images": cached_images}
+
+    images = {**cached_images, **resolved}
     db.table("library_cache").update({"artist_images": images}).eq(
         "id", user["user_id"]
     ).execute()
