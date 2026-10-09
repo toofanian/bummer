@@ -68,9 +68,9 @@ function AppleMusicSetup({ onBack }) {
   )
 }
 
-function SpotifySetup({ session, onComplete }) {
+function SpotifySetup({ session, onComplete, reauth = false }) {
   const { initiateLogin, handleCallback, accessToken } = useSpotifyAuth()
-  const [clientId, setClientId] = useState('')
+  const [clientId, setClientId] = useState(() => localStorage.getItem('spotify_client_id') ?? '')
   const [loading, setLoading] = useState(() => {
     const params = new URLSearchParams(window.location.search)
     return !!params.get('code') || params.get('proxy_success') === 'true'
@@ -183,6 +183,11 @@ function SpotifySetup({ session, onComplete }) {
   return (
     <div className="flex flex-col items-center justify-center min-h-screen gap-6 p-8">
       <h1 className="text-2xl font-bold">Connect Spotify</h1>
+      {reauth && (
+        <p role="alert" className="text-red-400 max-w-sm text-center text-sm">
+          Spotify connection expired. Reconnect to continue.
+        </p>
+      )}
       <p className="text-gray-400 max-w-sm text-center">
         Bummer uses your own Spotify developer app to sync your library and control playback. <span className="text-white">Spotify Premium is required.</span>
       </p>
@@ -243,7 +248,7 @@ function SpotifySetup({ session, onComplete }) {
   )
 }
 
-export default function OnboardingWizard({ session, onComplete }) {
+export default function OnboardingWizard({ session, onComplete, reauth = false }) {
   // If we're returning from Spotify OAuth callback, skip service selection
   const isSpotifyCallback = window.location.pathname === '/auth/spotify/callback'
   const hasLocalClientId = !!localStorage.getItem('spotify_client_id')
@@ -264,5 +269,5 @@ export default function OnboardingWizard({ session, onComplete }) {
     return <AppleMusicSetup onBack={() => setSelectedService(null)} />
   }
 
-  return <SpotifySetup session={session} onComplete={onComplete} />
+  return <SpotifySetup session={session} onComplete={onComplete} reauth={reauth} />
 }

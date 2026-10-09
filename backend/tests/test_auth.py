@@ -324,6 +324,7 @@ def test_refresh_spotify_token_returns_401_when_no_credentials():
 
     assert response.status_code == 401
     assert "No Spotify credentials" in response.json()["detail"]
+    assert response.json()["code"] == "spotify_reauth_required"
     _clear_overrides()
 
 

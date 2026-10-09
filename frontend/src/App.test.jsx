@@ -211,6 +211,54 @@ describe('App — onboarding auth gate', () => {
   })
 })
 
+describe('App — Spotify re-auth', () => {
+  afterEach(() => {
+    localStorage.removeItem('spotify_access_token')
+    localStorage.removeItem('spotify_expires_at')
+  })
+
+  it('routes into the Spotify connect flow on spotify_reauth_required', async () => {
+    localStorage.setItem('spotify_access_token', 'stale-token')
+    localStorage.setItem('spotify_expires_at', String(Date.now() + 3600_000))
+    global.fetch = vi.fn().mockImplementation((url) => {
+      if (url.includes('/auth/spotify-status')) {
+        return Promise.resolve({
+          ok: true,
+          json: () => Promise.resolve({ has_credentials: false, client_id: null }),
+        })
+      }
+      return Promise.resolve(
+        new Response(
+          JSON.stringify({ detail: 'expired', code: 'spotify_reauth_required' }),
+          { status: 401, headers: { 'Content-Type': 'application/json' } },
+        ),
+      )
+    })
+
+    render(<App />)
+    await waitFor(() =>
+      expect(screen.getByText(/spotify connection expired/i)).toBeInTheDocument(),
+    )
+    expect(screen.getByRole('heading', { name: /connect spotify/i })).toBeInTheDocument()
+    expect(screen.getByPlaceholderText(/client id/i)).toHaveValue('test-client-id')
+    expect(localStorage.getItem('spotify_access_token')).toBeNull()
+  })
+
+  it('does not show the connect flow for an ordinary failed request', async () => {
+    global.fetch = vi.fn().mockImplementation(() =>
+      Promise.resolve(
+        new Response(JSON.stringify({ detail: 'boom' }), { status: 500 }),
+      ),
+    )
+
+    render(<App />)
+    await waitFor(() => expect(global.fetch).toHaveBeenCalled())
+    await new Promise(resolve => setTimeout(resolve, 0))
+    expect(screen.queryByText(/spotify connection expired/i)).not.toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: /connect spotify/i })).not.toBeInTheDocument()
+  })
+})
+
 // Loading progress messages tests removed — full-screen loading messages
 // no longer exist after cold start refactor (issue #26)
 
